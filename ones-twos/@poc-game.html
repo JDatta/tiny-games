@@ -1,0 +1,1031 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#7c5ce5">
+  <title>Number Garden — Add & Subtract</title>
+  <style>
+    :root {
+      --ink: #25324a;
+      --muted: #667085;
+      --paper: rgba(255, 255, 255, .94);
+      --purple: #7057d9;
+      --purple-dark: #5540b7;
+      --yellow: #ffc94a;
+      --yellow-dark: #eaa61a;
+      --green: #3ac486;
+      --red: #ff6f69;
+      --blue: #49a7eb;
+      --hundreds: #ad8ef3;
+      --tens: #43c6ac;
+      --ones: #ffbd4a;
+      --shadow: 0 14px 35px rgba(65, 45, 118, .16);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      color: var(--ink);
+      font-family: ui-rounded, "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif;
+      background:
+        radial-gradient(circle at 10% 5%, rgba(255,255,255,.85) 0 4%, transparent 4.2%),
+        radial-gradient(circle at 88% 10%, rgba(255,255,255,.72) 0 5%, transparent 5.2%),
+        linear-gradient(155deg, #e8dcff 0%, #d9f4ff 52%, #e4f8d9 100%);
+      overflow-x: hidden;
+    }
+
+    button { font: inherit; }
+
+    button:focus-visible {
+      outline: 4px solid rgba(73, 167, 235, .5);
+      outline-offset: 3px;
+    }
+
+    .app {
+      width: min(1180px, 100%);
+      min-height: 100vh;
+      min-height: 100dvh;
+      margin: auto;
+      padding: clamp(12px, 2vw, 24px);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: relative;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: clamp(1rem, 2.2vw, 1.35rem);
+      font-weight: 900;
+      letter-spacing: -.02em;
+    }
+
+    .brand-flower {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      color: #fff;
+      background: var(--purple);
+      box-shadow: 0 6px 0 var(--purple-dark);
+      transform: rotate(-3deg);
+    }
+
+    .score-pill, .streak-pill {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border: 2px solid rgba(255,255,255,.85);
+      border-radius: 999px;
+      background: rgba(255,255,255,.68);
+      backdrop-filter: blur(8px);
+      font-weight: 900;
+    }
+
+    .score-pill { justify-self: center; }
+    .streak-pill { justify-self: end; }
+    .star { color: #ffb400; font-size: 1.35rem; }
+
+    .game-card {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(265px, .72fr);
+      gap: 16px;
+    }
+
+    .lesson, .controls {
+      border: 2px solid rgba(255,255,255,.92);
+      border-radius: 28px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .lesson {
+      min-width: 0;
+      padding: clamp(16px, 2.3vw, 28px);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .lesson-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .eyebrow {
+      margin: 0 0 4px;
+      color: var(--purple);
+      font-size: .78rem;
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.15rem, 2.7vw, 1.75rem);
+      line-height: 1.15;
+      letter-spacing: -.03em;
+    }
+
+    .round-badge {
+      flex: none;
+      padding: 7px 11px;
+      color: var(--muted);
+      border-radius: 12px;
+      background: #f1eff8;
+      font-size: .8rem;
+      font-weight: 900;
+    }
+
+    .equation {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(7px, 2vw, 18px);
+      min-height: 95px;
+      padding: 6px;
+      font-size: clamp(2rem, 6.4vw, 4.8rem);
+      font-weight: 950;
+      line-height: 1;
+      letter-spacing: -.05em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .operator { color: var(--purple); }
+    .equals { color: #a4a9b4; }
+
+    .answer-box {
+      min-width: clamp(78px, 11vw, 145px);
+      min-height: clamp(66px, 9vw, 102px);
+      padding: 7px 12px;
+      display: grid;
+      place-items: center;
+      border: 4px dashed #c5b9f3;
+      border-radius: 20px;
+      color: var(--purple);
+      background: #f8f6ff;
+      box-shadow: inset 0 0 0 4px white;
+    }
+
+    .answer-box.empty::after {
+      content: "?";
+      color: #b6a9e9;
+    }
+
+    .answer-box.pop { animation: pop .35s ease; }
+    @keyframes pop { 50% { transform: scale(1.1) rotate(2deg); } }
+
+    .place-legend {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .legend-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: #f5f7fa;
+      color: var(--muted);
+      font-size: .74rem;
+      font-weight: 900;
+    }
+
+    .dot { width: 10px; height: 10px; border-radius: 3px; }
+
+    .model-wrap {
+      flex: 1;
+      min-height: 220px;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: stretch;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 22px;
+      background: #f5f7fb;
+      border: 2px solid #e7eaf0;
+    }
+
+    .number-model {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      border-radius: 16px;
+      padding: 10px;
+      background: white;
+    }
+
+    .model-title {
+      min-height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      color: var(--muted);
+      font-size: .75rem;
+      font-weight: 900;
+    }
+
+    .model-number {
+      padding: 3px 8px;
+      border-radius: 9px;
+      color: var(--ink);
+      background: #edf0f5;
+      font-size: .9rem;
+    }
+
+    .blocks {
+      flex: 1;
+      min-height: 126px;
+      display: flex;
+      flex-wrap: wrap;
+      align-content: center;
+      justify-content: center;
+      gap: 7px;
+      overflow: auto;
+    }
+
+    .block {
+      flex: none;
+      border: 2px solid rgba(37,50,74,.14);
+      box-shadow: inset -3px -3px 0 rgba(0,0,0,.08), 0 2px 3px rgba(0,0,0,.08);
+      animation: blockIn .3s both;
+    }
+
+    @keyframes blockIn {
+      from { opacity: 0; transform: translateY(8px) scale(.8); }
+    }
+
+    .block.hundred {
+      width: 54px;
+      height: 54px;
+      border-radius: 8px;
+      background-color: var(--hundreds);
+      background-image:
+        linear-gradient(rgba(255,255,255,.3) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.3) 1px, transparent 1px);
+      background-size: 10% 10%;
+    }
+
+    .block.ten {
+      width: 14px;
+      height: 54px;
+      border-radius: 5px;
+      background-color: var(--tens);
+      background-image: repeating-linear-gradient(to bottom, transparent 0 4px, rgba(255,255,255,.4) 4px 5px);
+    }
+
+    .block.one {
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      background: var(--ones);
+    }
+
+    .take-away .block {
+      opacity: .58;
+      filter: saturate(.65);
+      background-color: #ff9a8f;
+      background-image: repeating-linear-gradient(45deg, transparent 0 5px, rgba(255,255,255,.5) 5px 8px);
+    }
+
+    .model-symbol {
+      align-self: center;
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: white;
+      background: var(--purple);
+      font-size: 1.6rem;
+      font-weight: 950;
+      box-shadow: 0 5px 0 var(--purple-dark);
+    }
+
+    .place-readout {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+    }
+
+    .place-cell {
+      padding: 5px 2px;
+      border-radius: 8px;
+      text-align: center;
+      color: white;
+      font-size: .69rem;
+      font-weight: 900;
+    }
+
+    .place-cell strong { display: block; font-size: 1rem; }
+    .place-cell.h { background: var(--hundreds); }
+    .place-cell.t { background: var(--tens); }
+    .place-cell.o { background: var(--ones); color: #61480a; }
+
+    .hint-line {
+      min-height: 28px;
+      margin: 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: clamp(.82rem, 1.6vw, .98rem);
+      font-weight: 800;
+    }
+
+    .controls {
+      padding: clamp(14px, 2vw, 22px);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .panel-label {
+      margin: 0 0 7px;
+      color: var(--muted);
+      font-size: .72rem;
+      font-weight: 900;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+      padding: 5px;
+      border-radius: 15px;
+      background: #eeeaf8;
+    }
+
+    .segmented button {
+      min-height: 40px;
+      border: 0;
+      border-radius: 11px;
+      color: #6c6680;
+      background: transparent;
+      font-size: .82rem;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .segmented button.active {
+      color: white;
+      background: var(--purple);
+      box-shadow: 0 4px 0 var(--purple-dark);
+      transform: translateY(-2px);
+    }
+
+    .keypad {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(55px, 1fr));
+      gap: 8px;
+    }
+
+    .key {
+      min-height: 53px;
+      border: 0;
+      border-radius: 15px;
+      color: var(--ink);
+      background: #f0f2f6;
+      box-shadow: 0 4px 0 #d8dce5;
+      font-size: clamp(1.2rem, 3vw, 1.55rem);
+      font-weight: 950;
+      cursor: pointer;
+      transition: transform .08s, box-shadow .08s;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .key:hover { background: #e9e6fb; }
+    .key:active { transform: translateY(4px); box-shadow: 0 0 0 #d8dce5; }
+    .key.erase { color: #8a7dba; font-size: 1.15rem; }
+    .key.zero { grid-column: 2; }
+
+    .action-row { display: grid; grid-template-columns: .7fr 1.3fr; gap: 9px; }
+
+    .action {
+      min-height: 52px;
+      border: 0;
+      border-radius: 15px;
+      font-weight: 950;
+      cursor: pointer;
+      box-shadow: 0 5px 0;
+      transition: transform .08s, box-shadow .08s;
+    }
+
+    .action:active { transform: translateY(5px); box-shadow: 0 0 0; }
+    .hint-btn { color: #765b0b; background: #ffe29a; box-shadow: 0 5px 0 #edbe4f; }
+    .check-btn { color: white; background: var(--green); box-shadow: 0 5px 0 #209b64; font-size: 1.05rem; }
+    .check-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+    .footer-note {
+      margin: 0;
+      text-align: center;
+      color: rgba(37,50,74,.63);
+      font-size: .72rem;
+      font-weight: 800;
+    }
+
+    .toast {
+      position: fixed;
+      z-index: 20;
+      left: 50%;
+      top: 50%;
+      width: min(88vw, 380px);
+      padding: 20px;
+      border-radius: 24px;
+      color: white;
+      background: var(--green);
+      box-shadow: 0 18px 55px rgba(27, 69, 52, .35);
+      text-align: center;
+      font-size: 1.15rem;
+      font-weight: 950;
+      transform: translate(-50%, -50%) scale(.7);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .toast.show { animation: toast .9s ease both; }
+    .toast.try { background: var(--red); }
+    .toast small { display: block; margin-top: 4px; font-size: .8rem; opacity: .9; }
+
+    @keyframes toast {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(.65) rotate(-3deg); }
+      20%, 72% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0); }
+      100% { opacity: 0; transform: translate(-50%, -62%) scale(.92); }
+    }
+
+    #confetti {
+      position: fixed;
+      inset: 0;
+      z-index: 19;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .mascot {
+      position: absolute;
+      right: 18px;
+      bottom: -2px;
+      width: 68px;
+      height: 60px;
+      pointer-events: none;
+      opacity: .15;
+    }
+
+    .mascot-face {
+      position: absolute;
+      inset: 8px 6px 0;
+      border-radius: 48% 48% 38% 38%;
+      background: var(--purple);
+    }
+
+    .mascot-face::before {
+      content: "• ᴗ •";
+      position: absolute;
+      inset: 18px 0 auto;
+      color: white;
+      text-align: center;
+      font-size: 1.05rem;
+      letter-spacing: 3px;
+    }
+
+    .mascot::before, .mascot::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      width: 28px;
+      height: 25px;
+      border-radius: 50% 50% 30% 50%;
+      background: var(--purple);
+    }
+
+    .mascot::before { left: 3px; transform: rotate(-25deg); }
+    .mascot::after { right: 3px; transform: rotate(25deg) scaleX(-1); }
+
+    @media (max-width: 780px) {
+      .app { gap: 10px; }
+      .game-card { grid-template-columns: 1fr; }
+      .lesson { overflow: visible; }
+      .controls { display: grid; grid-template-columns: 1fr 1fr; }
+      .keypad { grid-column: 1 / -1; min-height: 210px; }
+      .action-row { grid-column: 1 / -1; }
+      .footer-note { grid-column: 1 / -1; }
+      .key { min-height: 48px; }
+    }
+
+    @media (max-width: 520px) {
+      .topbar { grid-template-columns: 1fr auto; }
+      .brand span:last-child { display: none; }
+      .score-pill { justify-self: end; padding: 7px 12px; }
+      .streak-pill { display: none; }
+      .lesson { border-radius: 22px; padding: 14px; gap: 11px; }
+      .controls { border-radius: 22px; padding: 13px; gap: 11px; }
+      .equation { min-height: 72px; }
+      .model-wrap { min-height: 210px; padding: 7px; gap: 6px; }
+      .number-model { padding: 7px; }
+      .model-symbol { width: 32px; height: 32px; font-size: 1.25rem; }
+      .model-title { justify-content: center; }
+      .model-title > span:first-child { display: none; }
+      .blocks { gap: 5px; min-height: 110px; }
+      .block.hundred { width: 43px; height: 43px; }
+      .block.ten { height: 43px; }
+      .place-cell { font-size: .58rem; }
+      .place-cell strong { font-size: .88rem; }
+      .controls { grid-template-columns: 1fr; }
+      .controls > section { grid-column: 1; }
+      .keypad { grid-column: 1; }
+      .action-row, .footer-note { grid-column: 1; }
+    }
+
+    @media (max-height: 720px) and (min-width: 781px) {
+      .app { padding-top: 10px; padding-bottom: 10px; }
+      .lesson { gap: 9px; padding-top: 16px; padding-bottom: 16px; }
+      .equation { min-height: 70px; }
+      .model-wrap { min-height: 180px; }
+      .blocks { min-height: 100px; }
+      .key { min-height: 43px; }
+      .action { min-height: 45px; }
+      .controls { gap: 10px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="confetti" aria-hidden="true"></canvas>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand"><span class="brand-flower">✿</span><span>Number Garden</span></div>
+      <div class="score-pill" aria-label="Stars earned"><span class="star">★</span><span id="score">0</span> stars</div>
+      <div class="streak-pill" aria-label="Current streak"><span>🔥</span><span id="streak">0</span> streak</div>
+    </header>
+
+    <div class="game-card">
+      <section class="lesson" aria-labelledby="questionTitle">
+        <div class="lesson-head">
+          <div>
+            <p class="eyebrow" id="mission">Garden mission</p>
+            <h1 id="questionTitle">Can you solve it?</h1>
+          </div>
+          <div class="round-badge" id="roundBadge">Round 1</div>
+        </div>
+
+        <div class="equation" aria-live="polite" aria-label="Current math question">
+          <span id="firstNumber">7</span>
+          <span class="operator" id="operator">+</span>
+          <span id="secondNumber">2</span>
+          <span class="equals">=</span>
+          <span class="answer-box empty" id="answerBox"></span>
+        </div>
+
+        <div class="place-legend" aria-label="Base ten block colors">
+          <span class="legend-chip"><i class="dot" style="background:var(--hundreds)"></i>hundreds</span>
+          <span class="legend-chip"><i class="dot" style="background:var(--tens)"></i>tens</span>
+          <span class="legend-chip"><i class="dot" style="background:var(--ones)"></i>ones</span>
+        </div>
+
+        <div class="model-wrap" aria-label="Base ten picture of the question">
+          <div class="number-model">
+            <div class="model-title"><span>Start with</span><span class="model-number" id="modelAValue">7</span></div>
+            <div class="blocks" id="blocksA"></div>
+            <div class="place-readout" id="placesA"></div>
+          </div>
+          <div class="model-symbol" id="modelSymbol">+</div>
+          <div class="number-model" id="modelB">
+            <div class="model-title"><span id="modelBLabel">Add</span><span class="model-number" id="modelBValue">2</span></div>
+            <div class="blocks" id="blocksB"></div>
+            <div class="place-readout" id="placesB"></div>
+          </div>
+        </div>
+
+        <p class="hint-line" id="hintLine" aria-live="polite">Count the blocks, then tap your answer.</p>
+        <div class="mascot" aria-hidden="true"><div class="mascot-face"></div></div>
+      </section>
+
+      <aside class="controls" aria-label="Game controls">
+        <section>
+          <p class="panel-label">Choose a skill</p>
+          <div class="segmented" id="modeButtons">
+            <button type="button" data-mode="add" class="active" aria-pressed="true">Add +</button>
+            <button type="button" data-mode="subtract" aria-pressed="false">Take −</button>
+            <button type="button" data-mode="mixed" aria-pressed="false">Mix ±</button>
+          </div>
+        </section>
+
+        <section>
+          <p class="panel-label">Number garden</p>
+          <div class="segmented" id="levelButtons">
+            <button type="button" data-level="ones" class="active" aria-pressed="true">0–10</button>
+            <button type="button" data-level="tens" aria-pressed="false">to 99</button>
+            <button type="button" data-level="hundreds" aria-pressed="false">to 999</button>
+          </div>
+        </section>
+
+        <div class="keypad" id="keypad" aria-label="Number keypad">
+          <button class="key" type="button" data-key="1">1</button>
+          <button class="key" type="button" data-key="2">2</button>
+          <button class="key" type="button" data-key="3">3</button>
+          <button class="key" type="button" data-key="4">4</button>
+          <button class="key" type="button" data-key="5">5</button>
+          <button class="key" type="button" data-key="6">6</button>
+          <button class="key" type="button" data-key="7">7</button>
+          <button class="key" type="button" data-key="8">8</button>
+          <button class="key" type="button" data-key="9">9</button>
+          <button class="key erase" type="button" data-key="back" aria-label="Erase last digit">⌫</button>
+          <button class="key zero" type="button" data-key="0">0</button>
+        </div>
+
+        <div class="action-row">
+          <button type="button" class="action hint-btn" id="hintButton">💡 Hint</button>
+          <button type="button" class="action check-btn" id="checkButton" disabled>Check ✓</button>
+        </div>
+        <p class="footer-note">Tip: you can also use your keyboard.</p>
+      </aside>
+    </div>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="assertive"></div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const $ = (selector) => document.querySelector(selector);
+      const $$ = (selector) => [...document.querySelectorAll(selector)];
+      const state = {
+        mode: 'add',
+        level: 'ones',
+        a: 7,
+        b: 2,
+        op: '+',
+        answer: 9,
+        input: '',
+        score: (() => {
+          try { return Number(localStorage.getItem('numberGardenScore')) || 0; }
+          catch (_) { return 0; }
+        })(),
+        streak: 0,
+        round: 1,
+        attempts: 0,
+        hintStep: 0,
+        locked: false
+      };
+
+      const el = {
+        score: $('#score'), streak: $('#streak'), round: $('#roundBadge'),
+        first: $('#firstNumber'), second: $('#secondNumber'), operator: $('#operator'),
+        answerBox: $('#answerBox'), modelSymbol: $('#modelSymbol'), modelB: $('#modelB'),
+        modelBLabel: $('#modelBLabel'), modelAValue: $('#modelAValue'), modelBValue: $('#modelBValue'),
+        blocksA: $('#blocksA'), blocksB: $('#blocksB'), placesA: $('#placesA'), placesB: $('#placesB'),
+        hint: $('#hintLine'), check: $('#checkButton'), toast: $('#toast'), mission: $('#mission')
+      };
+
+      const encouragements = ['Brilliant bloom!', 'You grew a star!', 'Super counting!', 'Math-tastic!', 'Wonderful work!'];
+      const missions = {
+        ones: 'Seedling garden · ones',
+        tens: 'Sunny garden · tens & ones',
+        hundreds: 'Rainbow garden · hundreds, tens & ones'
+      };
+
+      function randomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+      }
+
+      function chooseQuestion() {
+        let op = state.mode === 'mixed' ? (Math.random() < .5 ? '+' : '−') : (state.mode === 'add' ? '+' : '−');
+        let a, b;
+
+        if (state.level === 'ones') {
+          if (op === '+') {
+            a = randomInt(1, 9); b = randomInt(1, 10 - a);
+          } else {
+            a = randomInt(2, 10); b = randomInt(1, a);
+          }
+        } else if (state.level === 'tens') {
+          if (op === '+') {
+            a = randomInt(10, 79); b = randomInt(1, Math.min(30, 99 - a));
+          } else {
+            a = randomInt(12, 99); b = randomInt(1, Math.min(a, 35));
+          }
+        } else {
+          if (op === '+') {
+            a = randomInt(100, 799); b = randomInt(10, Math.min(250, 999 - a));
+          } else {
+            a = randomInt(110, 999); b = randomInt(10, Math.min(a, 250));
+          }
+        }
+
+        state.a = a;
+        state.b = b;
+        state.op = op;
+        state.answer = op === '+' ? a + b : a - b;
+        state.input = '';
+        state.attempts = 0;
+        state.hintStep = 0;
+        state.locked = false;
+        render();
+      }
+
+      function placeValues(number) {
+        return {
+          h: Math.floor(number / 100),
+          t: Math.floor((number % 100) / 10),
+          o: number % 10
+        };
+      }
+
+      function renderBlocks(container, number) {
+        const p = placeValues(number);
+        const frag = document.createDocumentFragment();
+        const specs = [['hundred', p.h, 'hundred'], ['ten', p.t, 'ten'], ['one', p.o, 'one']];
+        let delay = 0;
+        specs.forEach(([className, count, label]) => {
+          for (let i = 0; i < count; i++) {
+            const block = document.createElement('span');
+            block.className = `block ${className}`;
+            block.style.animationDelay = `${Math.min(delay++ * 25, 240)}ms`;
+            block.setAttribute('aria-label', `one ${label}`);
+            frag.appendChild(block);
+          }
+        });
+        if (number === 0) {
+          const zero = document.createElement('span');
+          zero.textContent = 'zero';
+          zero.style.cssText = 'color:#98a0af;font-weight:900;align-self:center';
+          frag.appendChild(zero);
+        }
+        container.replaceChildren(frag);
+      }
+
+      function renderPlaces(container, number) {
+        const p = placeValues(number);
+        container.innerHTML = `
+          <span class="place-cell h"><strong>${p.h}</strong>100s</span>
+          <span class="place-cell t"><strong>${p.t}</strong>10s</span>
+          <span class="place-cell o"><strong>${p.o}</strong>1s</span>`;
+      }
+
+      function friendlyBreakdown(number) {
+        const p = placeValues(number);
+        const parts = [];
+        if (p.h) parts.push(`${p.h} hundred${p.h === 1 ? '' : 's'}`);
+        if (p.t) parts.push(`${p.t} ten${p.t === 1 ? '' : 's'}`);
+        if (p.o) parts.push(`${p.o} one${p.o === 1 ? '' : 's'}`);
+        return parts.length ? parts.join(', ') : 'zero ones';
+      }
+
+      function render() {
+        el.score.textContent = state.score;
+        el.streak.textContent = state.streak;
+        el.round.textContent = `Round ${state.round}`;
+        el.mission.textContent = missions[state.level];
+        el.first.textContent = state.a;
+        el.second.textContent = state.b;
+        el.operator.textContent = state.op;
+        el.modelSymbol.textContent = state.op;
+        el.modelBLabel.textContent = state.op === '+' ? 'Add' : 'Take away';
+        el.modelB.classList.toggle('take-away', state.op === '−');
+        el.modelAValue.textContent = state.a;
+        el.modelBValue.textContent = state.b;
+        el.answerBox.textContent = state.input;
+        el.answerBox.classList.toggle('empty', !state.input);
+        el.check.disabled = !state.input || state.locked;
+        el.hint.textContent = state.op === '+'
+          ? 'Put both groups together. How many altogether?'
+          : `Start with ${state.a}, then take ${state.b} away.`;
+        renderBlocks(el.blocksA, state.a);
+        renderBlocks(el.blocksB, state.b);
+        renderPlaces(el.placesA, state.a);
+        renderPlaces(el.placesB, state.b);
+      }
+
+      function inputDigit(digit) {
+        if (state.locked) return;
+        const maxLength = state.level === 'hundreds' ? 3 : 2;
+        if (state.input.length >= maxLength) return;
+        if (state.input === '0') state.input = '';
+        state.input += digit;
+        el.answerBox.textContent = state.input;
+        el.answerBox.classList.remove('empty');
+        el.check.disabled = false;
+        el.answerBox.classList.remove('pop');
+        void el.answerBox.offsetWidth;
+        el.answerBox.classList.add('pop');
+        tone(330 + Number(digit) * 18, .045, 'sine', .025);
+      }
+
+      function backspace() {
+        if (state.locked) return;
+        state.input = state.input.slice(0, -1);
+        el.answerBox.textContent = state.input;
+        el.answerBox.classList.toggle('empty', !state.input);
+        el.check.disabled = !state.input;
+      }
+
+      function showHint() {
+        if (state.locked) return;
+        state.hintStep++;
+        const aParts = friendlyBreakdown(state.a);
+        const bParts = friendlyBreakdown(state.b);
+        if (state.hintStep === 1) {
+          el.hint.textContent = `${state.a} is ${aParts}.`;
+        } else if (state.hintStep === 2) {
+          el.hint.textContent = `${state.b} is ${bParts}. Follow the colored columns!`;
+        } else {
+          const close = state.answer <= 10
+            ? `Count from ${state.op === '+' ? state.a : state.answer} to ${state.op === '+' ? state.answer : state.a}.`
+            : `Work one place at a time: ones, then tens, then hundreds.`;
+          el.hint.textContent = close;
+        }
+        tone(520, .08, 'sine', .035);
+      }
+
+      function checkAnswer() {
+        if (!state.input || state.locked) return;
+        state.attempts++;
+        if (Number(state.input) === state.answer) correct();
+        else tryAgain();
+      }
+
+      function correct() {
+        state.locked = true;
+        const earned = state.attempts === 1 ? 3 : 2;
+        state.score += earned;
+        state.streak++;
+        try { localStorage.setItem('numberGardenScore', state.score); } catch (_) {}
+        el.score.textContent = state.score;
+        el.streak.textContent = state.streak;
+        el.toast.classList.remove('try', 'show');
+        el.toast.innerHTML = `${encouragements[randomInt(0, encouragements.length - 1)]}<small>+${earned} stars · ${state.a} ${state.op} ${state.b} = ${state.answer}</small>`;
+        void el.toast.offsetWidth;
+        el.toast.classList.add('show');
+        happySound();
+        burstConfetti();
+        setTimeout(() => {
+          state.round++;
+          chooseQuestion();
+        }, 1050);
+      }
+
+      function tryAgain() {
+        state.streak = 0;
+        el.streak.textContent = state.streak;
+        el.toast.classList.remove('show');
+        el.toast.classList.add('try');
+        el.toast.innerHTML = `Almost! Try once more.<small>Look carefully at the colored blocks.</small>`;
+        void el.toast.offsetWidth;
+        el.toast.classList.add('show');
+        el.hint.textContent = Number(state.input) < state.answer ? 'Your answer is a little too small. Count on!' : 'Your answer is a little too big. Count back!';
+        state.input = '';
+        el.answerBox.textContent = '';
+        el.answerBox.classList.add('empty');
+        el.check.disabled = true;
+        tone(220, .13, 'sine', .04);
+      }
+
+      let audioContext;
+      function tone(frequency, duration, type = 'sine', volume = .03, delay = 0) {
+        try {
+          audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+          const osc = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          osc.type = type;
+          osc.frequency.value = frequency;
+          gain.gain.setValueAtTime(0, audioContext.currentTime + delay);
+          gain.gain.linearRampToValueAtTime(volume, audioContext.currentTime + delay + .01);
+          gain.gain.exponentialRampToValueAtTime(.001, audioContext.currentTime + delay + duration);
+          osc.connect(gain).connect(audioContext.destination);
+          osc.start(audioContext.currentTime + delay);
+          osc.stop(audioContext.currentTime + delay + duration + .02);
+        } catch (_) {}
+      }
+
+      function happySound() {
+        tone(523, .16, 'sine', .04);
+        tone(659, .16, 'sine', .04, .10);
+        tone(784, .23, 'sine', .045, .20);
+      }
+
+      const canvas = $('#confetti');
+      const ctx = canvas.getContext('2d');
+      let particles = [];
+      let animationFrame;
+
+      function burstConfetti() {
+        if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        canvas.width = innerWidth * devicePixelRatio;
+        canvas.height = innerHeight * devicePixelRatio;
+        ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+        const colors = ['#7057d9', '#ffc94a', '#3ac486', '#ff6f69', '#49a7eb'];
+        particles = Array.from({ length: 65 }, () => ({
+          x: innerWidth / 2, y: innerHeight * .44,
+          vx: (Math.random() - .5) * 12,
+          vy: Math.random() * -9 - 3,
+          size: Math.random() * 7 + 4,
+          color: colors[randomInt(0, colors.length - 1)],
+          rotation: Math.random() * Math.PI,
+          spin: (Math.random() - .5) * .25,
+          life: 1
+        }));
+        cancelAnimationFrame(animationFrame);
+        animateConfetti();
+      }
+
+      function animateConfetti() {
+        ctx.clearRect(0, 0, innerWidth, innerHeight);
+        particles.forEach(p => {
+          p.x += p.vx; p.y += p.vy; p.vy += .3; p.vx *= .99; p.rotation += p.spin; p.life -= .014;
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, p.life);
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rotation);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * .65);
+          ctx.restore();
+        });
+        particles = particles.filter(p => p.life > 0 && p.y < innerHeight + 20);
+        if (particles.length) animationFrame = requestAnimationFrame(animateConfetti);
+        else ctx.clearRect(0, 0, innerWidth, innerHeight);
+      }
+
+      $('#keypad').addEventListener('click', (event) => {
+        const key = event.target.closest('[data-key]')?.dataset.key;
+        if (!key) return;
+        key === 'back' ? backspace() : inputDigit(key);
+      });
+
+      $('#modeButtons').addEventListener('click', (event) => {
+        const button = event.target.closest('[data-mode]');
+        if (!button) return;
+        state.mode = button.dataset.mode;
+        $$('#modeButtons button').forEach(btn => {
+          const active = btn === button;
+          btn.classList.toggle('active', active);
+          btn.setAttribute('aria-pressed', active);
+        });
+        chooseQuestion();
+      });
+
+      $('#levelButtons').addEventListener('click', (event) => {
+        const button = event.target.closest('[data-level]');
+        if (!button) return;
+        state.level = button.dataset.level;
+        $$('#levelButtons button').forEach(btn => {
+          const active = btn === button;
+          btn.classList.toggle('active', active);
+          btn.setAttribute('aria-pressed', active);
+        });
+        chooseQuestion();
+      });
+
+      $('#hintButton').addEventListener('click', showHint);
+      el.check.addEventListener('click', checkAnswer);
+
+      addEventListener('keydown', (event) => {
+        if (/^[0-9]$/.test(event.key)) inputDigit(event.key);
+        else if (event.key === 'Backspace' || event.key === 'Delete') backspace();
+        else if (event.key === 'Enter') checkAnswer();
+        else return;
+        event.preventDefault();
+      });
+
+      el.score.textContent = state.score;
+      chooseQuestion();
+    })();
+  </script>
+</body>
+</html>
