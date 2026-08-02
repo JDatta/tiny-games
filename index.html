@@ -343,7 +343,7 @@
       flex: 1;
       padding: 5px;
       display: grid;
-      grid-template-columns: 22px 34px 54px 82px minmax(0, 1fr);
+      grid-template-columns: 64px 54px 82px minmax(0, 1fr);
       grid-template-rows: 24px repeat(3, minmax(64px, 1fr));
       gap: 4px;
       border: 2px solid rgba(255,255,255,.96);
@@ -367,6 +367,13 @@
     .column-title.tens { background: #fff1d5; color: #95540d; }
     .column-title.ones { background: #daf5ef; color: #176a55; }
 
+    .row-label {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: 20px minmax(0, 1fr);
+      align-items: center;
+    }
+
     .row-sign {
       display: grid;
       place-items: center;
@@ -376,7 +383,7 @@
     }
 
     .addend-badge {
-      width: 34px;
+      width: 40px;
       min-height: 52px;
       align-self: center;
       display: grid;
@@ -384,8 +391,7 @@
       border-radius: 11px;
       font-size: 14px;
       font-weight: 950;
-      writing-mode: vertical-rl;
-      transform: rotate(180deg);
+      writing-mode: horizontal-tb;
       font-variant-numeric: tabular-nums;
     }
 
@@ -657,6 +663,50 @@
     }
     .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+    .confetti-layer {
+      position: fixed;
+      z-index: 70;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      contain: strict;
+    }
+
+    .confetti-piece {
+      position: absolute;
+      top: -16px;
+      left: var(--x);
+      width: var(--size);
+      height: calc(var(--size) + 5px);
+      border-radius: 2px;
+      background: var(--color);
+      opacity: 0;
+      animation: confetti-fall var(--duration) cubic-bezier(.18,.72,.34,1) var(--delay) forwards;
+    }
+
+    .confetti-piece.round { height: var(--size); border-radius: 50%; }
+
+    .confetti-layer.reduced .confetti-piece {
+      top: var(--y);
+      opacity: .88;
+      animation: none;
+      transform: rotate(var(--spin));
+    }
+
+    .equation-card.celebrating {
+      animation: celebration-pulse 650ms ease-out;
+    }
+
+    @keyframes confetti-fall {
+      0% { opacity: 1; transform: translate3d(0, -12px, 0) rotate(0deg); }
+      84% { opacity: 1; }
+      100% { opacity: 0; transform: translate3d(var(--drift), calc(100dvh + 28px), 0) rotate(var(--spin)); }
+    }
+
+    @keyframes celebration-pulse {
+      35% { transform: scale(1.015); box-shadow: 0 0 0 7px rgba(243,167,18,.2), 0 12px 30px rgba(40,77,117,.18); }
+    }
+
     dialog {
       width: min(100% - 16px, 430px);
       max-width: none;
@@ -750,7 +800,9 @@
       .milestone { width: 27px; height: 27px; flex-basis: 27px; font-size: 18px; }
       .score { min-width: 60px; padding: 0 6px; }
       .equation-card { padding-left: 7px; gap: 6px; }
-      .board { grid-template-columns: 18px 32px 50px 78px minmax(0, 1fr); }
+      .board { grid-template-columns: 62px 50px 78px minmax(0, 1fr); }
+      .row-label { grid-template-columns: 18px minmax(0, 1fr); }
+      .addend-badge { width: 38px; }
     }
 
     @media (max-height: 819px) {
@@ -775,11 +827,12 @@
 
     @media (min-width: 600px) {
       .app { padding-left: 20px; padding-right: 20px; }
-      .board { grid-template-columns: 32px 50px 80px 150px minmax(0,1fr); }
+      .board { grid-template-columns: 90px 80px 150px minmax(0,1fr); }
       .tens-grid { max-width: 128px; gap: 3px 5px; }
       .tens-grid .unit, .tens-grid .empty-unit { height: 10px; }
       .ones-strip { gap: 3px; max-width: 330px; }
-      .addend-badge { width: 45px; writing-mode: horizontal-tb; transform: none; }
+      .row-label { grid-template-columns: 28px minmax(0, 1fr); }
+      .addend-badge { width: 56px; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -821,7 +874,7 @@
     </section>
 
     <section id="board" class="board" aria-label="Place-value board">
-      <span aria-hidden="true"></span><span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
       <div class="column-title hundreds">Hundreds</div>
       <div class="column-title tens">Tens</div>
       <div class="column-title ones">Ones</div>
@@ -1166,6 +1219,64 @@
       } catch (_) { /* Audio is optional. */ }
     }
 
+    function playCelebrationSound() {
+      if (!profile.sound) return;
+      try {
+        audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === "suspended") audioContext.resume();
+        const start = audioContext.currentTime + .025;
+        const notes = [
+          { frequency: 523.25, delay: 0, duration: .18 },
+          { frequency: 659.25, delay: .09, duration: .2 },
+          { frequency: 783.99, delay: .18, duration: .22 },
+          { frequency: 1046.5, delay: .31, duration: .34 }
+        ];
+        notes.forEach(note => {
+          const oscillator = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          const noteStart = start + note.delay;
+          oscillator.type = "triangle";
+          oscillator.frequency.setValueAtTime(note.frequency, noteStart);
+          gain.gain.setValueAtTime(.001, noteStart);
+          gain.gain.exponentialRampToValueAtTime(.055, noteStart + .025);
+          gain.gain.exponentialRampToValueAtTime(.001, noteStart + note.duration);
+          oscillator.connect(gain).connect(audioContext.destination);
+          oscillator.start(noteStart);
+          oscillator.stop(noteStart + note.duration + .02);
+        });
+      } catch (_) { /* Audio is optional. */ }
+    }
+
+    function launchConfetti() {
+      const oldLayer = document.querySelector(".confetti-layer");
+      if (oldLayer) oldLayer.remove();
+      const layer = document.createElement("div");
+      layer.className = "confetti-layer" + (reduceMotion ? " reduced" : "");
+      layer.setAttribute("aria-hidden", "true");
+      const colors = ["#2477df", "#299c50", "#f3a712", "#e85278", "#7256c9", "#38bfc3"];
+      const pieceCount = reduceMotion ? 18 : 46;
+      for (let index = 0; index < pieceCount; index += 1) {
+        const piece = document.createElement("span");
+        piece.className = "confetti-piece" + (index % 4 === 0 ? " round" : "");
+        piece.style.setProperty("--x", (2 + Math.random() * 96).toFixed(1) + "vw");
+        piece.style.setProperty("--y", (8 + Math.random() * 62).toFixed(1) + "vh");
+        piece.style.setProperty("--size", (5 + Math.random() * 6).toFixed(1) + "px");
+        piece.style.setProperty("--color", colors[index % colors.length]);
+        piece.style.setProperty("--delay", (Math.random() * .32).toFixed(2) + "s");
+        piece.style.setProperty("--duration", (1.45 + Math.random() * .75).toFixed(2) + "s");
+        piece.style.setProperty("--drift", (-70 + Math.random() * 140).toFixed(0) + "px");
+        piece.style.setProperty("--spin", (300 + Math.random() * 720).toFixed(0) + "deg");
+        layer.append(piece);
+      }
+      document.body.append(layer);
+      const equationCard = document.querySelector(".equation-card");
+      equationCard.classList.remove("celebrating");
+      void equationCard.offsetWidth;
+      equationCard.classList.add("celebrating");
+      setTimeout(() => equationCard.classList.remove("celebrating"), reduceMotion ? 650 : 750);
+      setTimeout(() => layer.remove(), reduceMotion ? 850 : 2700);
+    }
+
     function isDialogOpen() { return elements.keypad.open || elements.settingsDialog.open; }
     function isInteractionLocked() { return Boolean(state && state.animationState) || solverRunning || isDialogOpen(); }
 
@@ -1390,33 +1501,42 @@
     }
 
     function renderBoard() {
-      while (elements.board.children.length > 5) elements.board.lastElementChild.remove();
+      while (elements.board.children.length > 4) elements.board.lastElementChild.remove();
       const rows = [
         { sign: "", badge: problem.a, badgeClass: "first", owner: "a", digits: problem.digits.a, offsets: { tens: 0, ones: 0 } },
         { sign: "+", badge: problem.b, badgeClass: "second", owner: "b", digits: problem.digits.b, offsets: { tens: problem.digits.a.tens, ones: problem.digits.a.ones } }
       ];
       rows.forEach(row => {
-        const sign = document.createElement("div");
+        const rowLabel = document.createElement("div");
+        rowLabel.className = "row-label";
+        const sign = document.createElement("span");
         sign.className = "row-sign";
         sign.textContent = row.sign;
+        sign.setAttribute("aria-hidden", "true");
         const badge = document.createElement("div");
         badge.className = "addend-badge " + row.badgeClass;
         badge.textContent = row.badge;
         badge.setAttribute("aria-label", "Addend " + row.badge);
-        elements.board.append(sign, badge, sourceHundreds(), sourceTens(row.owner, row.digits.tens, row.offsets.tens), sourceOnes(row.owner, row.digits.ones, row.offsets.ones));
+        rowLabel.append(sign, badge);
+        elements.board.append(rowLabel, sourceHundreds(), sourceTens(row.owner, row.digits.tens, row.offsets.tens), sourceOnes(row.owner, row.digits.ones, row.offsets.ones));
       });
-      const equals = document.createElement("div");
+      const resultLabel = document.createElement("div");
+      resultLabel.className = "row-label";
+      const equals = document.createElement("span");
       equals.className = "row-sign";
       equals.textContent = "=";
+      equals.setAttribute("aria-hidden", "true");
       const resultBadge = document.createElement("div");
       resultBadge.className = "addend-badge result";
       resultBadge.textContent = state.phase === "completed" ? problem.result : "?";
       resultBadge.setAttribute("aria-label", state.phase === "completed" ? "Result " + problem.result : "Result not yet revealed");
-      elements.board.append(equals, resultBadge, resultHundreds(), resultTens(), resultOnes());
+      resultLabel.append(equals, resultBadge);
+      elements.board.append(resultLabel, resultHundreds(), resultTens(), resultOnes());
     }
 
     function getPrompt() {
       if (state.phase === "completed") return "Wonderful! " + problem.a + " + " + problem.b + " = " + problem.result + ".";
+      if (state.phase === "awaiting-answer") return "Counting is finished! Tap ? and enter the answer.";
       if (state.animationState === "ones") return "10 ones make 1 ten. Carry it to Tens!";
       if (state.animationState === "hundreds") return "10 tens make 1 hundred. Carry it to Hundreds!";
       if (state.phase === "carrying-to-tens") return "10 ones make 1 ten.";
@@ -1470,10 +1590,17 @@
         elements.countBadge.disabled = false;
         elements.countBadge.className = "count-badge next";
         elements.countBadge.innerHTML = '<span class="count-label">Next →</span>';
+        elements.countBadge.setAttribute("aria-label", "Open the next problem");
+      } else if (state.phase === "awaiting-answer") {
+        elements.countBadge.disabled = false;
+        elements.countBadge.className = "count-badge next";
+        elements.countBadge.innerHTML = '<span class="count-label">Answer →</span>';
+        elements.countBadge.setAttribute("aria-label", "Enter the answer");
       } else {
         elements.countBadge.disabled = true;
         elements.countBadge.className = "count-badge";
         elements.countBadge.innerHTML = '<span class="count-label">Count</span><strong id="countValue">' + state.tempCount + "</strong>";
+        elements.countBadge.removeAttribute("aria-label");
         elements.count = $("#countValue");
       }
       renderJourney();
@@ -1527,7 +1654,16 @@
 
     function finishTensPlace() {
       if (state.phase === "completed") return;
-      completeProblem("blocks");
+      if (solverRunning) {
+        completeProblem("solver");
+        return;
+      }
+      state.phase = "awaiting-answer";
+      clearTimeout(idleTimer);
+      render();
+      noteActivity();
+      cue(610, .08);
+      announce("Counting finished. The answer is still hidden. Tap the question mark and enter the answer.");
     }
 
     async function performCarry(kind) {
@@ -1564,8 +1700,8 @@
         saveProfile();
       }
       render();
-      cue(784, .09);
-      setTimeout(() => cue(988, .13), reduceMotion ? 15 : 100);
+      launchConfetti();
+      playCelebrationSound();
       const source = method === "typed" ? "Correct" : "Garden complete";
       announce(source + ". " + problem.a + " plus " + problem.b + " equals " + problem.result + ". You earned 10 coins.");
       showToast("+10 coins · New milestone earned!");
@@ -1580,6 +1716,10 @@
       state.solverUsed = true;
       solverRunning = true;
       clearTimeout(idleTimer);
+      if (state.phase === "awaiting-answer") {
+        completeProblem("solver");
+        return;
+      }
       announce("Solver started from the next unfinished block.");
       render();
       const unitDelay = reduceMotion ? 8 : 120;
@@ -1600,6 +1740,11 @@
     function nextProblem() {
       if (state.phase !== "completed" || tray.length < 2) return;
       startProblem(tray[1]);
+    }
+
+    function handleCountBadgeClick() {
+      if (state.phase === "awaiting-answer") openKeypad();
+      else nextProblem();
     }
 
     function resetCurrentProblem() {
@@ -1727,7 +1872,7 @@
         }
       });
       elements.reset.addEventListener("click", resetCurrentProblem);
-      elements.countBadge.addEventListener("click", nextProblem);
+      elements.countBadge.addEventListener("click", handleCountBadgeClick);
       elements.sound.addEventListener("click", toggleSound);
       elements.settings.addEventListener("click", openSettings);
       elements.suggestions.addEventListener("pointerdown", noteActivity);
