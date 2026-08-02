@@ -189,6 +189,17 @@
       cursor: pointer;
     }
 
+    .fullscreen-button[hidden] { display: none; }
+    .fullscreen-button svg {
+      width: 22px;
+      height: 22px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
     .equation-card {
       position: relative;
       min-height: 76px;
@@ -837,9 +848,17 @@
     .setting-row span { font-size: 13px; font-weight: 800; }
     .setting-row button { flex: 0 0 auto; }
 
+    @media (max-width: 480px) {
+      .topbar { gap: 4px; }
+      .journey { gap: 1px; padding-left: 3px; padding-right: 3px; }
+      .milestone { width: 24px; height: 24px; flex-basis: 24px; font-size: 18px; }
+    }
+
+    @media (max-width: 430px) {
+      .fullscreen-supported .bee { display: none; }
+    }
+
     @media (max-width: 379px) {
-      .bee { display: none; }
-      .milestone { width: 27px; height: 27px; flex-basis: 27px; font-size: 18px; }
       .score { min-width: 60px; padding: 0 6px; }
       .equation-card { padding-left: 7px; gap: 6px; }
       .board { grid-template-columns: 62px 50px 78px minmax(0, 1fr); }
@@ -851,7 +870,6 @@
       .app { gap: 4px; padding-top: calc(4px + var(--safe-top)); padding-bottom: calc(4px + var(--safe-bottom)); }
       .topbar { min-height: 42px; }
       .bee, .journey, .score { height: 38px; }
-      .icon-button { width: 42px; height: 42px; flex-basis: 42px; }
       .equation-card { min-height: 68px; font-size: clamp(28px, 9.5vw, 40px); }
       .answer-button { width: 54px; height: 54px; flex-basis: 54px; font-size: 31px; }
       .prompt-row, .count-badge { min-height: 48px; }
@@ -893,6 +911,11 @@
       <div class="score" aria-label="Coin score"><span aria-hidden="true">🪙</span><span id="scoreValue">0</span></div>
       <button id="soundButton" class="icon-button" type="button" aria-label="Turn sound off" aria-pressed="true">🔊</button>
       <button id="settingsButton" class="icon-button" type="button" aria-label="Open settings">⚙️</button>
+      <button id="fullscreenButton" class="icon-button fullscreen-button" type="button" aria-label="Enter fullscreen" aria-pressed="false" title="Enter fullscreen" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path id="fullscreenIconPath" d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path>
+        </svg>
+      </button>
     </header>
 
     <section class="equation-card" aria-label="Current addition problem">
@@ -1006,6 +1029,7 @@
     const $ = (selector) => document.querySelector(selector);
     const elements = {
       journey: $("#journey"), score: $("#scoreValue"), sound: $("#soundButton"), settings: $("#settingsButton"),
+      fullscreen: $("#fullscreenButton"), fullscreenIconPath: $("#fullscreenIconPath"),
       equationA: $("#equationA"), equationB: $("#equationB"), answer: $("#answerButton"), reset: $("#resetCurrent"),
       prompt: $("#promptText"), countBadge: $("#countBadge"), count: $("#countValue"), board: $("#board"),
       suggestions: $("#suggestions"), keypad: $("#keypadDialog"), keypadForm: $("#keypadForm"),
@@ -1953,6 +1977,38 @@
       announce("Sound " + (profile.sound ? "on." : "off."));
     }
 
+    function syncFullscreenControl(announceChange = false) {
+      const isFullscreen = Boolean(document.fullscreenElement);
+      const label = isFullscreen ? "Exit fullscreen" : "Enter fullscreen";
+      elements.fullscreen.setAttribute("aria-label", label);
+      elements.fullscreen.setAttribute("aria-pressed", String(isFullscreen));
+      elements.fullscreen.title = label;
+      elements.fullscreenIconPath.setAttribute("d", isFullscreen
+        ? "M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5"
+        : "M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5");
+      if (announceChange) announce(isFullscreen ? "Entered fullscreen." : "Exited fullscreen.");
+    }
+
+    async function toggleFullscreen() {
+      try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else await document.documentElement.requestFullscreen();
+      } catch (error) {
+        if (error && error.name === "NotSupportedError") {
+          elements.fullscreen.hidden = true;
+          document.documentElement.classList.remove("fullscreen-supported");
+        }
+        showToast("Fullscreen isn't available right now");
+      }
+    }
+
+    function initializeFullscreenControl() {
+      const isSupported = document.fullscreenEnabled && typeof document.documentElement.requestFullscreen === "function";
+      elements.fullscreen.hidden = !isSupported;
+      document.documentElement.classList.toggle("fullscreen-supported", Boolean(isSupported));
+      if (isSupported) syncFullscreenControl();
+    }
+
     function openSettings() {
       if (state.animationState || solverRunning) return;
       clearTimeout(idleTimer);
@@ -1997,6 +2053,8 @@
       elements.countBadge.addEventListener("click", handleCountBadgeClick);
       elements.sound.addEventListener("click", toggleSound);
       elements.settings.addEventListener("click", openSettings);
+      elements.fullscreen.addEventListener("click", toggleFullscreen);
+      document.addEventListener("fullscreenchange", () => syncFullscreenControl(true));
       elements.suggestions.addEventListener("pointerdown", noteActivity);
       elements.keypad.querySelectorAll("[data-key]").forEach(button => button.addEventListener("click", () => handleKeypadKey(button.dataset.key)));
       elements.check.addEventListener("click", checkTypedAnswer);
@@ -2015,6 +2073,7 @@
     }
 
     async function init() {
+      initializeFullscreenControl();
       bindEvents();
       await initializeProfile();
       const initial = validQueryProblem() || randomProblemForCategory(Math.floor(Math.random() * 4));
