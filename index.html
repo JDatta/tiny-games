@@ -1,0 +1,1761 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#dff4ff">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23e7f7dd'/%3E%3Cpath d='M51 82V42M50 55C30 54 22 42 21 27c18-2 31 7 30 28M51 43c4-17 16-25 31-24 1 17-10 28-31 28' fill='none' stroke='%232b9348' stroke-width='10' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <title>Number Garden — Place-Value Addition</title>
+  <style>
+    :root {
+      --ink: #17243f;
+      --muted: #5d6c82;
+      --blue: #2477df;
+      --blue-soft: #eaf4ff;
+      --green: #299c50;
+      --green-soft: #e9f8e8;
+      --gold: #f3a712;
+      --gold-soft: #fff6d6;
+      --violet: #7256c9;
+      --paper: rgba(255, 255, 255, .96);
+      --line: #d9e2ee;
+      --shadow: 0 9px 24px rgba(40, 77, 117, .13);
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { margin: 0; min-height: 100%; }
+
+    body {
+      min-height: 100vh;
+      min-height: 100dvh;
+      color: var(--ink);
+      font-family: ui-rounded, "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif;
+      background:
+        radial-gradient(circle at 8% 8%, rgba(255,255,255,.82) 0 3.5%, transparent 3.8%),
+        radial-gradient(circle at 91% 13%, rgba(255,255,255,.68) 0 4%, transparent 4.3%),
+        linear-gradient(165deg, #dff4ff 0%, #eef9ff 52%, #effbe7 100%);
+      overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button, input { font: inherit; }
+    button { color: inherit; }
+
+    button:focus-visible, input:focus-visible {
+      outline: 3px solid #153eaa;
+      outline-offset: 2px;
+    }
+
+    .sr-only {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      padding: 0 !important;
+      margin: -1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      white-space: nowrap !important;
+      border: 0 !important;
+    }
+
+    .app {
+      position: relative;
+      width: min(100%, 760px);
+      height: 100vh;
+      height: 100dvh;
+      min-height: 680px;
+      margin: 0 auto;
+      padding: calc(6px + var(--safe-top)) 8px calc(6px + var(--safe-bottom));
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      isolation: isolate;
+    }
+
+    .app::before, .app::after {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      width: 44px;
+      height: 70px;
+      opacity: .22;
+      background:
+        radial-gradient(ellipse at 40% 25%, #31a852 0 26%, transparent 28%),
+        radial-gradient(ellipse at 66% 56%, #54bd61 0 28%, transparent 30%),
+        radial-gradient(ellipse at 28% 83%, #248b45 0 24%, transparent 26%);
+    }
+    .app::before { top: calc(var(--safe-top) - 8px); left: 8px; transform: rotate(20deg); }
+    .app::after { right: 8px; bottom: calc(var(--safe-bottom) + 56px); transform: rotate(195deg); }
+
+    .topbar {
+      min-height: 46px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .bee {
+      flex: 0 0 38px;
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 2px solid rgba(64,139,210,.22);
+      border-radius: 50%;
+      background: rgba(255,255,255,.7);
+      font-size: 24px;
+      filter: drop-shadow(0 2px 2px rgba(50,70,90,.12));
+    }
+
+    .journey {
+      min-width: 0;
+      flex: 1;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      padding: 3px 5px;
+      border: 1px solid rgba(255,255,255,.8);
+      border-radius: 18px;
+      background: rgba(255,255,255,.48);
+    }
+
+    .milestone {
+      width: 29px;
+      height: 29px;
+      flex: 0 0 29px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .milestone.placeholder {
+      border: 2px dashed rgba(96,118,139,.22);
+      background: rgba(255,255,255,.35);
+    }
+
+    .milestone.current {
+      border: 2px solid #815fd8;
+      border-radius: 50%;
+      background: white;
+      transform: scale(1.09);
+      box-shadow: 0 3px 8px rgba(80,63,140,.18);
+    }
+
+    .milestone.next {
+      margin-left: 2px;
+      border-left: 1px solid rgba(74,91,112,.18);
+      border-radius: 0 10px 10px 0;
+      filter: grayscale(1);
+      opacity: .42;
+    }
+
+    .score {
+      flex: 0 0 auto;
+      height: 40px;
+      min-width: 66px;
+      padding: 0 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      border: 2px solid #f0b221;
+      border-radius: 18px;
+      background: #fffdf5;
+      color: #74430b;
+      font-weight: 950;
+      font-variant-numeric: tabular-nums;
+      box-shadow: 0 3px 0 rgba(214,141,18,.15);
+    }
+
+    .icon-button {
+      flex: 0 0 44px;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(85,106,134,.2);
+      border-radius: 15px;
+      background: rgba(255,255,255,.86);
+      box-shadow: 0 3px 9px rgba(61,83,111,.09);
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .equation-card {
+      position: relative;
+      min-height: 76px;
+      padding: 6px 54px 6px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(7px, 3vw, 14px);
+      border: 2px solid rgba(255,255,255,.95);
+      border-radius: 25px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+      font-size: clamp(30px, 10vw, 44px);
+      font-weight: 950;
+      line-height: 1;
+      letter-spacing: -.04em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .first-number { color: var(--blue); }
+    .second-number { color: var(--green); }
+    .math-symbol { color: #26324a; }
+
+    .answer-button {
+      --hold-angle: 0deg;
+      position: relative;
+      width: 62px;
+      height: 62px;
+      flex: 0 0 62px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 42% 58% 48% 52% / 54% 44% 56% 46%;
+      color: #8d5000;
+      background: #fff3b5;
+      box-shadow:
+        7px 0 0 -1px #fff3b5,
+        -7px 0 0 -1px #fff3b5,
+        0 7px 0 -1px #fff3b5,
+        0 -7px 0 -1px #fff3b5,
+        0 5px 12px rgba(207,149,20,.2);
+      font-size: 36px;
+      font-weight: 950;
+      cursor: pointer;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    .answer-button::before {
+      content: "";
+      position: absolute;
+      inset: -7px;
+      z-index: -1;
+      border-radius: 50%;
+      background: conic-gradient(#7256c9 var(--hold-angle), transparent 0);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 0);
+      mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 0);
+      opacity: 0;
+    }
+
+    .answer-button.holding::before {
+      opacity: 1;
+      animation: hold-ring 650ms linear forwards;
+    }
+
+    .answer-button.solver-hint {
+      animation: solver-hint 850ms ease-in-out 2;
+    }
+
+    .answer-button.static-hint { outline: 4px solid #7256c9; outline-offset: 4px; }
+
+    @keyframes hold-ring { to { --hold-angle: 360deg; } }
+    @keyframes solver-hint {
+      45% { transform: rotate(-7deg) scale(1.12); box-shadow: 0 0 0 7px rgba(114,86,201,.15); }
+      70% { transform: rotate(5deg) scale(1.06); }
+    }
+
+    @property --hold-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+
+    .reset-current {
+      position: absolute;
+      top: 50%;
+      right: 6px;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      transform: translateY(-50%);
+      border: 1px solid #cad7e7;
+      border-radius: 50%;
+      background: #edf5ff;
+      color: #365d96;
+      font-size: 22px;
+      cursor: pointer;
+    }
+
+    .reset-current:disabled { visibility: hidden; }
+
+    .prompt-row {
+      min-height: 52px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: stretch;
+      gap: 6px;
+    }
+
+    .speech {
+      min-width: 0;
+      padding: 6px 8px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid #f0c44f;
+      border-radius: 17px;
+      background: #fffbe7;
+      box-shadow: 0 3px 9px rgba(127,95,17,.08);
+      font-size: clamp(11px, 3.2vw, 14px);
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .prompt-mascot { flex: 0 0 auto; font-size: 25px; }
+    #promptText { min-width: 0; }
+
+    .count-badge {
+      min-width: 82px;
+      min-height: 52px;
+      padding: 4px 9px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #efbd34;
+      border-radius: 17px;
+      background: #fff3b8;
+      color: #713c06;
+      font-weight: 900;
+      box-shadow: 0 3px 0 rgba(204,139,18,.13);
+      cursor: default;
+    }
+
+    .count-badge .count-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+    .count-badge strong { font-size: 25px; line-height: 1; font-variant-numeric: tabular-nums; }
+    .count-badge.next { cursor: pointer; font-size: 15px; }
+    .count-badge.next .count-label { font-size: 15px; text-transform: none; letter-spacing: 0; }
+
+    .board {
+      min-height: 0;
+      flex: 1;
+      padding: 5px;
+      display: grid;
+      grid-template-columns: 22px 34px 54px 82px minmax(0, 1fr);
+      grid-template-rows: 24px repeat(3, minmax(64px, 1fr));
+      gap: 4px;
+      border: 2px solid rgba(255,255,255,.96);
+      border-radius: 22px;
+      background: rgba(255,255,255,.91);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .column-title {
+      min-width: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 9px 9px 4px 4px;
+      font-size: clamp(9px, 2.7vw, 12px);
+      font-weight: 950;
+      letter-spacing: -.02em;
+    }
+
+    .column-title.hundreds { background: #eee7ff; color: #5e3bad; }
+    .column-title.tens { background: #fff1d5; color: #95540d; }
+    .column-title.ones { background: #daf5ef; color: #176a55; }
+
+    .row-sign {
+      display: grid;
+      place-items: center;
+      color: #26324a;
+      font-size: 24px;
+      font-weight: 950;
+    }
+
+    .addend-badge {
+      width: 34px;
+      min-height: 52px;
+      align-self: center;
+      display: grid;
+      place-items: center;
+      border-radius: 11px;
+      font-size: 14px;
+      font-weight: 950;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .addend-badge.first { color: #0752b6; background: #e6f2ff; border: 1px solid #8cc3ff; }
+    .addend-badge.second { color: #147638; background: #e5f8e5; border: 1px solid #8ed18f; }
+    .addend-badge.result { color: #65441b; background: #fff5cc; border: 1px solid #f1c559; }
+
+    .place-panel {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: #fbfdff;
+    }
+
+    .place-panel.hundreds { background: #fbf9ff; border-color: #d9cdf5; }
+    .place-panel.tens { background: #fffdf7; border-color: #f0d9aa; }
+    .place-panel.ones { background: #f8fefd; border-color: #bfe5dd; }
+    .result-panel { border-style: dashed; border-width: 2px; }
+
+    .digit-label {
+      min-height: 11px;
+      color: #48566c;
+      font-size: 9px;
+      font-weight: 900;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hundred-slot {
+      width: 31px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 2px dashed #b8adc9;
+      border-radius: 7px;
+      color: #5c3ca0;
+      background: rgba(255,255,255,.65);
+      font-size: 11px;
+      font-weight: 950;
+    }
+
+    .hundred-slot.filled {
+      border: 2px solid #7656ca;
+      background:
+        linear-gradient(45deg, rgba(255,255,255,.32) 25%, transparent 25% 50%, rgba(255,255,255,.32) 50% 75%, transparent 75%),
+        #d8c8ff;
+      background-size: 8px 8px;
+      box-shadow: 0 0 0 3px rgba(114,86,201,.1);
+    }
+
+    .tens-grid {
+      width: 100%;
+      max-width: 76px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: repeat(5, 1fr);
+      grid-auto-flow: column;
+      gap: 2px 3px;
+    }
+
+    .unit, .empty-unit {
+      position: relative;
+      min-width: 0;
+      border: 1px solid #aeb8c5;
+      background: #fff;
+    }
+
+    .tens-grid .unit, .tens-grid .empty-unit {
+      width: 100%;
+      height: 8px;
+      padding: 0;
+      border-radius: 4px;
+    }
+
+    .ones-strip {
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(10, minmax(0, 1fr));
+      gap: 1px;
+    }
+
+    .ones-strip .unit, .ones-strip .empty-unit {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      min-height: 11px;
+      padding: 0;
+      border-radius: 3px;
+    }
+
+    button.unit { cursor: default; }
+    .unit.owner-a { border-color: #0756bc; background: var(--blue); }
+    .unit.owner-b { border-color: #126e32; background: var(--green); }
+    .unit.owner-carry {
+      border-color: #9b5b00;
+      background: repeating-linear-gradient(135deg, #ffc446 0 4px, #f0a000 4px 7px);
+    }
+
+    .unit.counted { box-shadow: inset 0 0 0 1px rgba(255,255,255,.72); }
+    .unit.traded { opacity: .45; background-image: repeating-linear-gradient(135deg, transparent 0 3px, rgba(255,255,255,.7) 3px 5px); }
+
+    .unit.eligible {
+      z-index: 2;
+      cursor: pointer;
+      animation: eligible-pulse 1s ease-in-out infinite;
+      box-shadow: 0 0 0 4px rgba(114,86,201,.25), 0 0 0 8px rgba(114,86,201,.08);
+    }
+
+    .unit.eligible::after {
+      content: "";
+      position: absolute;
+      inset: -7px -4px;
+    }
+
+    @keyframes eligible-pulse { 50% { transform: scale(1.08); filter: brightness(1.1); } }
+
+    .result-groups {
+      width: 100%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 3px;
+    }
+
+    .result-groups .tens-grid { align-self: center; }
+
+    .trade-group { border-radius: 5px; box-shadow: 0 0 0 2px rgba(241,161,12,.55); }
+
+    .carry-callout {
+      position: absolute;
+      z-index: 4;
+      top: 2px;
+      right: 2px;
+      padding: 2px 4px;
+      border: 1px solid #e7ad19;
+      border-radius: 8px;
+      background: #fff5bd;
+      color: #724100;
+      font-size: 8px;
+      font-weight: 950;
+      line-height: 1;
+      box-shadow: 0 2px 5px rgba(130,83,0,.12);
+    }
+
+    .carried-ten-source {
+      position: absolute;
+      z-index: 4;
+      top: 2px;
+      right: 2px;
+      padding: 2px 4px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      border: 1px solid #e7ad19;
+      border-radius: 8px;
+      background: #fff5bd;
+      color: #724100;
+      font-size: 7px;
+      font-weight: 950;
+      line-height: 1;
+      box-shadow: 0 2px 5px rgba(130,83,0,.12);
+    }
+
+    .carried-ten-source .unit {
+      width: 23px;
+      height: 8px;
+      padding: 0;
+      border-radius: 5px;
+    }
+
+    .carry-flight {
+      position: fixed;
+      z-index: 30;
+      left: 62%;
+      top: 55%;
+      width: 54px;
+      height: 10px;
+      border: 2px solid #a46700;
+      border-radius: 6px;
+      background: #ffbe28;
+      box-shadow: 0 0 10px #ffd159;
+      pointer-events: none;
+      animation: fly-to-tens 350ms ease-in forwards;
+    }
+
+    .carry-flight.hundred-flight {
+      width: 38px;
+      height: 38px;
+      left: 41%;
+      top: 58%;
+      animation-name: fly-to-hundreds;
+    }
+
+    @keyframes fly-to-tens { to { transform: translate(-105px, -115px) scale(.82); opacity: .25; } }
+    @keyframes fly-to-hundreds { to { transform: translate(-80px, -110px) scale(.72); opacity: .25; } }
+
+    .tray {
+      min-height: 72px;
+      padding: 5px 6px 6px;
+      border: 1px solid #cad8eb;
+      border-radius: 18px;
+      background: rgba(245,249,255,.93);
+      box-shadow: 0 5px 15px rgba(40,73,110,.08);
+    }
+
+    .tray-title {
+      margin: 0 0 3px;
+      color: #43536a;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .suggestions {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) 42px;
+      gap: 4px;
+    }
+
+    .suggestion, .dice {
+      min-width: 0;
+      height: 46px;
+      padding: 2px;
+      border: 1px solid #bdcadc;
+      border-radius: 11px;
+      background: white;
+      box-shadow: 0 2px 5px rgba(51,71,100,.08);
+      font-size: clamp(9px, 2.8vw, 12px);
+      font-weight: 900;
+      line-height: 1.05;
+      cursor: pointer;
+    }
+
+    .suggestion.current {
+      border: 2px solid #7256c9;
+      background: #f1edff;
+      color: #5036a4;
+      cursor: default;
+    }
+
+    .suggestion:disabled, .dice:disabled { opacity: .55; }
+    .suggestion.current:disabled { opacity: 1; }
+    .dice { font-size: 22px; }
+
+    .toast {
+      position: fixed;
+      z-index: 80;
+      left: 50%;
+      bottom: calc(16px + var(--safe-bottom));
+      max-width: calc(100% - 32px);
+      padding: 9px 14px;
+      transform: translate(-50%, 18px);
+      border-radius: 999px;
+      background: #17243f;
+      color: white;
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s, transform .2s;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    dialog {
+      width: min(100% - 16px, 430px);
+      max-width: none;
+      max-height: calc(100dvh - var(--safe-top) - 8px);
+      margin: auto auto 0;
+      padding: 0;
+      border: 0;
+      border-radius: 24px 24px 0 0;
+      color: var(--ink);
+      background: white;
+      box-shadow: 0 -12px 40px rgba(25,48,78,.25);
+    }
+
+    dialog::backdrop { background: rgba(22,37,61,.48); backdrop-filter: blur(2px); }
+
+    .sheet {
+      padding: 10px 14px calc(14px + var(--safe-bottom));
+    }
+
+    .sheet-handle { width: 42px; height: 4px; margin: 0 auto 8px; border-radius: 4px; background: #d2d8e2; }
+    .sheet h2 { margin: 0 0 5px; font-size: 21px; }
+    .sheet p { margin: 4px 0 10px; color: var(--muted); font-size: 13px; line-height: 1.35; }
+
+    .keypad-display {
+      min-height: 48px;
+      margin: 8px 0;
+      padding: 5px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 2px solid #d6e0ec;
+      border-radius: 14px;
+      background: #f7faff;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    #typedValue { min-width: 55px; color: #5941ac; font-size: 26px; text-align: right; }
+    #typedValue:empty::after { content: "—"; color: #99a3b2; }
+    .keypad-display.wrong { animation: wrong-shake .34s ease; border-color: #e45b5b; background: #fff1f1; }
+    @keyframes wrong-shake { 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
+
+    .keys {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+    }
+
+    .key {
+      min-height: 48px;
+      border: 1px solid #cbd7e5;
+      border-radius: 13px;
+      background: #f7faff;
+      font-size: 20px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .key.utility { color: #45556d; font-size: 15px; }
+
+    .sheet-actions { margin-top: 9px; display: grid; grid-template-columns: 1fr 1.35fr; gap: 8px; }
+    .sheet-button {
+      min-height: 48px;
+      padding: 8px 12px;
+      border: 1px solid #c9d4e2;
+      border-radius: 14px;
+      background: #f4f7fb;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .sheet-button.primary { border-color: #5b42b5; background: #7256c9; color: white; }
+    .sheet-button.danger { border-color: #e3a2a2; background: #fff2f2; color: #a42f2f; }
+    .sheet-button.full { width: 100%; margin-top: 7px; }
+
+    .setting-row {
+      min-height: 54px;
+      margin: 7px 0;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border: 1px solid #d8e1eb;
+      border-radius: 14px;
+      background: #f9fbfe;
+    }
+    .setting-row span { font-size: 13px; font-weight: 800; }
+    .setting-row button { flex: 0 0 auto; }
+
+    @media (max-width: 379px) {
+      .bee { display: none; }
+      .milestone { width: 27px; height: 27px; flex-basis: 27px; font-size: 18px; }
+      .score { min-width: 60px; padding: 0 6px; }
+      .equation-card { padding-left: 7px; gap: 6px; }
+      .board { grid-template-columns: 18px 32px 50px 78px minmax(0, 1fr); }
+    }
+
+    @media (max-height: 819px) {
+      .app { gap: 4px; padding-top: calc(4px + var(--safe-top)); padding-bottom: calc(4px + var(--safe-bottom)); }
+      .topbar { min-height: 42px; }
+      .bee, .journey, .score { height: 38px; }
+      .icon-button { width: 42px; height: 42px; flex-basis: 42px; }
+      .equation-card { min-height: 68px; font-size: clamp(28px, 9.5vw, 40px); }
+      .answer-button { width: 54px; height: 54px; flex-basis: 54px; font-size: 31px; }
+      .prompt-row, .count-badge { min-height: 48px; }
+      .prompt-mascot { font-size: 21px; }
+      .board { grid-template-rows: 22px repeat(3, minmax(58px, 1fr)); }
+      .tray { min-height: 66px; padding-top: 3px; }
+      .suggestion, .dice { height: 42px; }
+    }
+
+    @media (orientation: landscape), (max-height: 679px) {
+      body { overflow-y: auto; }
+      .app { height: auto; min-height: 680px; }
+      .board { min-height: 330px; }
+    }
+
+    @media (min-width: 600px) {
+      .app { padding-left: 20px; padding-right: 20px; }
+      .board { grid-template-columns: 32px 50px 80px 150px minmax(0,1fr); }
+      .tens-grid { max-width: 128px; gap: 3px 5px; }
+      .tens-grid .unit, .tens-grid .empty-unit { height: 10px; }
+      .ones-strip { gap: 3px; max-width: 330px; }
+      .addend-badge { width: 45px; writing-mode: horizontal-tb; transform: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+      .unit.eligible { outline: 3px solid rgba(114,86,201,.55); animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" aria-labelledby="gameTitle">
+    <h1 id="gameTitle" class="sr-only">Number Garden place-value addition game</h1>
+
+    <header class="topbar">
+      <div class="bee" aria-hidden="true">🐝</div>
+      <div id="journey" class="journey" aria-label="Garden milestones"></div>
+      <div class="score" aria-label="Coin score"><span aria-hidden="true">🪙</span><span id="scoreValue">0</span></div>
+      <button id="soundButton" class="icon-button" type="button" aria-label="Turn sound off" aria-pressed="true">🔊</button>
+      <button id="settingsButton" class="icon-button" type="button" aria-label="Open settings">⚙️</button>
+    </header>
+
+    <section class="equation-card" aria-label="Current addition problem">
+      <span id="equationA" class="first-number">58</span>
+      <span class="math-symbol" aria-hidden="true">+</span>
+      <span id="equationB" class="second-number">47</span>
+      <span class="math-symbol" aria-hidden="true">=</span>
+      <button id="answerButton" class="answer-button" type="button" aria-label="Question mark. Tap to type the answer, or hold to run Solver">?</button>
+      <button id="resetCurrent" class="reset-current" type="button" aria-label="Reset this problem" title="Reset this problem">↻</button>
+    </section>
+
+    <section class="prompt-row" aria-label="Instructions and count">
+      <div class="speech">
+        <span class="prompt-mascot" aria-hidden="true">🐞</span>
+        <span id="promptText">Tap the glowing ones, in order.</span>
+      </div>
+      <button id="countBadge" class="count-badge" type="button" disabled>
+        <span class="count-label">Count</span>
+        <strong id="countValue">0</strong>
+      </button>
+    </section>
+
+    <section id="board" class="board" aria-label="Place-value board">
+      <span aria-hidden="true"></span><span aria-hidden="true"></span>
+      <div class="column-title hundreds">Hundreds</div>
+      <div class="column-title tens">Tens</div>
+      <div class="column-title ones">Ones</div>
+      <!-- Rows are rendered by JavaScript. -->
+    </section>
+
+    <section class="tray" aria-label="Try another sum">
+      <p class="tray-title">Try another sum</p>
+      <div id="suggestions" class="suggestions"></div>
+    </section>
+  </main>
+
+  <dialog id="keypadDialog" aria-labelledby="keypadTitle">
+    <form class="sheet" method="dialog" id="keypadForm">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="keypadTitle">What is the answer?</h2>
+      <p>Tip: press and hold the question mark to start Solver.</p>
+      <div id="keypadDisplay" class="keypad-display" aria-live="polite">
+        <span id="keypadEquation">58 + 47 =</span>
+        <span id="typedValue"></span>
+      </div>
+      <div class="keys" aria-label="Number keypad">
+        <button class="key" type="button" data-key="1">1</button>
+        <button class="key" type="button" data-key="2">2</button>
+        <button class="key" type="button" data-key="3">3</button>
+        <button class="key" type="button" data-key="4">4</button>
+        <button class="key" type="button" data-key="5">5</button>
+        <button class="key" type="button" data-key="6">6</button>
+        <button class="key" type="button" data-key="7">7</button>
+        <button class="key" type="button" data-key="8">8</button>
+        <button class="key" type="button" data-key="9">9</button>
+        <button class="key utility" type="button" data-key="clear">Clear</button>
+        <button class="key" type="button" data-key="0">0</button>
+        <button class="key utility" type="button" data-key="backspace" aria-label="Backspace">⌫</button>
+      </div>
+      <div class="sheet-actions">
+        <button id="cancelKeypad" class="sheet-button" value="cancel">Cancel</button>
+        <button id="checkAnswer" class="sheet-button primary" type="button">Check Answer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settingsDialog" aria-labelledby="settingsTitle">
+    <div class="sheet">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="settingsTitle">Garden settings</h2>
+      <p>Tap <strong>?</strong> to type an answer. Hold it for about a second to let Solver continue from your place.</p>
+      <div class="setting-row">
+        <span>Step through the blocks automatically</span>
+        <button id="runSolverButton" class="sheet-button primary" type="button">Run Solver</button>
+      </div>
+      <div class="setting-row">
+        <span>Erase coins and garden milestones</span>
+        <button id="resetProgressButton" class="sheet-button danger" type="button">Reset Progress</button>
+      </div>
+      <button id="closeSettings" class="sheet-button full" type="button">Done</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="liveRegion" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+    "use strict";
+
+    const PROGRESS_EMOJIS = [
+      ["1F331", "Seedling"], ["1F33F", "Sprout"], ["1F333", "Tree"], ["1F33C", "Flower"],
+      ["1F98B", "Butterfly"], ["1F41E", "Lady beetle"], ["1F41D", "Bee"], ["1F40C", "Snail"],
+      ["1F422", "Turtle"], ["1F438", "Frog"], ["1F430", "Rabbit"], ["1F43F", "Chipmunk"],
+      ["1F98A", "Fox"], ["1F43C", "Panda"], ["1F981", "Lion"], ["1F418", "Elephant"],
+      ["1F34E", "Apple"], ["1F353", "Strawberry"], ["1F349", "Watermelon"], ["1F36A", "Cookie"],
+      ["1F308", "Rainbow"], ["2B50", "Star"], ["1F319", "Moon"], ["1FA90", "Planet"],
+      ["1F680", "Rocket"], ["1F389", "Party popper"], ["1F388", "Balloon"], ["1F3C6", "Trophy"],
+      ["1F451", "Crown"], ["1F3AA", "Circus tent"], ["1F3AF", "Bullseye"], ["2728", "Sparkles"]
+    ];
+
+    const CATEGORY_NAMES = ["No carry", "Ones-only carry", "Tens-only carry", "Two carries"];
+    const DB_NAME = "numberGarden";
+    const DB_VERSION = 1;
+    const STORE_NAME = "state";
+    const PROFILE_KEY = "profile";
+    const COOKIE_NAME = "numberGardenProgress";
+    const HOLD_DURATION = 650;
+    const IDLE_DURATION = 20000;
+    const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const $ = (selector) => document.querySelector(selector);
+    const elements = {
+      journey: $("#journey"), score: $("#scoreValue"), sound: $("#soundButton"), settings: $("#settingsButton"),
+      equationA: $("#equationA"), equationB: $("#equationB"), answer: $("#answerButton"), reset: $("#resetCurrent"),
+      prompt: $("#promptText"), countBadge: $("#countBadge"), count: $("#countValue"), board: $("#board"),
+      suggestions: $("#suggestions"), keypad: $("#keypadDialog"), keypadForm: $("#keypadForm"),
+      keypadEquation: $("#keypadEquation"), typed: $("#typedValue"), keypadDisplay: $("#keypadDisplay"),
+      check: $("#checkAnswer"), settingsDialog: $("#settingsDialog"), runSolver: $("#runSolverButton"),
+      resetProgress: $("#resetProgressButton"), closeSettings: $("#closeSettings"), toast: $("#toast"), live: $("#liveRegion")
+    };
+
+    let profile = defaultProfile();
+    let problem = null;
+    let state = null;
+    let tray = [];
+    let recentPairs = [];
+    let typedAnswer = "";
+    let saveChain = Promise.resolve();
+    let databasePromise = null;
+    let idleTimer = 0;
+    let toastTimer = 0;
+    let holdTimer = 0;
+    let holdStarted = false;
+    let holdCompleted = false;
+    let solverRunning = false;
+    let audioContext = null;
+
+    function defaultProfile() {
+      return { schemaVersion: 1, score: 0, emojiProgress: 0, sound: true, updatedAt: Date.now() };
+    }
+
+    function validateProfile(value) {
+      if (!value || typeof value !== "object") return null;
+      const score = Number(value.score);
+      const emojiProgress = Number(value.emojiProgress);
+      const updatedAt = Number(value.updatedAt);
+      if (Number(value.schemaVersion) !== 1 || !Number.isInteger(score) || score < 0 || !Number.isInteger(emojiProgress) || emojiProgress < 0 ||
+          typeof value.sound !== "boolean" || !Number.isFinite(updatedAt) || updatedAt <= 0) return null;
+      return { schemaVersion: 1, score, emojiProgress, sound: value.sound, updatedAt };
+    }
+
+    function emojiFromCode(code) {
+      return String.fromCodePoint(...code.split("-").map(part => parseInt(part, 16)));
+    }
+
+    function deriveProblem(a, b) {
+      if (!Number.isInteger(a) || !Number.isInteger(b) || a < 10 || a > 99 || b < 10 || b > 99) {
+        throw new RangeError("Addends must be integers from 10 through 99.");
+      }
+      const digits = {
+        a: { hundreds: 0, tens: Math.floor(a / 10), ones: a % 10 },
+        b: { hundreds: 0, tens: Math.floor(b / 10), ones: b % 10 }
+      };
+      const onesTotal = digits.a.ones + digits.b.ones;
+      const carryToTens = Math.floor(onesTotal / 10);
+      const onesRemainder = onesTotal % 10;
+      const originalTensTotal = digits.a.tens + digits.b.tens;
+      const tensTotal = originalTensTotal + carryToTens;
+      const carryToHundreds = Math.floor(tensTotal / 10);
+      const tensRemainder = tensTotal % 10;
+      const category = carryToTens ? (carryToHundreds ? 3 : 1) : (carryToHundreds ? 2 : 0);
+      return {
+        a, b, digits, onesTotal, carryToTens, onesRemainder, originalTensTotal, tensTotal,
+        carryToHundreds, tensRemainder, hundreds: carryToHundreds, result: a + b, category
+      };
+    }
+
+    function freshState(model) {
+      const skipOnes = model.onesTotal === 0;
+      return {
+        phase: skipOnes ? "counting-tens" : "counting-ones",
+        onesCursor: 0,
+        tensCursor: 0,
+        tempCount: 0,
+        visibleOnesCarry: false,
+        visibleHundredsCarry: false,
+        animationState: null,
+        solverUsed: false,
+        rewardAwarded: false,
+        skipMessage: skipOnes
+      };
+    }
+
+    function pairKey(a, b) { return [Math.min(a, b), Math.max(a, b)].join("+"); }
+
+    function randomProblemForCategory(category, exclusions = new Set()) {
+      for (let attempt = 0; attempt < 2000; attempt += 1) {
+        const a = 10 + Math.floor(Math.random() * 90);
+        const b = 10 + Math.floor(Math.random() * 90);
+        const candidate = deriveProblem(a, b);
+        const key = pairKey(a, b);
+        if (candidate.category === category && !exclusions.has(key)) return candidate;
+      }
+      for (let a = 10; a <= 99; a += 1) {
+        for (let b = 10; b <= 99; b += 1) {
+          const candidate = deriveProblem(a, b);
+          if (candidate.category === category && !exclusions.has(pairKey(a, b))) return candidate;
+        }
+      }
+      throw new Error("Unable to make a fresh problem.");
+    }
+
+    function makeTray(current) {
+      const exclusions = new Set(recentPairs);
+      exclusions.add(pairKey(current.a, current.b));
+      const alternatives = [];
+      for (let category = 0; category < 4; category += 1) {
+        if (category === current.category) continue;
+        const candidate = randomProblemForCategory(category, exclusions);
+        exclusions.add(pairKey(candidate.a, candidate.b));
+        alternatives.push(candidate);
+      }
+      return [current, ...alternatives];
+    }
+
+    function refreshAlternatives() {
+      if (isInteractionLocked()) return;
+      tray = makeTray(problem);
+      renderSuggestions();
+      noteActivity();
+      cue(300, .045);
+    }
+
+    function rememberProblem(model) {
+      const key = pairKey(model.a, model.b);
+      recentPairs = recentPairs.filter(item => item !== key);
+      recentPairs.push(key);
+      if (recentPairs.length > 6) recentPairs.shift();
+    }
+
+    function startProblem(model, options = {}) {
+      problem = model;
+      state = freshState(model);
+      solverRunning = false;
+      rememberProblem(model);
+      tray = options.keepTray && tray.length ? tray : makeTray(model);
+      if (options.keepTray) tray[0] = model;
+      render();
+      noteActivity();
+      if (state.skipMessage) announce("There are zero ones, so we skip to tens.");
+    }
+
+    function openDatabase() {
+      if (!("indexedDB" in window)) return Promise.reject(new Error("IndexedDB unavailable"));
+      if (databasePromise) return databasePromise;
+      databasePromise = new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error("Could not open IndexedDB"));
+        request.onblocked = () => reject(new Error("IndexedDB blocked"));
+      });
+      return databasePromise;
+    }
+
+    async function loadProfile() {
+      const db = await openDatabase();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, "readonly");
+        const request = transaction.objectStore(STORE_NAME).get(PROFILE_KEY);
+        request.onsuccess = () => resolve(validateProfile(request.result));
+        request.onerror = () => reject(request.error || new Error("Could not read profile"));
+      });
+    }
+
+    async function writeIndexedProfile(value) {
+      const db = await openDatabase();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, "readwrite");
+        transaction.objectStore(STORE_NAME).put(value, PROFILE_KEY);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error || new Error("Could not save profile"));
+        transaction.onabort = () => reject(transaction.error || new Error("Profile save aborted"));
+      });
+    }
+
+    function parseProfileCookie() {
+      try {
+        const prefix = COOKIE_NAME + "=";
+        const part = document.cookie.split(";").map(item => item.trim()).find(item => item.startsWith(prefix));
+        if (!part) return null;
+        return validateProfile(JSON.parse(decodeURIComponent(part.slice(prefix.length))));
+      } catch (_) { return null; }
+    }
+
+    function writeProfileCookie(value) {
+      try {
+        const compact = { schemaVersion: 1, score: value.score, emojiProgress: value.emojiProgress, sound: value.sound, updatedAt: value.updatedAt };
+        const secure = location.protocol === "https:" ? "; Secure" : "";
+        document.cookie = COOKIE_NAME + "=" + encodeURIComponent(JSON.stringify(compact)) + "; Max-Age=31536000; Path=/; SameSite=Lax" + secure;
+      } catch (_) { /* Cookies may be unavailable under file://. */ }
+    }
+
+    function withTimeout(promise, milliseconds) {
+      return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error("Storage timeout")), milliseconds))]);
+    }
+
+    async function initializeProfile() {
+      const cookieProfile = parseProfileCookie();
+      let indexedProfile = null;
+      try { indexedProfile = await withTimeout(loadProfile(), 900); } catch (_) { /* use cookie or memory */ }
+      const candidates = [cookieProfile, indexedProfile].filter(Boolean);
+      profile = candidates.length ? candidates.sort((a, b) => b.updatedAt - a.updatedAt)[0] : defaultProfile();
+      if (!cookieProfile || cookieProfile.updatedAt < profile.updatedAt) writeProfileCookie(profile);
+      if (!indexedProfile || indexedProfile.updatedAt < profile.updatedAt) {
+        writeIndexedProfile(profile).catch(() => announce("Progress is saved where this browser allows."));
+      }
+    }
+
+    function saveProfile() {
+      const snapshot = { ...profile, schemaVersion: 1, updatedAt: Date.now() };
+      profile = snapshot;
+      writeProfileCookie(snapshot);
+      saveChain = saveChain.then(() => writeIndexedProfile(snapshot)).catch(() => {
+        announce("The game still works, but this browser may not keep progress after it closes.");
+      });
+      return saveChain;
+    }
+
+    function resetProfile() {
+      profile = { ...defaultProfile(), sound: profile.sound };
+      writeProfileCookie(profile);
+      saveChain = saveChain.then(() => writeIndexedProfile(profile)).catch(() => {});
+      return saveChain;
+    }
+
+    function announce(message) {
+      elements.live.textContent = "";
+      requestAnimationFrame(() => { elements.live.textContent = message; });
+    }
+
+    function showToast(message) {
+      clearTimeout(toastTimer);
+      elements.toast.textContent = message;
+      elements.toast.classList.add("show");
+      toastTimer = setTimeout(() => elements.toast.classList.remove("show"), 1900);
+    }
+
+    function cue(frequency = 440, duration = .06) {
+      if (!profile.sound) return;
+      try {
+        audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === "suspended") audioContext.resume();
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.value = frequency;
+        gain.gain.setValueAtTime(.045, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(.001, audioContext.currentTime + duration);
+        oscillator.connect(gain).connect(audioContext.destination);
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + duration);
+      } catch (_) { /* Audio is optional. */ }
+    }
+
+    function isDialogOpen() { return elements.keypad.open || elements.settingsDialog.open; }
+    function isInteractionLocked() { return Boolean(state && state.animationState) || solverRunning || isDialogOpen(); }
+
+    function noteActivity() {
+      clearTimeout(idleTimer);
+      elements.answer.classList.remove("solver-hint", "static-hint");
+      if (!state || state.phase === "completed" || state.solverUsed || isDialogOpen() || state.animationState) return;
+      idleTimer = setTimeout(showIdleHint, IDLE_DURATION);
+    }
+
+    function showIdleHint() {
+      if (!state || state.phase === "completed" || state.solverUsed || isDialogOpen() || state.animationState) return;
+      const className = reduceMotion ? "static-hint" : "solver-hint";
+      elements.answer.classList.remove(className);
+      void elements.answer.offsetWidth;
+      elements.answer.classList.add(className);
+      const message = "Need help? Hold the question mark for Solver.";
+      announce(message);
+      if (reduceMotion) showToast(message);
+      idleTimer = setTimeout(showIdleHint, IDLE_DURATION);
+    }
+
+    function renderJourney() {
+      elements.journey.replaceChildren();
+      const earned = Math.min(4, profile.emojiProgress);
+      const start = Math.max(0, profile.emojiProgress - earned);
+      for (let i = 0; i < 4 - earned; i += 1) {
+        const placeholder = document.createElement("span");
+        placeholder.className = "milestone placeholder";
+        placeholder.setAttribute("aria-hidden", "true");
+        elements.journey.append(placeholder);
+      }
+      for (let i = 0; i < earned; i += 1) {
+        const absoluteStep = start + i;
+        const item = PROGRESS_EMOJIS[absoluteStep % PROGRESS_EMOJIS.length];
+        const milestone = document.createElement("span");
+        milestone.className = "milestone" + (i === earned - 1 ? " current" : "");
+        milestone.textContent = emojiFromCode(item[0]);
+        milestone.setAttribute("aria-label", "Earned: " + item[1]);
+        if (i === earned - 1) milestone.setAttribute("aria-current", "step");
+        elements.journey.append(milestone);
+      }
+      const nextItem = PROGRESS_EMOJIS[profile.emojiProgress % PROGRESS_EMOJIS.length];
+      const next = document.createElement("span");
+      next.className = "milestone next";
+      next.textContent = emojiFromCode(nextItem[0]);
+      next.setAttribute("aria-label", "Next milestone: " + nextItem[1]);
+      elements.journey.append(next);
+    }
+
+    function makeUnit(owner, counted, eligible, label, traded = false) {
+      const unit = document.createElement(eligible ? "button" : "span");
+      unit.className = "unit owner-" + owner + (counted ? " counted" : "") + (eligible ? " eligible" : "") + (traded ? " traded" : "");
+      if (eligible) {
+        unit.type = "button";
+        unit.setAttribute("aria-label", label);
+        unit.addEventListener("click", onUnitTap);
+      } else {
+        unit.setAttribute("aria-hidden", "true");
+      }
+      return unit;
+    }
+
+    function makeEmptyUnit() {
+      const unit = document.createElement("span");
+      unit.className = "empty-unit";
+      unit.setAttribute("aria-hidden", "true");
+      return unit;
+    }
+
+    function sourceHundreds() {
+      const panel = document.createElement("div");
+      panel.className = "place-panel hundreds";
+      panel.innerHTML = '<span class="hundred-slot" aria-label="Empty hundreds slot"></span>';
+      return panel;
+    }
+
+    function sourceTens(owner, digit, rowOffset) {
+      const panel = document.createElement("div");
+      panel.className = "place-panel tens";
+      const grid = document.createElement("div");
+      grid.className = "tens-grid";
+      for (let index = 0; index < 10; index += 1) {
+        if (index < digit) {
+          const globalIndex = rowOffset + index;
+          const eligible = state.phase === "counting-tens" && !state.animationState && !solverRunning && state.tensCursor === globalIndex;
+          const counted = state.tensCursor > globalIndex;
+          grid.append(makeUnit(owner, counted, eligible, "Count the next ten"));
+        } else grid.append(makeEmptyUnit());
+      }
+      const label = document.createElement("span");
+      label.className = "digit-label";
+      label.textContent = digit + " / 10";
+      panel.append(grid, label);
+      return panel;
+    }
+
+    function sourceOnes(owner, digit, rowOffset) {
+      const panel = document.createElement("div");
+      panel.className = "place-panel ones";
+      const strip = document.createElement("div");
+      strip.className = "ones-strip";
+      for (let index = 0; index < 10; index += 1) {
+        if (index < digit) {
+          const globalIndex = rowOffset + index;
+          const eligible = state.phase === "counting-ones" && !state.animationState && !solverRunning && state.onesCursor === globalIndex;
+          const counted = state.onesCursor > globalIndex;
+          strip.append(makeUnit(owner, counted, eligible, "Count the next one"));
+        } else strip.append(makeEmptyUnit());
+      }
+      const label = document.createElement("span");
+      label.className = "digit-label";
+      label.textContent = digit + " / 10";
+      panel.append(strip, label);
+      return panel;
+    }
+
+    function resultHundreds() {
+      const panel = document.createElement("div");
+      panel.className = "place-panel hundreds result-panel";
+      const showHundred = state.phase === "completed" ? problem.hundreds : state.visibleHundredsCarry;
+      const slot = document.createElement("span");
+      slot.className = "hundred-slot" + (showHundred ? " filled" : "");
+      slot.setAttribute("aria-label", showHundred ? "One hundred" : "Empty hundreds slot");
+      if (showHundred) slot.textContent = "100";
+      panel.append(slot);
+      if (state.animationState === "hundreds") {
+        const callout = document.createElement("span");
+        callout.className = "carry-callout";
+        callout.textContent = "10 tens → 100";
+        panel.append(callout);
+      }
+      return panel;
+    }
+
+    function ownerForOnes(index) { return index < problem.digits.a.ones ? "a" : "b"; }
+    function ownerForTens(index) {
+      if (index < problem.digits.a.tens) return "a";
+      if (index < problem.originalTensTotal) return "b";
+      return "carry";
+    }
+
+    function resultOnes() {
+      const panel = document.createElement("div");
+      panel.className = "place-panel ones result-panel";
+      const groups = document.createElement("div");
+      groups.className = "result-groups";
+      if (state.phase === "completed") {
+        groups.append(resultOnesStrip(problem.onesRemainder));
+      } else {
+        const groupCount = problem.onesTotal > 10 || state.onesCursor > 10 ? 2 : 1;
+        for (let group = 0; group < groupCount; group += 1) {
+          const strip = document.createElement("div");
+          strip.className = "ones-strip" + (group === 0 && state.visibleOnesCarry ? " trade-group" : "");
+          for (let local = 0; local < 10; local += 1) {
+            const index = group * 10 + local;
+            if (index < state.onesCursor) strip.append(makeUnit(ownerForOnes(index), true, false, "", group === 0 && state.visibleOnesCarry));
+            else strip.append(makeEmptyUnit());
+          }
+          groups.append(strip);
+        }
+      }
+      panel.append(groups);
+      const label = document.createElement("span");
+      label.className = "digit-label";
+      label.textContent = state.phase === "completed" ? problem.onesRemainder + " ones" : state.onesCursor + " ones counted";
+      panel.append(label);
+      return panel;
+    }
+
+    function resultOnesStrip(count) {
+      const strip = document.createElement("div");
+      strip.className = "ones-strip";
+      const remainderOffset = problem.carryToTens ? 10 : 0;
+      for (let index = 0; index < 10; index += 1) {
+        if (index < count) strip.append(makeUnit(ownerForOnes(remainderOffset + index), true, false, ""));
+        else strip.append(makeEmptyUnit());
+      }
+      return strip;
+    }
+
+    function resultTens() {
+      const panel = document.createElement("div");
+      panel.className = "place-panel tens result-panel";
+      const groups = document.createElement("div");
+      groups.className = "result-groups";
+      if (state.phase === "completed") {
+        groups.append(resultTensGrid(problem.tensRemainder, problem.carryToHundreds ? 10 : 0, false));
+      } else {
+        const groupCount = problem.tensTotal > 10 || state.tensCursor > 10 ? 2 : 1;
+        for (let group = 0; group < groupCount; group += 1) {
+          groups.append(resultTensGrid(Math.max(0, Math.min(10, state.tensCursor - group * 10)), group * 10, group === 0 && state.visibleHundredsCarry));
+        }
+      }
+      panel.append(groups);
+      const label = document.createElement("span");
+      label.className = "digit-label";
+      label.textContent = state.phase === "completed" ? problem.tensRemainder + " tens" : state.tensCursor + " tens counted";
+      panel.append(label);
+      if (state.visibleOnesCarry && state.phase !== "completed") {
+        const source = document.createElement("span");
+        source.className = "carried-ten-source";
+        source.append(document.createTextNode("carry"));
+        const carryIndex = problem.originalTensTotal;
+        const eligible = state.phase === "counting-tens" && !state.animationState && !solverRunning && state.tensCursor === carryIndex;
+        const counted = state.tensCursor > carryIndex;
+        source.append(makeUnit("carry", counted, eligible, "Count the gold carried ten"));
+        panel.append(source);
+      }
+      return panel;
+    }
+
+    function resultTensGrid(count, offset, traded) {
+      const grid = document.createElement("div");
+      grid.className = "tens-grid" + (traded ? " trade-group" : "");
+      for (let local = 0; local < 10; local += 1) {
+        const index = offset + local;
+        if (local < count) grid.append(makeUnit(ownerForTens(index), true, false, "", traded));
+        else grid.append(makeEmptyUnit());
+      }
+      return grid;
+    }
+
+    function renderBoard() {
+      while (elements.board.children.length > 5) elements.board.lastElementChild.remove();
+      const rows = [
+        { sign: "", badge: problem.a, badgeClass: "first", owner: "a", digits: problem.digits.a, offsets: { tens: 0, ones: 0 } },
+        { sign: "+", badge: problem.b, badgeClass: "second", owner: "b", digits: problem.digits.b, offsets: { tens: problem.digits.a.tens, ones: problem.digits.a.ones } }
+      ];
+      rows.forEach(row => {
+        const sign = document.createElement("div");
+        sign.className = "row-sign";
+        sign.textContent = row.sign;
+        const badge = document.createElement("div");
+        badge.className = "addend-badge " + row.badgeClass;
+        badge.textContent = row.badge;
+        badge.setAttribute("aria-label", "Addend " + row.badge);
+        elements.board.append(sign, badge, sourceHundreds(), sourceTens(row.owner, row.digits.tens, row.offsets.tens), sourceOnes(row.owner, row.digits.ones, row.offsets.ones));
+      });
+      const equals = document.createElement("div");
+      equals.className = "row-sign";
+      equals.textContent = "=";
+      const resultBadge = document.createElement("div");
+      resultBadge.className = "addend-badge result";
+      resultBadge.textContent = state.phase === "completed" ? problem.result : "?";
+      resultBadge.setAttribute("aria-label", state.phase === "completed" ? "Result " + problem.result : "Result not yet revealed");
+      elements.board.append(equals, resultBadge, resultHundreds(), resultTens(), resultOnes());
+    }
+
+    function getPrompt() {
+      if (state.phase === "completed") return "Wonderful! " + problem.a + " + " + problem.b + " = " + problem.result + ".";
+      if (state.animationState === "ones") return "10 ones make 1 ten. Carry it to Tens!";
+      if (state.animationState === "hundreds") return "10 tens make 1 hundred. Carry it to Hundreds!";
+      if (state.phase === "carrying-to-tens") return "10 ones make 1 ten.";
+      if (state.phase === "carrying-to-hundreds") return "10 tens make 1 hundred.";
+      if (state.skipMessage && state.phase === "counting-tens" && state.tensCursor === 0) return "There are 0 ones, so begin with the tens.";
+      if (state.phase === "counting-ones") return "Tap the glowing ones, in order.";
+      if (state.phase === "counting-tens") return state.visibleOnesCarry ? "Now count both tens rows, then the gold carried ten." : "Now tap the glowing tens, in order.";
+      return "Build the answer with place values.";
+    }
+
+    function renderSuggestions() {
+      elements.suggestions.replaceChildren();
+      tray.forEach((item, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "suggestion" + (index === 0 ? " current" : "");
+        button.innerHTML = item.a + "<br>+ " + item.b;
+        button.setAttribute("aria-label", item.a + " plus " + item.b + ", " + CATEGORY_NAMES[item.category]);
+        if (index === 0) {
+          button.disabled = true;
+          button.setAttribute("aria-current", "true");
+        } else {
+          button.disabled = Boolean(state && state.animationState) || solverRunning;
+          button.addEventListener("click", () => selectSuggestion(item));
+        }
+        elements.suggestions.append(button);
+      });
+      const dice = document.createElement("button");
+      dice.type = "button";
+      dice.className = "dice";
+      dice.textContent = "🎲";
+      dice.setAttribute("aria-label", "Refresh the three alternative sums");
+      dice.disabled = Boolean(state && state.animationState) || solverRunning;
+      dice.addEventListener("click", refreshAlternatives);
+      elements.suggestions.append(dice);
+    }
+
+    function render() {
+      elements.equationA.textContent = problem.a;
+      elements.equationB.textContent = problem.b;
+      elements.answer.textContent = state.phase === "completed" ? problem.result : "?";
+      elements.answer.setAttribute("aria-label", state.phase === "completed" ? "Answer: " + problem.result : "Question mark. Tap to type the answer, or hold to run Solver");
+      elements.answer.disabled = state.phase === "completed" || Boolean(state.animationState) || solverRunning;
+      elements.reset.disabled = state.phase === "completed" || Boolean(state.animationState) || solverRunning;
+      elements.prompt.textContent = getPrompt();
+      elements.score.textContent = profile.score;
+      elements.sound.textContent = profile.sound ? "🔊" : "🔇";
+      elements.sound.setAttribute("aria-pressed", String(profile.sound));
+      elements.sound.setAttribute("aria-label", profile.sound ? "Turn sound off" : "Turn sound on");
+      if (state.phase === "completed") {
+        elements.countBadge.disabled = false;
+        elements.countBadge.className = "count-badge next";
+        elements.countBadge.innerHTML = '<span class="count-label">Next →</span>';
+      } else {
+        elements.countBadge.disabled = true;
+        elements.countBadge.className = "count-badge";
+        elements.countBadge.innerHTML = '<span class="count-label">Count</span><strong id="countValue">' + state.tempCount + "</strong>";
+        elements.count = $("#countValue");
+      }
+      renderJourney();
+      renderBoard();
+      renderSuggestions();
+      if (state.animationState) {
+        const flight = document.createElement("span");
+        flight.className = "carry-flight" + (state.animationState === "hundreds" ? " hundred-flight" : "");
+        flight.setAttribute("aria-hidden", "true");
+        document.body.append(flight);
+        setTimeout(() => flight.remove(), reduceMotion ? 20 : 400);
+      }
+    }
+
+    async function onUnitTap() {
+      if (isInteractionLocked() || state.phase === "completed") return;
+      noteActivity();
+      cue(state.phase === "counting-ones" ? 510 : 380, .045);
+      await advanceOneUnit();
+    }
+
+    async function advanceOneUnit() {
+      if (state.phase === "counting-ones") {
+        if (state.onesCursor >= problem.onesTotal) return finishOnesPlace();
+        state.onesCursor += 1;
+        state.tempCount = state.onesCursor;
+        announce("Count " + state.tempCount + " ones.");
+        render();
+        if (state.onesCursor === 10 && problem.carryToTens && !state.visibleOnesCarry) await performCarry("ones");
+        if (state.onesCursor >= problem.onesTotal) finishOnesPlace();
+      } else if (state.phase === "counting-tens") {
+        if (state.tensCursor >= problem.tensTotal) return finishTensPlace();
+        state.tensCursor += 1;
+        state.tempCount = state.tensCursor;
+        announce("Count " + state.tempCount + " tens.");
+        render();
+        if (state.tensCursor === 10 && problem.carryToHundreds && !state.visibleHundredsCarry) await performCarry("hundreds");
+        if (state.tensCursor >= problem.tensTotal) finishTensPlace();
+      }
+    }
+
+    function finishOnesPlace() {
+      if (state.phase === "completed") return;
+      state.phase = "counting-tens";
+      state.tempCount = 0;
+      state.skipMessage = false;
+      render();
+      announce("Ones finished. Count the tens from zero.");
+      if (problem.tensTotal === 0) finishTensPlace();
+    }
+
+    function finishTensPlace() {
+      if (state.phase === "completed") return;
+      completeProblem("blocks");
+    }
+
+    async function performCarry(kind) {
+      const isOnes = kind === "ones";
+      clearTimeout(idleTimer);
+      state.phase = isOnes ? "carrying-to-tens" : "carrying-to-hundreds";
+      state.animationState = kind;
+      render();
+      cue(isOnes ? 620 : 720, .14);
+      announce(isOnes ? "10 ones make 1 ten." : "10 tens make 1 hundred.");
+      await new Promise(resolve => setTimeout(resolve, reduceMotion ? 12 : 350));
+      if (isOnes) state.visibleOnesCarry = true;
+      else state.visibleHundredsCarry = true;
+      state.animationState = null;
+      state.phase = isOnes ? "counting-ones" : "counting-tens";
+      render();
+      noteActivity();
+    }
+
+    function completeProblem(method) {
+      if (state.phase === "completed") return;
+      state.phase = "completed";
+      state.onesCursor = problem.onesTotal;
+      state.tensCursor = problem.tensTotal;
+      state.visibleOnesCarry = Boolean(problem.carryToTens);
+      state.visibleHundredsCarry = Boolean(problem.carryToHundreds);
+      state.tempCount = problem.tensTotal;
+      solverRunning = false;
+      clearTimeout(idleTimer);
+      if (!state.rewardAwarded) {
+        state.rewardAwarded = true;
+        profile.score += 10;
+        profile.emojiProgress += 1;
+        saveProfile();
+      }
+      render();
+      cue(784, .09);
+      setTimeout(() => cue(988, .13), reduceMotion ? 15 : 100);
+      const source = method === "typed" ? "Correct" : "Garden complete";
+      announce(source + ". " + problem.a + " plus " + problem.b + " equals " + problem.result + ". You earned 10 coins.");
+      showToast("+10 coins · New milestone earned!");
+    }
+
+    async function runSolver() {
+      if (!state || state.phase === "completed" || solverRunning || state.animationState) return;
+      if (isDialogOpen()) {
+        if (elements.settingsDialog.open) elements.settingsDialog.close();
+        if (elements.keypad.open) elements.keypad.close();
+      }
+      state.solverUsed = true;
+      solverRunning = true;
+      clearTimeout(idleTimer);
+      announce("Solver started from the next unfinished block.");
+      render();
+      const unitDelay = reduceMotion ? 8 : 120;
+      while (state.phase !== "completed") {
+        if (state.phase === "counting-ones" || state.phase === "counting-tens") await advanceOneUnit();
+        if (state.phase !== "completed") await new Promise(resolve => setTimeout(resolve, unitDelay));
+      }
+      solverRunning = false;
+      render();
+    }
+
+    function selectSuggestion(model) {
+      if (isInteractionLocked()) return;
+      cue(330, .05);
+      startProblem(model);
+    }
+
+    function nextProblem() {
+      if (state.phase !== "completed" || tray.length < 2) return;
+      startProblem(tray[1]);
+    }
+
+    function resetCurrentProblem() {
+      if (state.phase === "completed" || isInteractionLocked()) return;
+      state = freshState(problem);
+      render();
+      noteActivity();
+      announce("This problem was reset. Begin counting again.");
+      cue(260, .06);
+    }
+
+    function openKeypad() {
+      if (state.phase === "completed" || state.animationState || solverRunning) return;
+      clearTimeout(idleTimer);
+      typedAnswer = "";
+      updateTypedValue();
+      elements.keypadEquation.textContent = problem.a + " + " + problem.b + " =";
+      elements.keypad.showModal();
+      requestAnimationFrame(() => elements.keypad.querySelector('[data-key="1"]').focus());
+    }
+
+    function updateTypedValue() { elements.typed.textContent = typedAnswer; }
+
+    function handleKeypadKey(key) {
+      noteActivity();
+      elements.keypadDisplay.classList.remove("wrong");
+      if (/^\d$/.test(key)) {
+        if (typedAnswer.length < 3) typedAnswer += key;
+      } else if (key === "backspace") typedAnswer = typedAnswer.slice(0, -1);
+      else if (key === "clear") typedAnswer = "";
+      updateTypedValue();
+      cue(430, .025);
+    }
+
+    function checkTypedAnswer() {
+      noteActivity();
+      if (Number(typedAnswer) === problem.result && typedAnswer !== "") {
+        elements.keypad.close();
+        completeProblem("typed");
+        return;
+      }
+      typedAnswer = "";
+      updateTypedValue();
+      elements.keypadDisplay.classList.remove("wrong");
+      void elements.keypadDisplay.offsetWidth;
+      elements.keypadDisplay.classList.add("wrong");
+      cue(180, .12);
+      announce("That is not the answer yet. Try again. Your block counting is still here.");
+    }
+
+    function startHold(event) {
+      if (event.button !== undefined && event.button !== 0) return;
+      if (state.phase === "completed" || state.animationState || solverRunning) return;
+      noteActivity();
+      holdStarted = true;
+      holdCompleted = false;
+      elements.answer.classList.add("holding");
+      if (event.pointerId !== undefined) elements.answer.setPointerCapture(event.pointerId);
+      holdTimer = setTimeout(() => {
+        holdTimer = 0;
+        holdCompleted = true;
+        holdStarted = false;
+        elements.answer.classList.remove("holding");
+        cue(660, .07);
+        runSolver();
+      }, HOLD_DURATION);
+    }
+
+    function endHold(event) {
+      if (!holdStarted) return;
+      holdStarted = false;
+      clearTimeout(holdTimer);
+      holdTimer = 0;
+      elements.answer.classList.remove("holding");
+      if (!holdCompleted && event.type !== "pointercancel") openKeypad();
+    }
+
+    function toggleSound() {
+      profile.sound = !profile.sound;
+      saveProfile();
+      render();
+      noteActivity();
+      if (profile.sound) cue(520, .07);
+      announce("Sound " + (profile.sound ? "on." : "off."));
+    }
+
+    function openSettings() {
+      if (state.animationState || solverRunning) return;
+      clearTimeout(idleTimer);
+      elements.settingsDialog.showModal();
+      requestAnimationFrame(() => elements.runSolver.focus());
+    }
+
+    async function handleResetProgress() {
+      noteActivity();
+      if (!confirm("Reset all coins and garden milestones? Your sound setting will stay the same.")) return;
+      await resetProfile();
+      elements.settingsDialog.close();
+      const model = randomProblemForCategory(Math.floor(Math.random() * 4), new Set(recentPairs));
+      startProblem(model);
+      announce("Progress reset to the seed. Sound preference kept.");
+      showToast("Progress reset");
+    }
+
+    function validQueryProblem() {
+      const params = new URLSearchParams(location.search);
+      if (!params.has("a") || !params.has("b")) return null;
+      const rawA = params.get("a");
+      const rawB = params.get("b");
+      if (!/^\d+$/.test(rawA) || !/^\d+$/.test(rawB)) return null;
+      const a = Number(rawA), b = Number(rawB);
+      try { return deriveProblem(a, b); } catch (_) { return null; }
+    }
+
+    function bindEvents() {
+      elements.answer.addEventListener("pointerdown", startHold);
+      elements.answer.addEventListener("pointerup", endHold);
+      elements.answer.addEventListener("pointercancel", endHold);
+      elements.answer.addEventListener("contextmenu", event => event.preventDefault());
+      elements.answer.addEventListener("click", event => event.preventDefault());
+      elements.answer.addEventListener("keydown", event => {
+        if ((event.key === "Enter" || event.key === " ") && !event.repeat) {
+          event.preventDefault();
+          openKeypad();
+        }
+      });
+      elements.reset.addEventListener("click", resetCurrentProblem);
+      elements.countBadge.addEventListener("click", nextProblem);
+      elements.sound.addEventListener("click", toggleSound);
+      elements.settings.addEventListener("click", openSettings);
+      elements.suggestions.addEventListener("pointerdown", noteActivity);
+      elements.keypad.querySelectorAll("[data-key]").forEach(button => button.addEventListener("click", () => handleKeypadKey(button.dataset.key)));
+      elements.check.addEventListener("click", checkTypedAnswer);
+      elements.keypad.addEventListener("close", noteActivity);
+      elements.keypad.addEventListener("cancel", noteActivity);
+      elements.keypad.addEventListener("keydown", event => {
+        if (/^\d$/.test(event.key)) { event.preventDefault(); handleKeypadKey(event.key); }
+        else if (event.key === "Backspace") { event.preventDefault(); handleKeypadKey("backspace"); }
+        else if (event.key === "Enter") { event.preventDefault(); checkTypedAnswer(); }
+      });
+      elements.runSolver.addEventListener("click", runSolver);
+      elements.resetProgress.addEventListener("click", handleResetProgress);
+      elements.closeSettings.addEventListener("click", () => elements.settingsDialog.close());
+      elements.settingsDialog.addEventListener("close", noteActivity);
+      document.addEventListener("visibilitychange", () => { if (document.hidden) clearTimeout(idleTimer); else noteActivity(); });
+    }
+
+    async function init() {
+      bindEvents();
+      await initializeProfile();
+      const initial = validQueryProblem() || randomProblemForCategory(Math.floor(Math.random() * 4));
+      startProblem(initial);
+    }
+
+    window.NumberGarden = { deriveProblem, CATEGORY_NAMES, PROGRESS_EMOJIS };
+    init();
+  </script>
+</body>
+</html>
