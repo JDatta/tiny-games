@@ -420,12 +420,22 @@
     .result-panel { border-style: dashed; border-width: 2px; }
 
     .digit-label {
-      min-height: 11px;
+      position: absolute;
+      right: 7px;
+      bottom: 7px;
+      min-width: 26px;
+      padding: 4px 6px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(72,86,108,.16);
+      border-radius: 7px;
       color: #48566c;
-      font-size: 9px;
-      font-weight: 900;
+      background: rgba(255,255,255,.88);
+      font-size: clamp(15px, 4vw, 18px);
+      font-weight: 950;
       line-height: 1;
       font-variant-numeric: tabular-nums;
+      box-shadow: 0 1px 3px rgba(46,64,88,.08);
     }
 
     .hundred-slot {
@@ -1369,7 +1379,8 @@
       }
       const label = document.createElement("span");
       label.className = "digit-label";
-      label.textContent = digit + " / 10";
+      label.textContent = digit;
+      label.setAttribute("aria-label", digit + " tens out of 10 positions");
       panel.append(grid, label);
       return panel;
     }
@@ -1389,7 +1400,8 @@
       }
       const label = document.createElement("span");
       label.className = "digit-label";
-      label.textContent = digit + " / 10";
+      label.textContent = digit;
+      label.setAttribute("aria-label", digit + " ones out of 10 positions");
       panel.append(strip, label);
       return panel;
     }
@@ -1442,7 +1454,9 @@
       panel.append(groups);
       const label = document.createElement("span");
       label.className = "digit-label";
-      label.textContent = state.phase === "completed" ? problem.onesRemainder + " ones" : state.onesCursor + " ones counted";
+      const displayedOnes = state.phase === "completed" ? problem.onesRemainder : state.onesCursor;
+      label.textContent = displayedOnes;
+      label.setAttribute("aria-label", displayedOnes + (state.phase === "completed" ? " ones in the result" : " ones counted"));
       panel.append(label);
       return panel;
     }
@@ -1474,7 +1488,9 @@
       panel.append(groups);
       const label = document.createElement("span");
       label.className = "digit-label";
-      label.textContent = state.phase === "completed" ? problem.tensRemainder + " tens" : state.tensCursor + " tens counted";
+      const displayedTens = state.phase === "completed" ? problem.tensRemainder : state.tensCursor;
+      label.textContent = displayedTens;
+      label.setAttribute("aria-label", displayedTens + (state.phase === "completed" ? " tens in the result" : " tens counted"));
       panel.append(label);
       if (state.visibleOnesCarry && state.phase !== "completed") {
         const source = document.createElement("span");
