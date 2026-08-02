@@ -696,6 +696,30 @@
 
     .confetti-piece.round { height: var(--size); border-radius: 50%; }
 
+    .confetti-piece.ribbon {
+      width: calc(var(--size) + 8px);
+      height: 4px;
+      border-radius: 999px;
+    }
+
+    .confetti-piece.star {
+      width: auto;
+      height: auto;
+      color: var(--color);
+      background: transparent;
+      font-size: calc(var(--size) + 9px);
+      line-height: 1;
+      text-shadow: 0 2px 4px rgba(71,47,0,.18);
+    }
+
+    .confetti-piece.burst {
+      top: 46%;
+      left: 50%;
+      animation-name: confetti-burst;
+      animation-duration: 1.45s;
+      animation-timing-function: cubic-bezier(.12,.8,.2,1);
+    }
+
     .confetti-layer.reduced .confetti-piece {
       top: var(--y);
       opacity: .88;
@@ -713,8 +737,16 @@
       100% { opacity: 0; transform: translate3d(var(--drift), calc(100dvh + 28px), 0) rotate(var(--spin)); }
     }
 
+    @keyframes confetti-burst {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(.15) rotate(0deg); }
+      12% { opacity: 1; }
+      68% { opacity: 1; transform: translate(calc(-50% + var(--burst-x)), calc(-50% + var(--burst-y))) scale(1) rotate(var(--spin)); }
+      100% { opacity: 0; transform: translate(calc(-50% + var(--burst-x)), calc(-50% + var(--burst-y) + 105px)) scale(.82) rotate(var(--spin)); }
+    }
+
     @keyframes celebration-pulse {
-      35% { transform: scale(1.015); box-shadow: 0 0 0 7px rgba(243,167,18,.2), 0 12px 30px rgba(40,77,117,.18); }
+      25% { transform: scale(1.025); box-shadow: 0 0 0 9px rgba(243,167,18,.24), 0 13px 34px rgba(40,77,117,.2); }
+      62% { transform: scale(1.01); box-shadow: 0 0 0 5px rgba(114,86,201,.18), 0 11px 30px rgba(40,77,117,.18); }
     }
 
     dialog {
@@ -1221,7 +1253,7 @@
         const gain = audioContext.createGain();
         oscillator.type = "sine";
         oscillator.frequency.value = frequency;
-        gain.gain.setValueAtTime(.045, audioContext.currentTime);
+        gain.gain.setValueAtTime(.14, audioContext.currentTime);
         gain.gain.exponentialRampToValueAtTime(.001, audioContext.currentTime + duration);
         oscillator.connect(gain).connect(audioContext.destination);
         oscillator.start();
@@ -1236,10 +1268,12 @@
         if (audioContext.state === "suspended") audioContext.resume();
         const start = audioContext.currentTime + .025;
         const notes = [
-          { frequency: 523.25, delay: 0, duration: .18 },
-          { frequency: 659.25, delay: .09, duration: .2 },
-          { frequency: 783.99, delay: .18, duration: .22 },
-          { frequency: 1046.5, delay: .31, duration: .34 }
+          { frequency: 523.25, delay: 0, duration: .2 },
+          { frequency: 659.25, delay: .08, duration: .22 },
+          { frequency: 783.99, delay: .16, duration: .24 },
+          { frequency: 1046.5, delay: .27, duration: .42 },
+          { frequency: 1318.51, delay: .36, duration: .38 },
+          { frequency: 1567.98, delay: .36, duration: .42 }
         ];
         notes.forEach(note => {
           const oscillator = audioContext.createOscillator();
@@ -1248,11 +1282,63 @@
           oscillator.type = "triangle";
           oscillator.frequency.setValueAtTime(note.frequency, noteStart);
           gain.gain.setValueAtTime(.001, noteStart);
-          gain.gain.exponentialRampToValueAtTime(.055, noteStart + .025);
+          gain.gain.exponentialRampToValueAtTime(.14, noteStart + .025);
           gain.gain.exponentialRampToValueAtTime(.001, noteStart + note.duration);
           oscillator.connect(gain).connect(audioContext.destination);
           oscillator.start(noteStart);
           oscillator.stop(noteStart + note.duration + .02);
+        });
+      } catch (_) { /* Audio is optional. */ }
+    }
+
+    function playConfettiBurstSound() {
+      if (!profile.sound) return;
+      try {
+        audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === "suspended") audioContext.resume();
+        const start = audioContext.currentTime + .02;
+
+        const pop = audioContext.createOscillator();
+        const popGain = audioContext.createGain();
+        pop.type = "sine";
+        pop.frequency.setValueAtTime(190, start);
+        pop.frequency.exponentialRampToValueAtTime(72, start + .16);
+        popGain.gain.setValueAtTime(.21, start);
+        popGain.gain.exponentialRampToValueAtTime(.001, start + .18);
+        pop.connect(popGain).connect(audioContext.destination);
+        pop.start(start);
+        pop.stop(start + .19);
+
+        const noiseLength = Math.floor(audioContext.sampleRate * .28);
+        const noiseBuffer = audioContext.createBuffer(1, noiseLength, audioContext.sampleRate);
+        const noiseData = noiseBuffer.getChannelData(0);
+        for (let index = 0; index < noiseLength; index += 1) {
+          const fade = 1 - index / noiseLength;
+          noiseData[index] = (Math.random() * 2 - 1) * fade * fade;
+        }
+        const noise = audioContext.createBufferSource();
+        const filter = audioContext.createBiquadFilter();
+        const noiseGain = audioContext.createGain();
+        noise.buffer = noiseBuffer;
+        filter.type = "highpass";
+        filter.frequency.value = 900;
+        noiseGain.gain.setValueAtTime(.17, start);
+        noiseGain.gain.exponentialRampToValueAtTime(.001, start + .27);
+        noise.connect(filter).connect(noiseGain).connect(audioContext.destination);
+        noise.start(start);
+
+        [1318.51, 1760, 2093].forEach((frequency, index) => {
+          const sparkle = audioContext.createOscillator();
+          const sparkleGain = audioContext.createGain();
+          const sparkleStart = start + .08 + index * .08;
+          sparkle.type = "sine";
+          sparkle.frequency.value = frequency;
+          sparkleGain.gain.setValueAtTime(.001, sparkleStart);
+          sparkleGain.gain.exponentialRampToValueAtTime(.105, sparkleStart + .012);
+          sparkleGain.gain.exponentialRampToValueAtTime(.001, sparkleStart + .16);
+          sparkle.connect(sparkleGain).connect(audioContext.destination);
+          sparkle.start(sparkleStart);
+          sparkle.stop(sparkleStart + .17);
         });
       } catch (_) { /* Audio is optional. */ }
     }
@@ -1263,28 +1349,47 @@
       const layer = document.createElement("div");
       layer.className = "confetti-layer" + (reduceMotion ? " reduced" : "");
       layer.setAttribute("aria-hidden", "true");
-      const colors = ["#2477df", "#299c50", "#f3a712", "#e85278", "#7256c9", "#38bfc3"];
-      const pieceCount = reduceMotion ? 18 : 46;
+      const colors = ["#2477df", "#299c50", "#f3a712", "#ff6b35", "#e85278", "#7256c9", "#38bfc3", "#ffd23f"];
+      const pieceCount = reduceMotion ? 26 : 76;
       for (let index = 0; index < pieceCount; index += 1) {
         const piece = document.createElement("span");
-        piece.className = "confetti-piece" + (index % 4 === 0 ? " round" : "");
+        const shapeClass = index % 11 === 0 ? " star" : index % 5 === 0 ? " ribbon" : index % 4 === 0 ? " round" : "";
+        piece.className = "confetti-piece" + shapeClass;
+        if (shapeClass === " star") piece.textContent = index % 2 ? "★" : "✦";
         piece.style.setProperty("--x", (2 + Math.random() * 96).toFixed(1) + "vw");
         piece.style.setProperty("--y", (8 + Math.random() * 62).toFixed(1) + "vh");
-        piece.style.setProperty("--size", (5 + Math.random() * 6).toFixed(1) + "px");
+        piece.style.setProperty("--size", (6 + Math.random() * 7).toFixed(1) + "px");
         piece.style.setProperty("--color", colors[index % colors.length]);
-        piece.style.setProperty("--delay", (Math.random() * .32).toFixed(2) + "s");
-        piece.style.setProperty("--duration", (1.45 + Math.random() * .75).toFixed(2) + "s");
-        piece.style.setProperty("--drift", (-70 + Math.random() * 140).toFixed(0) + "px");
+        piece.style.setProperty("--delay", (Math.random() * .48).toFixed(2) + "s");
+        piece.style.setProperty("--duration", (1.8 + Math.random() * 1.05).toFixed(2) + "s");
+        piece.style.setProperty("--drift", (-95 + Math.random() * 190).toFixed(0) + "px");
         piece.style.setProperty("--spin", (300 + Math.random() * 720).toFixed(0) + "deg");
         layer.append(piece);
+      }
+      if (!reduceMotion) {
+        for (let index = 0; index < 30; index += 1) {
+          const piece = document.createElement("span");
+          const isStar = index % 6 === 0;
+          piece.className = "confetti-piece burst" + (isStar ? " star" : index % 4 === 0 ? " ribbon" : index % 3 === 0 ? " round" : "");
+          if (isStar) piece.textContent = index % 2 ? "★" : "✦";
+          piece.style.setProperty("--x", "50vw");
+          piece.style.setProperty("--y", "46vh");
+          piece.style.setProperty("--size", (7 + Math.random() * 8).toFixed(1) + "px");
+          piece.style.setProperty("--color", colors[(index + 3) % colors.length]);
+          piece.style.setProperty("--delay", (Math.random() * .13).toFixed(2) + "s");
+          piece.style.setProperty("--burst-x", (-innerWidth * .44 + Math.random() * innerWidth * .88).toFixed(0) + "px");
+          piece.style.setProperty("--burst-y", (-80 - Math.random() * Math.min(290, innerHeight * .36)).toFixed(0) + "px");
+          piece.style.setProperty("--spin", (360 + Math.random() * 900).toFixed(0) + "deg");
+          layer.append(piece);
+        }
       }
       document.body.append(layer);
       const equationCard = document.querySelector(".equation-card");
       equationCard.classList.remove("celebrating");
       void equationCard.offsetWidth;
       equationCard.classList.add("celebrating");
-      setTimeout(() => equationCard.classList.remove("celebrating"), reduceMotion ? 650 : 750);
-      setTimeout(() => layer.remove(), reduceMotion ? 850 : 2700);
+      setTimeout(() => equationCard.classList.remove("celebrating"), reduceMotion ? 650 : 1050);
+      setTimeout(() => layer.remove(), reduceMotion ? 950 : 3800);
     }
 
     function isDialogOpen() { return elements.keypad.open || elements.settingsDialog.open; }
@@ -1718,6 +1823,7 @@
       render();
       launchConfetti();
       playCelebrationSound();
+      playConfettiBurstSound();
       const source = method === "typed" ? "Correct" : "Garden complete";
       announce(source + ". " + problem.a + " plus " + problem.b + " equals " + problem.result + ". You earned 10 coins.");
       showToast("+10 coins · New milestone earned!");
