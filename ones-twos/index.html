@@ -1204,7 +1204,7 @@
   <dialog id="settingsDialog" aria-labelledby="settingsTitle">
     <div class="sheet">
       <div class="sheet-handle" aria-hidden="true"></div>
-      <h2 id="settingsTitle">Garden settings</h2>
+      <h2 id="settingsTitle" tabindex="-1" autofocus>Garden settings</h2>
       <p>Tap <strong>?</strong> to type an answer. Hold it for about a second to let Solver continue from your place.</p>
       <div class="setting-row">
         <label for="levelSelect">Practice level</label>
@@ -1550,7 +1550,8 @@
       prompt: $("#promptText"), countBadge: $("#countBadge"), count: $("#countValue"), board: $("#board"),
       suggestions: $("#suggestions"), keypad: $("#keypadDialog"), keypadForm: $("#keypadForm"),
       keypadEquation: $("#keypadEquation"), typed: $("#typedValue"), keypadDisplay: $("#keypadDisplay"),
-      check: $("#checkAnswer"), settingsDialog: $("#settingsDialog"), levelSelect: $("#levelSelect"),
+      check: $("#checkAnswer"), settingsDialog: $("#settingsDialog"), settingsTitle: $("#settingsTitle"),
+      levelSelect: $("#levelSelect"),
       sound: $("#settingsSoundButton"), runSolver: $("#runSolverButton"),
       resetProgress: $("#resetProgressButton"), closeSettings: $("#closeSettings"), toast: $("#toast"), live: $("#liveRegion")
     };
@@ -3316,7 +3317,16 @@
       if (isMotionDraining() || solverRunning) return;
       clearIdleHints();
       elements.settingsDialog.showModal();
-      requestAnimationFrame(() => elements.levelSelect.focus());
+      elements.settingsTitle.focus();
+    }
+
+    function dismissDialogFromBackdrop(event) {
+      const dialog = event.currentTarget;
+      if (event.target !== dialog) return;
+      const bounds = dialog.getBoundingClientRect();
+      const clickedOutside = event.clientX < bounds.left || event.clientX > bounds.right ||
+        event.clientY < bounds.top || event.clientY > bounds.bottom;
+      if (clickedOutside) dialog.close("cancel");
     }
 
     function handleLevelChange() {
@@ -3381,6 +3391,7 @@
       elements.suggestions.addEventListener("pointerdown", noteActivity);
       elements.keypad.querySelectorAll("[data-key]").forEach(button => button.addEventListener("click", () => handleKeypadKey(button.dataset.key)));
       elements.check.addEventListener("click", checkTypedAnswer);
+      elements.keypad.addEventListener("click", dismissDialogFromBackdrop);
       elements.keypad.addEventListener("close", noteActivity);
       elements.keypad.addEventListener("cancel", noteActivity);
       elements.keypad.addEventListener("keydown", event => {
@@ -3391,6 +3402,7 @@
       elements.runSolver.addEventListener("click", runSolver);
       elements.resetProgress.addEventListener("click", handleResetProgress);
       elements.closeSettings.addEventListener("click", () => elements.settingsDialog.close());
+      elements.settingsDialog.addEventListener("click", dismissDialogFromBackdrop);
       elements.settingsDialog.addEventListener("close", noteActivity);
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) {

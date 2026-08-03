@@ -510,6 +510,24 @@
         "L1 board collapses to Labels, Tens, and Ones");
 
       doc.querySelector("#settingsButton").click();
+      assert(doc.activeElement === doc.querySelector("#settingsTitle"),
+        "Settings opens with its title focused instead of expanding the practice-level select");
+      const settingsDialog = doc.querySelector("#settingsDialog");
+      doc.querySelector("#settingsTitle").click();
+      assert(settingsDialog.open, "clicking inside Settings keeps it open");
+      settingsDialog.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 0, clientY: 0 }));
+      assert(!settingsDialog.open && settingsDialog.returnValue === "cancel",
+        "clicking outside Settings dismisses it like Cancel");
+
+      const keypadDialog = doc.querySelector("#keypadDialog");
+      keypadDialog.showModal();
+      doc.querySelector("#keypadTitle").click();
+      assert(keypadDialog.open, "clicking inside the answer dialog keeps it open");
+      keypadDialog.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 0, clientY: 0 }));
+      assert(!keypadDialog.open && keypadDialog.returnValue === "cancel",
+        "clicking outside the answer dialog dismisses it like Cancel");
+
+      doc.querySelector("#settingsButton").click();
       doc.querySelector("#levelSelect").value = "6";
       doc.querySelector("#levelSelect").dispatchEvent(new Event("change", { bubbles: true }));
       await waitFor(() => doc.querySelector("#levelBadge").textContent === "L6" && doc.querySelector(".column-title.hundreds"), "L6 override");
