@@ -9,23 +9,25 @@ Number Garden is a client-only web application contained in [`index.html`](../in
 - **Document and styles:** semantic controls, dialogs, the place-value board, responsive mobile-first layout, focus states, and reduced-motion rules.
 - **Arithmetic model:** `deriveProblem(a, b)` validates addends from 1 through 99 and derives digits, place totals, remainders, carries, result, and carry category. Arithmetic does not depend on the DOM.
 - **Curriculum model:** `problemMatchesLevel()`, `generateProblemForLevel()`, `selectCurriculumLevel()`, and `sampleCurriculumProblem()` define and select L1–L9 problems. Generated models include `curriculumLevel`; L8 also has `curriculumPattern` because its arithmetic overlaps L7/L9.
-- **Session state:** `freshState()` tracks the current phase, count cursors, visible carries, animation lock, solver use, and reward status.
-- **Rendering:** `render()` coordinates focused render helpers for the journey, board, prompts, answer state, and alternative problems. Beetle prompts come from frozen per-step pools and are cached in transient state so unrelated renders do not change the message. Interactive units are recreated from state and only the next valid unit is enabled.
+- **Session state:** `freshState()` tracks the current phase, separate accepted and landed cursors, the sequential drop queue, visible carries, animation phase, solver use, and reward status.
+- **Rendering:** `render()` coordinates focused render helpers for the journey, board, prompts, answer state, and alternative problems. Source and result units receive stable place/index metadata so animation geometry can be measured from the current responsive layout. Beetle prompts come from frozen per-step pools and are cached in transient state so unrelated renders do not change the message; an actual message change drives one mascot reaction. Interactive units are recreated from state and only the next valid unit is enabled.
 - **Interaction controllers:** event handlers advance manual counting, run Solver from the unfinished step, collect typed answers, change problems, reset state, toggle sound/fullscreen, override levels, and manage settings.
-- **Feedback services:** Web Audio produces optional cues; DOM/CSS effects provide carry and completion animations; an ARIA live region announces state changes.
+- **Feedback services:** reusable Web Audio helpers produce optional drop, carry, beetle, outcome, and celebration effects. Fixed-position overlay clones animate between measured source/result rectangles without becoming interactive. An ordered ARIA live queue announces landed counts and phase changes.
 
 ## State flow
 
 ```text
 counting-ones
-  -> carrying-to-tens (when needed)
+  -> queued drops (accepted -> landed, one overlay at a time)
+  -> carrying-to-tens (formation -> travel -> landing, when needed)
   -> counting-tens
-  -> carrying-to-hundreds (when needed)
+  -> queued drops (accepted -> landed, one overlay at a time)
+  -> carrying-to-hundreds (formation -> travel -> landing, when needed)
   -> awaiting-answer
   -> completed
 ```
 
-Problems with zero ones begin at `counting-tens`. Manual play stops at `awaiting-answer` until the child enters the correct total. Solver advances through the same transitions and completes automatically. Animation and solver flags lock competing input while transitions run.
+Problems with zero ones begin at `counting-tens`. Rapid manual taps may queue through the next group-of-ten boundary, then input pauses until regrouping lands. Result units remain hidden until their matching overlay lands. Manual play stops at `awaiting-answer` until the child enters the correct total. Solver uses the same full drop/carry path and completes automatically. Queue, animation, and solver state lock competing controls while transitions run. Reduced motion commits immediately and flashes the target without directional travel.
 
 ## Data boundaries
 
@@ -37,7 +39,7 @@ Profile data is written to IndexedDB and mirrored to a compact cookie. The newes
 
 All organic entry points—startup, Next, suggestion construction/selection, alternative refresh, and dice alternatives—draw from the same weighted sampler and share recent unordered-pair exclusions. L2/L4 randomize the location of the single-digit addend. L1 uses a 75/25 current/higher split; L2–L8 use 50/25/25 current/higher/uniform-lower; L9 uses 60/40 current/uniform-L1–L8 review. L8 generation splits evenly between tens-only and both-carry patterns.
 
-Query parameters allow untagged deterministic cases from `index.html?a=1&b=1` through `index.html?a=99&b=99`. They exercise normal arithmetic and rewards but cannot change level counters. `window.NumberGarden` exposes level definitions, named constants, profile validation/defaults, and pure arithmetic, predicate, generation, selection, and progression helpers for deterministic harness checks.
+Query parameters allow untagged deterministic cases from `index.html?a=1&b=1` through `index.html?a=99&b=99`. They exercise normal arithmetic and rewards but cannot change level counters. `?harness=1` compresses animation durations while preserving lifecycle stages. `window.NumberGarden` exposes level definitions, frozen production motion timings, queue-boundary and curriculum helpers, profile validation/defaults, and read-only motion diagnostics for deterministic harness checks.
 
 ## Rewards and progression
 

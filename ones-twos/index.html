@@ -288,6 +288,45 @@
 
     .answer-button.static-hint { outline: 4px solid #7256c9; outline-offset: 4px; }
 
+    .answer-button.answer-ready {
+      color: #4d3188;
+      background: #fff3b5;
+      transform-origin: 50% 50%;
+      animation: answer-ready-pulse 650ms ease-in-out infinite;
+    }
+
+    @keyframes answer-ready-pulse {
+      0%, 100% {
+        transform: translateY(0) scale(1);
+        filter: brightness(1);
+        box-shadow:
+          7px 0 0 -1px #fff3b5,
+          -7px 0 0 -1px #fff3b5,
+          0 7px 0 -1px #fff3b5,
+          0 -7px 0 -1px #fff3b5,
+          0 0 0 4px rgba(114,86,201,.16),
+          0 5px 12px rgba(207,149,20,.2);
+      }
+      48% {
+        transform: translateY(-2px) scale(1.1);
+        filter: brightness(1.12);
+        box-shadow:
+          7px 0 0 -1px #fff3b5,
+          -7px 0 0 -1px #fff3b5,
+          0 7px 0 -1px #fff3b5,
+          0 -7px 0 -1px #fff3b5,
+          0 0 0 9px rgba(114,86,201,.24),
+          0 9px 20px rgba(72,48,145,.28);
+      }
+    }
+
+    .answer-button.answer-ready.motion-reduced {
+      animation: none;
+      outline: 4px solid rgba(114,86,201,.62);
+      outline-offset: 4px;
+      filter: brightness(1.1);
+    }
+
     @keyframes hold-ring { to { --hold-angle: 360deg; } }
     @keyframes solver-hint {
       45% { transform: rotate(-7deg) scale(1.12); box-shadow: 0 0 0 7px rgba(114,86,201,.15); }
@@ -339,7 +378,15 @@
       line-height: 1.2;
     }
 
-    .prompt-mascot { flex: 0 0 auto; font-size: 25px; }
+    .prompt-mascot { flex: 0 0 auto; font-size: 25px; transform-origin: 50% 85%; }
+    .prompt-mascot.reacting { animation: beetle-reaction 360ms cubic-bezier(.2,.75,.25,1); }
+
+    @keyframes beetle-reaction {
+      0%, 100% { transform: translateY(0) rotate(0); }
+      28% { transform: translateY(-7px) rotate(-9deg); }
+      52% { transform: translateY(-2px) rotate(8deg); }
+      74% { transform: translateY(-4px) rotate(-4deg); }
+    }
     #promptText { min-width: 0; }
 
     .count-badge {
@@ -363,6 +410,34 @@
     .count-badge strong { font-size: 25px; line-height: 1; font-variant-numeric: tabular-nums; }
     .count-badge.next { cursor: pointer; font-size: 15px; }
     .count-badge.next .count-label { font-size: 15px; text-transform: none; letter-spacing: 0; }
+    .count-badge.success-next {
+      border-color: #5d42c2;
+      background: linear-gradient(135deg, #fff1a8, #f1eaff 55%, #ddf8e7);
+      color: #3f278d;
+      box-shadow: 0 0 0 3px rgba(114,86,201,.16), 0 5px 12px rgba(72,48,145,.2);
+      transform-origin: 50% 50%;
+      animation: success-next-pulse 650ms ease-in-out infinite;
+    }
+
+    @keyframes success-next-pulse {
+      0%, 100% {
+        transform: translateY(0) scale(1);
+        filter: brightness(1);
+        box-shadow: 0 0 0 3px rgba(114,86,201,.16), 0 5px 12px rgba(72,48,145,.2);
+      }
+      48% {
+        transform: translateY(-2px) scale(1.055);
+        filter: brightness(1.1);
+        box-shadow: 0 0 0 7px rgba(114,86,201,.2), 0 8px 18px rgba(72,48,145,.3);
+      }
+    }
+
+    .count-badge.success-next.motion-reduced {
+      animation: none;
+      outline: 4px solid rgba(114,86,201,.38);
+      outline-offset: 2px;
+      filter: brightness(1.08);
+    }
 
     .board {
       min-height: 0;
@@ -552,6 +627,11 @@
     }
 
     .unit.counted { box-shadow: inset 0 0 0 1px rgba(255,255,255,.72); }
+    .unit.queued {
+      opacity: .52;
+      filter: saturate(.72);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.88);
+    }
     .unit.traded { opacity: .45; background-image: repeating-linear-gradient(135deg, transparent 0 3px, rgba(255,255,255,.7) 3px 5px); }
 
     .unit.eligible {
@@ -595,6 +675,15 @@
     .result-groups .tens-grid { align-self: center; }
 
     .trade-group { border-radius: 5px; box-shadow: 0 0 0 2px rgba(241,161,12,.55); }
+    .trade-group.carry-forming .unit {
+      animation: trade-pulse 300ms ease-in-out;
+    }
+
+    @keyframes trade-pulse {
+      0% { opacity: 1; transform: scale(1); }
+      48% { opacity: .32; transform: scale(.88); }
+      100% { opacity: .45; transform: scale(1); }
+    }
 
     .carry-callout {
       position: absolute;
@@ -631,38 +720,80 @@
       box-shadow: 0 2px 5px rgba(130,83,0,.12);
     }
 
-    .carried-ten-source .unit {
+    .carried-ten-source .unit, .carried-ten-source .empty-unit {
       width: 23px;
       height: 8px;
       padding: 0;
       border-radius: 5px;
     }
 
-    .carry-flight {
-      position: fixed;
-      z-index: 30;
-      left: 62%;
-      top: 55%;
-      width: 54px;
-      height: 10px;
-      border: 2px solid #a46700;
-      border-radius: 6px;
-      background: #ffbe28;
-      box-shadow: 0 0 10px #ffd159;
+    .carried-ten-source.placeholder {
+      visibility: hidden;
+    }
+
+    .carry-formation-token {
+      position: absolute;
+      z-index: 7;
+      left: 50%;
+      top: 50%;
+      border: 2px solid #9b5b00;
+      background: repeating-linear-gradient(135deg, #ffc446 0 4px, #f0a000 4px 7px);
+      box-shadow: 0 0 0 4px rgba(255,196,70,.18), 0 3px 8px rgba(117,72,0,.2);
       pointer-events: none;
-      animation: fly-to-tens 350ms ease-in forwards;
     }
 
-    .carry-flight.hundred-flight {
-      width: 38px;
-      height: 38px;
-      left: 41%;
-      top: 58%;
-      animation-name: fly-to-hundreds;
+    .carry-formation-token.ten-token {
+      width: min(54px, 58%);
+      height: 10px;
+      border-radius: 6px;
+      transform: translate(-50%, -50%);
     }
 
-    @keyframes fly-to-tens { to { transform: translate(-105px, -115px) scale(.82); opacity: .25; } }
-    @keyframes fly-to-hundreds { to { transform: translate(-80px, -110px) scale(.72); opacity: .25; } }
+    .carry-formation-token.hundred-token {
+      width: 34px;
+      height: 34px;
+      border-color: #7656ca;
+      border-radius: 7px;
+      background:
+        linear-gradient(45deg, rgba(255,255,255,.32) 25%, transparent 25% 50%, rgba(255,255,255,.32) 50% 75%, transparent 75%),
+        #d8c8ff;
+      background-size: 8px 8px;
+      transform: translate(-50%, -50%);
+    }
+
+    .motion-overlay {
+      position: fixed;
+      z-index: 90;
+      margin: 0;
+      padding: 0;
+      pointer-events: none;
+      transform-origin: 50% 50%;
+      will-change: transform, opacity;
+    }
+
+    .motion-overlay.carry-token {
+      border: 2px solid #9b5b00;
+      background: repeating-linear-gradient(135deg, #ffc446 0 4px, #f0a000 4px 7px);
+      box-shadow: 0 0 11px rgba(255,190,40,.8);
+    }
+
+    .motion-overlay.carry-token.hundred-token {
+      border-color: #7656ca;
+      border-radius: 7px;
+      background:
+        linear-gradient(45deg, rgba(255,255,255,.32) 25%, transparent 25% 50%, rgba(255,255,255,.32) 50% 75%, transparent 75%),
+        #d8c8ff;
+      background-size: 8px 8px;
+      box-shadow: 0 0 11px rgba(114,86,201,.45);
+    }
+
+    .motion-target-flash { animation: motion-target-flash 240ms ease-out; }
+
+    @keyframes motion-target-flash {
+      0% { outline: 0 solid rgba(114,86,201,.55); filter: brightness(1.35); }
+      45% { outline: 7px solid rgba(114,86,201,.25); }
+      100% { outline: 0 solid transparent; filter: brightness(1); }
+    }
 
     .tray {
       min-height: 72px;
@@ -967,6 +1098,25 @@
       }
       .board.unlocking .column-title.hundreds,
       .board.unlocking .place-panel.hundreds { outline: 4px solid rgba(114,86,201,.45); outline-offset: -2px; animation: none; }
+      .prompt-mascot.reacting, .trade-group.carry-forming .unit { animation: none; }
+      .motion-target-flash {
+        animation: none;
+        outline: 5px solid rgba(114,86,201,.42);
+        outline-offset: 2px;
+        filter: brightness(1.22);
+      }
+      .count-badge.success-next {
+        animation: none;
+        outline: 4px solid rgba(114,86,201,.38);
+        outline-offset: 2px;
+        filter: brightness(1.08);
+      }
+      .answer-button.answer-ready {
+        animation: none;
+        outline: 4px solid rgba(114,86,201,.62);
+        outline-offset: 4px;
+        filter: brightness(1.1);
+      }
     }
   </style>
 </head>
@@ -1370,7 +1520,27 @@
     const NEXT_UNIT_THROB_DELAY = 3000;
     const SOLVER_HINT_INITIAL_DELAY = 20000;
     const SOLVER_HINT_REPEAT_DELAY = 5000;
-    const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const MOTION_TIMINGS = Object.freeze({
+      BLOCK_FALL_LAND: 520,
+      CARRY_FORMATION: 300,
+      CARRY_TRAVEL: 560,
+      CARRY_LANDING: 140,
+      BEETLE_REACTION: 360,
+      SOLVER_GAP: 70
+    });
+    const HARNESS_MOTION_TIMINGS = Object.freeze({
+      BLOCK_FALL_LAND: 36,
+      CARRY_FORMATION: 24,
+      CARRY_TRAVEL: 38,
+      CARRY_LANDING: 18,
+      BEETLE_REACTION: 28,
+      SOLVER_GAP: 6
+    });
+    const diagnosticParams = new URLSearchParams(location.search);
+    const harnessMode = diagnosticParams.get("harness") === "1";
+    const activeMotionTimings = harnessMode ? HARNESS_MOTION_TIMINGS : MOTION_TIMINGS;
+    const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      (harnessMode && diagnosticParams.get("reducedMotion") === "1");
 
     const $ = (selector) => document.querySelector(selector);
     const elements = {
@@ -1384,6 +1554,7 @@
       sound: $("#settingsSoundButton"), runSolver: $("#runSolverButton"),
       resetProgress: $("#resetProgressButton"), closeSettings: $("#closeSettings"), toast: $("#toast"), live: $("#liveRegion")
     };
+    elements.promptMascot = $(".prompt-mascot");
 
     let profile = defaultProfile();
     let problem = null;
@@ -1402,6 +1573,16 @@
     let solverRunning = false;
     let audioContext = null;
     let hundredsUnlockPending = false;
+    let announcementRunning = false;
+    const announcementQueue = [];
+    let dropDrainPromise = null;
+    let motionSession = 0;
+    let motionSkipRequested = false;
+    let lastRenderedPrompt = null;
+    let beetleReactionCount = 0;
+    let soundEffectCount = 0;
+    const activeAnimations = new Set();
+    const motionEvents = [];
     const curriculumPairCache = new Map();
     const lastPromptTemplateByKey = Object.create(null);
 
@@ -1472,18 +1653,34 @@
       const skipOnes = model.onesTotal === 0;
       return {
         phase: skipOnes ? "counting-tens" : "counting-ones",
+        onesAcceptedCursor: 0,
         onesCursor: 0,
+        tensAcceptedCursor: 0,
         tensCursor: 0,
         tempCount: 0,
         visibleOnesCarry: false,
         visibleHundredsCarry: false,
         animationState: null,
+        carryPhase: null,
+        carryKind: null,
+        dropQueue: [],
         solverUsed: false,
         rewardAwarded: false,
         skipMessage: skipOnes,
         promptKey: null,
         promptTemplate: ""
       };
+    }
+
+    function nextQueueBoundary(landed, total, carryNeeded, carryVisible) {
+      const safeLanded = Math.max(0, Math.min(Number(landed) || 0, Number(total) || 0));
+      const safeTotal = Math.max(0, Number(total) || 0);
+      if (carryNeeded && !carryVisible && safeLanded < 10 && safeTotal >= 10) return 10;
+      return safeTotal;
+    }
+
+    function canQueuePlaceUnit(accepted, landed, total, carryNeeded, carryVisible) {
+      return Number(accepted) < nextQueueBoundary(landed, total, carryNeeded, carryVisible);
     }
 
     function pairKey(a, b) { return [Math.min(a, b), Math.max(a, b)].join("+"); }
@@ -1627,6 +1824,7 @@
     }
 
     function startProblem(model, options = {}) {
+      abandonActiveMotion();
       problem = model;
       state = freshState(model);
       solverRunning = false;
@@ -1737,8 +1935,23 @@
     }
 
     function announce(message) {
-      elements.live.textContent = "";
-      requestAnimationFrame(() => { elements.live.textContent = message; });
+      if (!message) return;
+      announcementQueue.push(message);
+      if (announcementRunning) return;
+      announcementRunning = true;
+      const speakNext = () => {
+        const next = announcementQueue.shift();
+        if (!next) {
+          announcementRunning = false;
+          return;
+        }
+        elements.live.textContent = "";
+        requestAnimationFrame(() => {
+          elements.live.textContent = next;
+          setTimeout(speakNext, 70);
+        });
+      };
+      speakNext();
     }
 
     function showToast(message) {
@@ -1748,29 +1961,112 @@
       toastTimer = setTimeout(() => elements.toast.classList.remove("show"), 1900);
     }
 
-    function cue(frequency = 440, duration = .06) {
-      if (!profile.sound) return;
+    function recordMotion(type, detail = {}) {
+      motionEvents.push(Object.freeze({ type, ...detail, at: Math.round(performance.now()) }));
+      if (motionEvents.length > 160) motionEvents.splice(0, motionEvents.length - 160);
+      document.body.dataset.motionEvent = type;
+    }
+
+    function getAudioContext() {
+      if (!profile.sound) return null;
       try {
         audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
         if (audioContext.state === "suspended") audioContext.resume();
-        const oscillator = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        oscillator.type = "sine";
-        oscillator.frequency.value = frequency;
-        gain.gain.setValueAtTime(.14, audioContext.currentTime);
-        gain.gain.exponentialRampToValueAtTime(.001, audioContext.currentTime + duration);
-        oscillator.connect(gain).connect(audioContext.destination);
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + duration);
+        return audioContext;
+      } catch (_) { return null; }
+    }
+
+    function playTone({ frequency = 440, endFrequency = frequency, duration = .06, delay = 0, volume = .08, type = "sine" } = {}) {
+      const context = getAudioContext();
+      if (!context) return;
+      soundEffectCount += 1;
+      const start = context.currentTime + delay;
+      const stop = start + Math.max(.018, duration);
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(Math.max(20, frequency), start);
+      if (endFrequency !== frequency) oscillator.frequency.exponentialRampToValueAtTime(Math.max(20, endFrequency), stop);
+      gain.gain.setValueAtTime(.001, start);
+      gain.gain.exponentialRampToValueAtTime(Math.max(.002, volume), start + Math.min(.018, duration / 3));
+      gain.gain.exponentialRampToValueAtTime(.001, stop);
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start(start);
+      oscillator.stop(stop + .015);
+    }
+
+    function cue(frequency = 440, duration = .06) {
+      playTone({ frequency, duration, volume: .11 });
+    }
+
+    function playDropImpact(place, delay = 0) {
+      const base = place === "ones" ? 210 : 132;
+      playTone({ frequency: base, endFrequency: base * .72, duration: .085, delay, volume: .085, type: "triangle" });
+      playTone({ frequency: base * 2.1, endFrequency: base * 1.75, duration: .07, delay: delay + .045, volume: .035 });
+    }
+
+    function playDropSound(place, durationMs) {
+      if (reduceMotion) {
+        playDropImpact(place);
+        return;
+      }
+      const base = place === "ones" ? 410 : 255;
+      const duration = Math.max(.08, durationMs / 1000 * .76);
+      playTone({ frequency: base, endFrequency: base * .52, duration, volume: .035, type: "sine" });
+      playDropImpact(place, Math.max(0, durationMs / 1000 - .1));
+    }
+
+    function playGroupingSound(kind) {
+      const base = kind === "ones" ? 520 : 410;
+      playTone({ frequency: base, duration: .11, volume: .055, type: "triangle" });
+      playTone({ frequency: base * 1.5, duration: .15, delay: .075, volume: .06, type: "triangle" });
+    }
+
+    function playCarrySwoosh(durationMs) {
+      if (reduceMotion || !profile.sound) return;
+      const context = getAudioContext();
+      if (!context) return;
+      try {
+        const duration = Math.max(.08, durationMs / 1000);
+        const length = Math.max(1, Math.floor(context.sampleRate * duration));
+        const buffer = context.createBuffer(1, length, context.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let index = 0; index < length; index += 1) {
+          const envelope = Math.sin(Math.PI * index / length);
+          data[index] = (Math.random() * 2 - 1) * envelope;
+        }
+        const source = context.createBufferSource();
+        const filter = context.createBiquadFilter();
+        const gain = context.createGain();
+        source.buffer = buffer;
+        filter.type = "bandpass";
+        filter.frequency.setValueAtTime(420, context.currentTime);
+        filter.frequency.exponentialRampToValueAtTime(920, context.currentTime + duration);
+        gain.gain.setValueAtTime(.001, context.currentTime);
+        gain.gain.exponentialRampToValueAtTime(.035, context.currentTime + duration * .35);
+        gain.gain.exponentialRampToValueAtTime(.001, context.currentTime + duration);
+        source.connect(filter).connect(gain).connect(context.destination);
+        source.start();
+        soundEffectCount += 1;
       } catch (_) { /* Audio is optional. */ }
+    }
+
+    function playCarryLanding(kind) {
+      const base = kind === "ones" ? 300 : 205;
+      playTone({ frequency: base, endFrequency: base * .72, duration: .1, volume: .075, type: "triangle" });
+    }
+
+    function playBeetleReactionSound() {
+      playTone({ frequency: 780, duration: .075, volume: .035, type: "sine" });
+      playTone({ frequency: 1040, duration: .09, delay: .065, volume: .04, type: "sine" });
     }
 
     function playCelebrationSound() {
       if (!profile.sound) return;
       try {
-        audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
-        if (audioContext.state === "suspended") audioContext.resume();
-        const start = audioContext.currentTime + .025;
+        const context = getAudioContext();
+        if (!context) return;
+        const start = context.currentTime + .025;
         const notes = [
           { frequency: 523.25, delay: 0, duration: .2 },
           { frequency: 659.25, delay: .08, duration: .22 },
@@ -1780,15 +2076,15 @@
           { frequency: 1567.98, delay: .36, duration: .42 }
         ];
         notes.forEach(note => {
-          const oscillator = audioContext.createOscillator();
-          const gain = audioContext.createGain();
+          const oscillator = context.createOscillator();
+          const gain = context.createGain();
           const noteStart = start + note.delay;
           oscillator.type = "triangle";
           oscillator.frequency.setValueAtTime(note.frequency, noteStart);
           gain.gain.setValueAtTime(.001, noteStart);
           gain.gain.exponentialRampToValueAtTime(.14, noteStart + .025);
           gain.gain.exponentialRampToValueAtTime(.001, noteStart + note.duration);
-          oscillator.connect(gain).connect(audioContext.destination);
+          oscillator.connect(gain).connect(context.destination);
           oscillator.start(noteStart);
           oscillator.stop(noteStart + note.duration + .02);
         });
@@ -1804,49 +2100,49 @@
     function playConfettiBurstSound() {
       if (!profile.sound) return;
       try {
-        audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
-        if (audioContext.state === "suspended") audioContext.resume();
-        const start = audioContext.currentTime + .02;
+        const context = getAudioContext();
+        if (!context) return;
+        const start = context.currentTime + .02;
 
-        const pop = audioContext.createOscillator();
-        const popGain = audioContext.createGain();
+        const pop = context.createOscillator();
+        const popGain = context.createGain();
         pop.type = "sine";
         pop.frequency.setValueAtTime(190, start);
         pop.frequency.exponentialRampToValueAtTime(72, start + .16);
         popGain.gain.setValueAtTime(.21, start);
         popGain.gain.exponentialRampToValueAtTime(.001, start + .18);
-        pop.connect(popGain).connect(audioContext.destination);
+        pop.connect(popGain).connect(context.destination);
         pop.start(start);
         pop.stop(start + .19);
 
-        const noiseLength = Math.floor(audioContext.sampleRate * .28);
-        const noiseBuffer = audioContext.createBuffer(1, noiseLength, audioContext.sampleRate);
+        const noiseLength = Math.floor(context.sampleRate * .28);
+        const noiseBuffer = context.createBuffer(1, noiseLength, context.sampleRate);
         const noiseData = noiseBuffer.getChannelData(0);
         for (let index = 0; index < noiseLength; index += 1) {
           const fade = 1 - index / noiseLength;
           noiseData[index] = (Math.random() * 2 - 1) * fade * fade;
         }
-        const noise = audioContext.createBufferSource();
-        const filter = audioContext.createBiquadFilter();
-        const noiseGain = audioContext.createGain();
+        const noise = context.createBufferSource();
+        const filter = context.createBiquadFilter();
+        const noiseGain = context.createGain();
         noise.buffer = noiseBuffer;
         filter.type = "highpass";
         filter.frequency.value = 900;
         noiseGain.gain.setValueAtTime(.17, start);
         noiseGain.gain.exponentialRampToValueAtTime(.001, start + .27);
-        noise.connect(filter).connect(noiseGain).connect(audioContext.destination);
+        noise.connect(filter).connect(noiseGain).connect(context.destination);
         noise.start(start);
 
         [1318.51, 1760, 2093].forEach((frequency, index) => {
-          const sparkle = audioContext.createOscillator();
-          const sparkleGain = audioContext.createGain();
+          const sparkle = context.createOscillator();
+          const sparkleGain = context.createGain();
           const sparkleStart = start + .08 + index * .08;
           sparkle.type = "sine";
           sparkle.frequency.value = frequency;
           sparkleGain.gain.setValueAtTime(.001, sparkleStart);
           sparkleGain.gain.exponentialRampToValueAtTime(.105, sparkleStart + .012);
           sparkleGain.gain.exponentialRampToValueAtTime(.001, sparkleStart + .16);
-          sparkle.connect(sparkleGain).connect(audioContext.destination);
+          sparkle.connect(sparkleGain).connect(context.destination);
           sparkle.start(sparkleStart);
           sparkle.stop(sparkleStart + .17);
         });
@@ -1903,7 +2199,109 @@
     }
 
     function isDialogOpen() { return elements.keypad.open || elements.settingsDialog.open; }
-    function isInteractionLocked() { return Boolean(state && state.animationState) || solverRunning || isDialogOpen(); }
+
+    function isMotionDraining() {
+      return Boolean(state && (state.animationState || state.dropQueue.length ||
+        state.onesAcceptedCursor !== state.onesCursor || state.tensAcceptedCursor !== state.tensCursor));
+    }
+
+    function isInteractionLocked() { return isMotionDraining() || solverRunning || isDialogOpen(); }
+
+    function cleanupMotionOverlays() {
+      document.querySelectorAll(".motion-overlay").forEach(overlay => overlay.remove());
+    }
+
+    function settleActiveMotionImmediately() {
+      if (!isMotionDraining() && activeAnimations.size === 0) {
+        cleanupMotionOverlays();
+        return;
+      }
+      motionSkipRequested = true;
+      activeAnimations.forEach(animation => {
+        try { animation.finish(); } catch (_) { animation.cancel(); }
+      });
+      cleanupMotionOverlays();
+    }
+
+    function abandonActiveMotion() {
+      motionSession += 1;
+      activeAnimations.forEach(animation => {
+        try { animation.cancel(); } catch (_) { /* Animation may already be gone. */ }
+      });
+      activeAnimations.clear();
+      cleanupMotionOverlays();
+      dropDrainPromise = null;
+      motionSkipRequested = false;
+    }
+
+    async function animateTracked(element, keyframes, options) {
+      if (reduceMotion || motionSkipRequested || !element || typeof element.animate !== "function") return false;
+      let animation;
+      try {
+        animation = element.animate(keyframes, options);
+        activeAnimations.add(animation);
+        const completed = await new Promise(resolve => {
+          let settled = false;
+          const finish = value => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(fallbackTimer);
+            resolve(value);
+          };
+          const fallbackTimer = setTimeout(() => {
+            try { if (animation.playState !== "finished") animation.finish(); } catch (_) { /* Commit below. */ }
+            finish(true);
+          }, Math.max(32, Number(options && options.duration) || 0) + 80);
+          animation.finished.then(() => finish(true), () => finish(false));
+        });
+        if (!completed) motionSkipRequested = true;
+        return completed;
+      } catch (_) {
+        motionSkipRequested = true;
+        return false;
+      } finally {
+        if (animation) activeAnimations.delete(animation);
+      }
+    }
+
+    function rectSnapshot(element) {
+      if (!element || !element.isConnected) return null;
+      const rect = element.getBoundingClientRect();
+      if (!rect.width || !rect.height) return null;
+      return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+    }
+
+    function makeMotionOverlay(rect, className, metadata = {}) {
+      if (!rect) return null;
+      const overlay = document.createElement("span");
+      overlay.className = "motion-overlay " + className;
+      overlay.setAttribute("aria-hidden", "true");
+      Object.entries(metadata).forEach(([key, value]) => { overlay.dataset[key] = String(value); });
+      Object.assign(overlay.style, {
+        left: rect.left + "px",
+        top: rect.top + "px",
+        width: rect.width + "px",
+        height: rect.height + "px"
+      });
+      document.body.append(overlay);
+      return overlay;
+    }
+
+    function resultUnit(place, index) {
+      return elements.board.querySelector('[data-motion-role="result"][data-place="' + place + '"][data-index="' + index + '"]');
+    }
+
+    function sourceUnit(place, index) {
+      return elements.board.querySelector('[data-motion-role="source"][data-place="' + place + '"][data-index="' + index + '"]');
+    }
+
+    function flashMotionTarget(element) {
+      if (!element) return;
+      element.classList.remove("motion-target-flash");
+      void element.offsetWidth;
+      element.classList.add("motion-target-flash");
+      setTimeout(() => element.classList.remove("motion-target-flash"), 280);
+    }
 
     function clearIdleHints() {
       clearTimeout(nextUnitHintTimer);
@@ -1916,7 +2314,7 @@
 
     function idleHintsAllowed() {
       return !document.hidden && state && state.phase !== "completed" && !state.solverUsed &&
-        !solverRunning && !isDialogOpen() && !state.animationState;
+        !solverRunning && !isDialogOpen() && !isMotionDraining();
     }
 
     function noteActivity() {
@@ -1982,9 +2380,16 @@
       elements.journey.append(next);
     }
 
-    function makeUnit(owner, counted, eligible, label, traded = false) {
+    function makeUnit(owner, counted, eligible, label, traded = false, metadata = null, queued = false) {
       const unit = document.createElement(eligible ? "button" : "span");
-      unit.className = "unit owner-" + owner + (counted ? " counted" : "") + (eligible ? " eligible" : "") + (traded ? " traded" : "");
+      unit.className = "unit owner-" + owner + (counted ? " counted" : "") + (queued ? " queued" : "") +
+        (eligible ? " eligible" : "") + (traded ? " traded" : "");
+      if (metadata) {
+        unit.dataset.motionRole = metadata.role;
+        unit.dataset.place = metadata.place;
+        unit.dataset.index = String(metadata.index);
+        unit.dataset.owner = owner;
+      }
       if (eligible) {
         unit.type = "button";
         unit.setAttribute("aria-label", label);
@@ -1995,11 +2400,44 @@
       return unit;
     }
 
-    function makeEmptyUnit() {
+    function makeEmptyUnit(metadata = null) {
       const unit = document.createElement("span");
       unit.className = "empty-unit";
       unit.setAttribute("aria-hidden", "true");
+      if (metadata) {
+        unit.dataset.motionRole = metadata.role;
+        unit.dataset.place = metadata.place;
+        unit.dataset.index = String(metadata.index);
+      }
       return unit;
+    }
+
+    function placeProgress(place) {
+      if (place === "ones") {
+        return {
+          accepted: state.onesAcceptedCursor,
+          landed: state.onesCursor,
+          total: problem.onesTotal,
+          carryNeeded: Boolean(problem.carryToTens),
+          carryVisible: state.visibleOnesCarry,
+          phase: "counting-ones"
+        };
+      }
+      return {
+        accepted: state.tensAcceptedCursor,
+        landed: state.tensCursor,
+        total: problem.tensTotal,
+        carryNeeded: Boolean(problem.carryToHundreds),
+        carryVisible: state.visibleHundredsCarry,
+        phase: "counting-tens"
+      };
+    }
+
+    function canAcceptPlaceUnit(place, allowSolver = false) {
+      if (!state || state.phase === "completed") return false;
+      const progress = placeProgress(place);
+      return state.phase === progress.phase && (allowSolver || !solverRunning) &&
+        canQueuePlaceUnit(progress.accepted, progress.landed, progress.total, progress.carryNeeded, progress.carryVisible);
     }
 
     function sourceHundreds() {
@@ -2017,9 +2455,11 @@
       for (let index = 0; index < 10; index += 1) {
         if (index < digit) {
           const globalIndex = rowOffset + index;
-          const eligible = state.phase === "counting-tens" && !state.animationState && !solverRunning && state.tensCursor === globalIndex;
+          const eligible = canAcceptPlaceUnit("tens") && state.tensAcceptedCursor === globalIndex;
           const counted = state.tensCursor > globalIndex;
-          grid.append(makeUnit(owner, counted, eligible, "Count the next ten"));
+          const queued = state.tensAcceptedCursor > globalIndex && !counted;
+          grid.append(makeUnit(owner, counted, eligible, "Count the next ten", false,
+            { role: "source", place: "tens", index: globalIndex }, queued));
         } else grid.append(makeEmptyUnit());
       }
       const label = document.createElement("span");
@@ -2038,9 +2478,11 @@
       for (let index = 0; index < 10; index += 1) {
         if (index < digit) {
           const globalIndex = rowOffset + index;
-          const eligible = state.phase === "counting-ones" && !state.animationState && !solverRunning && state.onesCursor === globalIndex;
+          const eligible = canAcceptPlaceUnit("ones") && state.onesAcceptedCursor === globalIndex;
           const counted = state.onesCursor > globalIndex;
-          strip.append(makeUnit(owner, counted, eligible, "Count the next one"));
+          const queued = state.onesAcceptedCursor > globalIndex && !counted;
+          strip.append(makeUnit(owner, counted, eligible, "Count the next one", false,
+            { role: "source", place: "ones", index: globalIndex }, queued));
         } else strip.append(makeEmptyUnit());
       }
       const label = document.createElement("span");
@@ -2057,10 +2499,11 @@
       const showHundred = state.phase === "completed" ? problem.hundreds : state.visibleHundredsCarry;
       const slot = document.createElement("span");
       slot.className = "hundred-slot" + (showHundred ? " filled" : "");
+      slot.dataset.carryDestination = "hundreds";
       slot.setAttribute("aria-label", showHundred ? "One hundred" : "Empty hundreds slot");
       if (showHundred) slot.textContent = "100";
       panel.append(slot);
-      if (state.animationState === "hundreds") {
+      if (state.carryKind === "hundreds") {
         const callout = document.createElement("span");
         callout.className = "carry-callout";
         callout.textContent = "10 tens → 100";
@@ -2105,16 +2548,27 @@
         const groupCount = problem.onesTotal > 10 || state.onesCursor > 10 ? 2 : 1;
         for (let group = 0; group < groupCount; group += 1) {
           const strip = document.createElement("div");
-          strip.className = "ones-strip" + (group === 0 && state.visibleOnesCarry ? " trade-group" : "");
+          const forming = group === 0 && state.carryKind === "ones" && state.carryPhase === "formation";
+          strip.className = "ones-strip" + (group === 0 && state.visibleOnesCarry ? " trade-group" : "") +
+            (forming ? " trade-group carry-forming" : "");
           for (let local = 0; local < 10; local += 1) {
             const index = group * 10 + local;
-            if (index < state.onesCursor) strip.append(makeUnit(ownerForOnes(index), true, false, "", group === 0 && state.visibleOnesCarry));
-            else strip.append(makeEmptyUnit());
+            const metadata = { role: "result", place: "ones", index };
+            if (index < state.onesCursor) {
+              strip.append(makeUnit(ownerForOnes(index), true, false, "", group === 0 && state.visibleOnesCarry, metadata));
+            } else strip.append(makeEmptyUnit(metadata));
           }
           groups.append(strip);
         }
       }
       panel.append(groups);
+      if (state.carryKind === "ones" && state.carryPhase === "formation") {
+        const token = document.createElement("span");
+        token.className = "carry-formation-token ten-token";
+        token.dataset.carryOrigin = "ones";
+        token.setAttribute("aria-hidden", "true");
+        panel.append(token);
+      }
       const label = document.createElement("span");
       label.className = "digit-label";
       const displayedOnes = state.phase === "completed" ? problem.onesRemainder : state.onesCursor;
@@ -2133,8 +2587,10 @@
       strip.className = "ones-strip";
       const remainderOffset = problem.carryToTens ? 10 : 0;
       for (let index = 0; index < 10; index += 1) {
-        if (index < count) strip.append(makeUnit(ownerForOnes(remainderOffset + index), true, false, ""));
-        else strip.append(makeEmptyUnit());
+        const resultIndex = remainderOffset + index;
+        const metadata = { role: "result", place: "ones", index: resultIndex };
+        if (index < count) strip.append(makeUnit(ownerForOnes(resultIndex), true, false, "", false, metadata));
+        else strip.append(makeEmptyUnit(metadata));
       }
       return strip;
     }
@@ -2153,6 +2609,13 @@
         }
       }
       panel.append(groups);
+      if (state.carryKind === "hundreds" && state.carryPhase === "formation") {
+        const token = document.createElement("span");
+        token.className = "carry-formation-token hundred-token";
+        token.dataset.carryOrigin = "hundreds";
+        token.setAttribute("aria-hidden", "true");
+        panel.append(token);
+      }
       const label = document.createElement("span");
       label.className = "digit-label";
       const displayedTens = state.phase === "completed" ? problem.tensRemainder : state.tensCursor;
@@ -2163,14 +2626,20 @@
         state.phase !== "completed"
       );
       panel.append(label);
-      if (state.visibleOnesCarry && state.phase !== "completed") {
+      if (problem.carryToTens && state.phase !== "completed") {
         const source = document.createElement("span");
-        source.className = "carried-ten-source";
+        source.className = "carried-ten-source" + (state.visibleOnesCarry ? "" : " placeholder");
         source.append(document.createTextNode("carry"));
         const carryIndex = problem.originalTensTotal;
-        const eligible = state.phase === "counting-tens" && !state.animationState && !solverRunning && state.tensCursor === carryIndex;
+        const eligible = state.visibleOnesCarry && canAcceptPlaceUnit("tens") && state.tensAcceptedCursor === carryIndex;
         const counted = state.tensCursor > carryIndex;
-        source.append(makeUnit("carry", counted, eligible, "Count the gold carried ten"));
+        const queued = state.tensAcceptedCursor > carryIndex && !counted;
+        const token = state.visibleOnesCarry
+          ? makeUnit("carry", counted, eligible, "Count the gold carried ten", false,
+            { role: "source", place: "tens", index: carryIndex }, queued)
+          : makeEmptyUnit();
+        token.dataset.carryDestination = "tens";
+        source.append(token);
         panel.append(source);
       }
       return panel;
@@ -2178,11 +2647,13 @@
 
     function resultTensGrid(count, offset, traded) {
       const grid = document.createElement("div");
-      grid.className = "tens-grid" + (traded ? " trade-group" : "");
+      const forming = offset === 0 && state.carryKind === "hundreds" && state.carryPhase === "formation";
+      grid.className = "tens-grid" + (traded ? " trade-group" : "") + (forming ? " trade-group carry-forming" : "");
       for (let local = 0; local < 10; local += 1) {
         const index = offset + local;
-        if (local < count) grid.append(makeUnit(ownerForTens(index), true, false, "", traded));
-        else grid.append(makeEmptyUnit());
+        const metadata = { role: "result", place: "tens", index };
+        if (local < count) grid.append(makeUnit(ownerForTens(index), true, false, "", traded, metadata));
+        else grid.append(makeEmptyUnit(metadata));
       }
       return grid;
     }
@@ -2277,6 +2748,26 @@
       return formatPrompt(state.promptTemplate, problem);
     }
 
+    function renderPrompt() {
+      const nextPrompt = getPrompt();
+      const changed = lastRenderedPrompt !== null && lastRenderedPrompt !== nextPrompt;
+      elements.prompt.textContent = nextPrompt;
+      if (changed) {
+        beetleReactionCount += 1;
+        elements.promptMascot.dataset.reactionCount = String(beetleReactionCount);
+        recordMotion("beetle-reaction", { promptKey: state.promptKey });
+        playBeetleReactionSound();
+        elements.promptMascot.classList.remove("reacting");
+        if (!reduceMotion) {
+          void elements.promptMascot.offsetWidth;
+          elements.promptMascot.style.animationDuration = activeMotionTimings.BEETLE_REACTION + "ms";
+          elements.promptMascot.classList.add("reacting");
+          setTimeout(() => elements.promptMascot.classList.remove("reacting"), activeMotionTimings.BEETLE_REACTION + 20);
+        }
+      }
+      lastRenderedPrompt = nextPrompt;
+    }
+
     function renderSuggestions() {
       elements.suggestions.replaceChildren();
       tray.forEach((item, index) => {
@@ -2289,7 +2780,7 @@
           button.disabled = true;
           button.setAttribute("aria-current", "true");
         } else {
-          button.disabled = Boolean(state && state.animationState) || solverRunning;
+          button.disabled = isMotionDraining() || solverRunning;
           button.addEventListener("click", () => selectSuggestion(item));
         }
         elements.suggestions.append(button);
@@ -2299,19 +2790,24 @@
       dice.className = "dice";
       dice.textContent = "🎲";
       dice.setAttribute("aria-label", "Refresh the three alternative sums");
-      dice.disabled = Boolean(state && state.animationState) || solverRunning;
+      dice.disabled = isMotionDraining() || solverRunning;
       dice.addEventListener("click", refreshAlternatives);
       elements.suggestions.append(dice);
     }
 
     function render() {
+      const motionLocked = isMotionDraining();
       elements.equationA.textContent = problem.a;
       elements.equationB.textContent = problem.b;
       elements.answer.textContent = state.phase === "completed" ? problem.result : "?";
+      const answerReady = state.phase === "awaiting-answer";
+      elements.answer.classList.toggle("answer-ready", answerReady);
+      elements.answer.classList.toggle("motion-reduced", answerReady && reduceMotion);
       elements.answer.setAttribute("aria-label", state.phase === "completed" ? "Answer: " + problem.result : "Question mark. Tap to type the answer, or hold to run Solver");
-      elements.answer.disabled = state.phase === "completed" || Boolean(state.animationState) || solverRunning;
-      elements.reset.disabled = state.phase === "completed" || Boolean(state.animationState) || solverRunning;
-      elements.prompt.textContent = getPrompt();
+      elements.answer.disabled = state.phase === "completed" || motionLocked || solverRunning;
+      elements.reset.disabled = state.phase === "completed" || motionLocked || solverRunning;
+      elements.settings.disabled = motionLocked || solverRunning;
+      renderPrompt();
       elements.score.textContent = profile.score;
       elements.levelBadge.textContent = "L" + profile.currentLevel;
       elements.levelBadge.setAttribute("aria-label", "Current learning level " + profile.currentLevel);
@@ -2321,7 +2817,7 @@
       elements.levelSelect.value = String(profile.currentLevel);
       if (state.phase === "completed") {
         elements.countBadge.disabled = false;
-        elements.countBadge.className = "count-badge next";
+        elements.countBadge.className = "count-badge next success-next" + (reduceMotion ? " motion-reduced" : "");
         elements.countBadge.innerHTML = '<span class="count-label">Next →</span>';
         elements.countBadge.setAttribute("aria-label", "Open the next problem");
       } else if (state.phase === "awaiting-answer") {
@@ -2339,44 +2835,142 @@
       renderJourney();
       renderBoard();
       renderSuggestions();
-      if (state.animationState) {
-        const flight = document.createElement("span");
-        flight.className = "carry-flight" + (state.animationState === "hundreds" ? " hundred-flight" : "");
-        flight.setAttribute("aria-hidden", "true");
-        document.body.append(flight);
-        setTimeout(() => flight.remove(), reduceMotion ? 20 : 400);
-      }
     }
 
-    async function onUnitTap() {
-      if (isInteractionLocked() || state.phase === "completed") return;
+    function pause(milliseconds = 0) {
+      return new Promise(resolve => setTimeout(resolve, milliseconds));
+    }
+
+    function onUnitTap(event) {
+      const unit = event.currentTarget;
+      if (!unit || solverRunning || isDialogOpen() || state.phase === "completed") return;
       noteActivity();
-      cue(state.phase === "counting-ones" ? 510 : 380, .045);
-      await advanceOneUnit();
+      acceptPlaceUnit(unit.dataset.place, unit, false);
     }
 
-    async function advanceOneUnit() {
-      if (state.phase === "counting-ones") {
-        if (state.onesCursor >= problem.onesTotal) return finishOnesPlace();
-        state.onesCursor += 1;
-        state.tempCount = state.onesCursor;
-        announce("Count " + state.tempCount + " ones.");
-        render();
-        if (state.onesCursor === 10 && problem.carryToTens && !state.visibleOnesCarry) await performCarry("ones");
-        if (state.onesCursor >= problem.onesTotal) finishOnesPlace();
-      } else if (state.phase === "counting-tens") {
-        if (state.tensCursor >= problem.tensTotal) return finishTensPlace();
-        state.tensCursor += 1;
-        state.tempCount = state.tensCursor;
-        announce("Count " + state.tempCount + " tens.");
-        render();
-        if (state.tensCursor === 10 && problem.carryToHundreds && !state.visibleHundredsCarry) await performCarry("hundreds");
-        if (state.tensCursor >= problem.tensTotal) finishTensPlace();
+    function acceptPlaceUnit(place, unit, allowSolver) {
+      if (!allowSolver && isDialogOpen()) return null;
+      if (!canAcceptPlaceUnit(place, allowSolver)) return null;
+      const progress = placeProgress(place);
+      const index = Number(unit && unit.dataset.index);
+      if (!unit || index !== progress.accepted) return null;
+      const item = {
+        place,
+        index,
+        owner: unit.dataset.owner || (place === "ones" ? ownerForOnes(index) : ownerForTens(index)),
+        origin: rectSnapshot(unit)
+      };
+      if (place === "ones") state.onesAcceptedCursor += 1;
+      else state.tensAcceptedCursor += 1;
+      state.dropQueue.push(item);
+      state.animationState = "drop";
+      recordMotion("drop-accepted", { place, index, accepted: index + 1 });
+      render();
+      return ensureDropDrain();
+    }
+
+    function acceptNextPlaceUnitForSolver() {
+      const place = state.phase === "counting-ones" ? "ones" : state.phase === "counting-tens" ? "tens" : null;
+      if (!place || !canAcceptPlaceUnit(place, true)) return null;
+      const progress = placeProgress(place);
+      return acceptPlaceUnit(place, sourceUnit(place, progress.accepted), true);
+    }
+
+    function ensureDropDrain() {
+      if (dropDrainPromise) return dropDrainPromise;
+      const session = motionSession;
+      const promise = drainDropQueue(session);
+      dropDrainPromise = promise;
+      promise.finally(() => {
+        if (dropDrainPromise === promise) dropDrainPromise = null;
+      });
+      return promise;
+    }
+
+    async function animateDrop(item) {
+      const target = resultUnit(item.place, item.index);
+      const destination = rectSnapshot(target);
+      if (reduceMotion || motionSkipRequested || !item.origin || !destination) {
+        playDropImpact(item.place);
+        recordMotion("drop-static", { place: item.place, index: item.index });
+        if (!item.origin || !destination) motionSkipRequested = true;
+        return true;
       }
+      cleanupMotionOverlays();
+      const overlay = makeMotionOverlay(item.origin, "unit owner-" + item.owner, {
+        motionKind: "drop", place: item.place, index: item.index
+      });
+      if (!overlay) return true;
+      const deltaX = destination.left - item.origin.left;
+      const deltaY = destination.top - item.origin.top;
+      const scaleX = destination.width / item.origin.width;
+      const scaleY = destination.height / item.origin.height;
+      const translate = (x, y, xScale, yScale) =>
+        "translate(" + x.toFixed(2) + "px," + y.toFixed(2) + "px) scale(" + xScale.toFixed(3) + "," + yScale.toFixed(3) + ")";
+      recordMotion("drop-start", { place: item.place, index: item.index });
+      playDropSound(item.place, activeMotionTimings.BLOCK_FALL_LAND);
+      try {
+        await animateTracked(overlay, [
+          { offset: 0, transform: translate(0, 0, 1, 1), opacity: 1, easing: "cubic-bezier(.55,.02,.82,.45)" },
+          { offset: .72, transform: translate(deltaX, deltaY, scaleX * 1.08, scaleY * .76), opacity: 1, easing: "cubic-bezier(.18,.8,.3,1)" },
+          { offset: .86, transform: translate(deltaX, deltaY - 3, scaleX * .94, scaleY * 1.08), opacity: 1, easing: "ease-out" },
+          { offset: 1, transform: translate(deltaX, deltaY, scaleX, scaleY), opacity: 1 }
+        ], { duration: activeMotionTimings.BLOCK_FALL_LAND, fill: "forwards" });
+      } finally {
+        overlay.remove();
+      }
+      return false;
+    }
+
+    async function drainDropQueue(session) {
+      while (state && session === motionSession && state.dropQueue.length) {
+        const item = state.dropQueue[0];
+        const useStaticFlash = await animateDrop(item);
+        if (!state || session !== motionSession) return;
+        if (item.place === "ones") state.onesCursor = item.index + 1;
+        else state.tensCursor = item.index + 1;
+        state.tempCount = item.index + 1;
+        state.dropQueue.shift();
+        recordMotion("drop-landed", { place: item.place, index: item.index, landed: item.index + 1 });
+        announce("Count " + state.tempCount + " " + item.place + ".");
+
+        const carryKind = item.place === "ones" && state.onesCursor === 10 && problem.carryToTens && !state.visibleOnesCarry
+          ? "ones"
+          : item.place === "tens" && state.tensCursor === 10 && problem.carryToHundreds && !state.visibleHundredsCarry
+            ? "hundreds"
+            : null;
+        if (carryKind) {
+          state.animationState = "carry-formation";
+          render();
+          if (useStaticFlash) flashMotionTarget(resultUnit(item.place, item.index));
+          await pause(0);
+          await performCarry(carryKind, session);
+          if (!state || session !== motionSession) return;
+        } else {
+          state.animationState = state.dropQueue.length ? "drop" : null;
+          render();
+          if (useStaticFlash) flashMotionTarget(resultUnit(item.place, item.index));
+        }
+
+        if (!state.dropQueue.length) {
+          const progress = placeProgress(item.place);
+          if (progress.landed >= progress.total) {
+            if (item.place === "ones") finishOnesPlace();
+            else finishTensPlace();
+          }
+        }
+      }
+      if (state && session === motionSession && !state.dropQueue.length && state.animationState === "drop") {
+        state.animationState = null;
+        render();
+      }
+      motionSkipRequested = false;
+      if (!solverRunning) noteActivity();
     }
 
     function finishOnesPlace() {
       if (state.phase === "completed") return;
+      state.animationState = null;
       state.phase = "counting-tens";
       state.tempCount = 0;
       state.skipMessage = false;
@@ -2388,6 +2982,7 @@
 
     function finishTensPlace() {
       if (state.phase === "completed") return;
+      state.animationState = null;
       if (solverRunning) {
         completeProblem("solver");
         return;
@@ -2400,28 +2995,127 @@
       announce("Counting finished. The answer is still hidden. Tap the question mark and enter the answer.");
     }
 
-    async function performCarry(kind) {
+    async function performCarry(kind, session = motionSession) {
       const isOnes = kind === "ones";
       clearIdleHints();
       state.phase = isOnes ? "carrying-to-tens" : "carrying-to-hundreds";
-      state.animationState = kind;
+      state.animationState = "carry-formation";
+      state.carryKind = kind;
+      state.carryPhase = "formation";
       render();
-      cue(isOnes ? 620 : 720, .14);
+      recordMotion("carry-formation", { kind });
+      playGroupingSound(kind);
       announce(isOnes ? "10 ones make 1 ten." : "10 tens make 1 hundred.");
-      await new Promise(resolve => setTimeout(resolve, reduceMotion ? 12 : 350));
+
+      if (reduceMotion || motionSkipRequested) {
+        if (isOnes) state.visibleOnesCarry = true;
+        else state.visibleHundredsCarry = true;
+        state.animationState = null;
+        state.carryPhase = null;
+        state.carryKind = null;
+        state.phase = isOnes ? "counting-ones" : "counting-tens";
+        render();
+        flashMotionTarget(elements.board.querySelector('[data-carry-destination="' + (isOnes ? "tens" : "hundreds") + '"]'));
+        playCarryLanding(kind);
+        recordMotion("carry-landed", { kind, reduced: true });
+        return;
+      }
+
+      const formationToken = elements.board.querySelector('[data-carry-origin="' + kind + '"]');
+      if (formationToken) {
+        await animateTracked(formationToken, [
+          { transform: "translate(-50%,-50%) scale(.28)", opacity: .18 },
+          { offset: .7, transform: "translate(-50%,-50%) scale(1.12)", opacity: 1 },
+          { transform: "translate(-50%,-50%) scale(1)", opacity: 1 }
+        ], { duration: activeMotionTimings.CARRY_FORMATION, fill: "forwards", easing: "ease-out" });
+      } else {
+        motionSkipRequested = true;
+      }
+      if (!state || session !== motionSession) return;
+
+      const originRect = rectSnapshot(formationToken);
+      const destinationName = isOnes ? "tens" : "hundreds";
+      let destinationElement = elements.board.querySelector('[data-carry-destination="' + destinationName + '"]');
+      let destinationRect = rectSnapshot(destinationElement);
+      let overlay = null;
+      let compactSettled = false;
+      if (!destinationRect && formationToken && formationToken.isConnected && !motionSkipRequested) {
+        recordMotion("carry-compact-settle", { kind, destinationVisible: false });
+        await animateTracked(formationToken, [
+          { transform: "translate(-50%,-50%) scale(1)" },
+          { offset: .45, transform: "translate(-50%,-50%) scale(1.1,.82)" },
+          { transform: "translate(-50%,-50%) scale(1)" }
+        ], { duration: activeMotionTimings.CARRY_LANDING, easing: "ease-out" });
+        playCarryLanding(kind);
+        compactSettled = true;
+      }
+      if (originRect && destinationRect && !motionSkipRequested) {
+        overlay = makeMotionOverlay(originRect, "carry-token " + (isOnes ? "ten-token" : "hundred-token"), {
+          motionKind: "carry", carryKind: kind
+        });
+      }
+
+      state.carryPhase = "travel";
+      state.animationState = "carry-travel";
+      render();
+      destinationElement = elements.board.querySelector('[data-carry-destination="' + destinationName + '"]');
+      destinationRect = rectSnapshot(destinationElement) || destinationRect;
+
+      if (overlay && destinationRect && !motionSkipRequested) {
+        const deltaX = destinationRect.left - originRect.left;
+        const deltaY = destinationRect.top - originRect.top;
+        const scaleX = destinationRect.width / originRect.width;
+        const scaleY = destinationRect.height / originRect.height;
+        const at = (x, y, sx, sy) => "translate(" + x.toFixed(2) + "px," + y.toFixed(2) + "px) scale(" + sx.toFixed(3) + "," + sy.toFixed(3) + ")";
+        recordMotion("carry-travel", { kind, destination: destinationName });
+        playCarrySwoosh(activeMotionTimings.CARRY_TRAVEL);
+        await animateTracked(overlay, [
+          { transform: at(0, 0, 1, 1), opacity: 1 },
+          { offset: .5, transform: at(deltaX * .5, deltaY * .5 - 12, (1 + scaleX) / 2, (1 + scaleY) / 2), opacity: 1 },
+          { transform: at(deltaX, deltaY, scaleX, scaleY), opacity: 1 }
+        ], { duration: activeMotionTimings.CARRY_TRAVEL, fill: "forwards", easing: "cubic-bezier(.35,.05,.25,1)" });
+        if (!state || session !== motionSession) { overlay.remove(); return; }
+        state.carryPhase = "landing";
+        state.animationState = "carry-landing";
+        recordMotion("carry-landing", { kind });
+        playCarryLanding(kind);
+        await animateTracked(overlay, [
+          { transform: at(deltaX, deltaY, scaleX, scaleY) },
+          { offset: .38, transform: at(deltaX, deltaY + 2, scaleX * 1.12, scaleY * .82) },
+          { offset: .72, transform: at(deltaX, deltaY - 2, scaleX * .94, scaleY * 1.1) },
+          { transform: at(deltaX, deltaY, scaleX, scaleY) }
+        ], { duration: activeMotionTimings.CARRY_LANDING, fill: "forwards", easing: "ease-out" });
+        overlay.remove();
+      } else {
+        cleanupMotionOverlays();
+        if (!compactSettled) {
+          recordMotion("carry-compact-settle", { kind, destinationVisible: Boolean(destinationRect) });
+          playCarryLanding(kind);
+        }
+      }
+      if (!state || session !== motionSession) return;
       if (isOnes) state.visibleOnesCarry = true;
       else state.visibleHundredsCarry = true;
       state.animationState = null;
+      state.carryPhase = null;
+      state.carryKind = null;
       state.phase = isOnes ? "counting-ones" : "counting-tens";
       render();
-      noteActivity();
+      flashMotionTarget(elements.board.querySelector('[data-carry-destination="' + destinationName + '"]'));
+      recordMotion("carry-landed", { kind, destinationVisible: Boolean(destinationRect) });
     }
 
     function completeProblem(method) {
       if (state.phase === "completed") return;
       state.phase = "completed";
+      state.onesAcceptedCursor = problem.onesTotal;
       state.onesCursor = problem.onesTotal;
+      state.tensAcceptedCursor = problem.tensTotal;
       state.tensCursor = problem.tensTotal;
+      state.dropQueue.length = 0;
+      state.animationState = null;
+      state.carryPhase = null;
+      state.carryKind = null;
       state.visibleOnesCarry = Boolean(problem.carryToTens);
       state.visibleHundredsCarry = Boolean(problem.carryToHundreds);
       state.tempCount = problem.tensTotal;
@@ -2459,7 +3153,7 @@
     }
 
     async function runSolver() {
-      if (!state || state.phase === "completed" || solverRunning || state.animationState) return;
+      if (!state || state.phase === "completed" || solverRunning || isMotionDraining()) return;
       clearTimeout(toastTimer);
       elements.toast.classList.remove("show");
       if (isDialogOpen()) {
@@ -2475,10 +3169,12 @@
       }
       announce("Solver started from the next unfinished block.");
       render();
-      const unitDelay = reduceMotion ? 8 : 120;
       while (state.phase !== "completed") {
-        if (state.phase === "counting-ones" || state.phase === "counting-tens") await advanceOneUnit();
-        if (state.phase !== "completed") await new Promise(resolve => setTimeout(resolve, unitDelay));
+        if (state.phase === "counting-ones" || state.phase === "counting-tens") {
+          const drain = acceptNextPlaceUnitForSolver();
+          if (drain) await drain;
+        }
+        if (state.phase !== "completed") await pause(reduceMotion ? 0 : activeMotionTimings.SOLVER_GAP);
       }
       solverRunning = false;
       render();
@@ -2510,7 +3206,7 @@
     }
 
     function openKeypad() {
-      if (state.phase === "completed" || state.animationState || solverRunning) return;
+      if (state.phase === "completed" || isMotionDraining() || solverRunning) return;
       clearIdleHints();
       typedAnswer = "";
       updateTypedValue();
@@ -2550,7 +3246,7 @@
 
     function startHold(event) {
       if (event.button !== undefined && event.button !== 0) return;
-      if (state.phase === "completed" || state.animationState || solverRunning) return;
+      if (state.phase === "completed" || isMotionDraining() || solverRunning) return;
       noteActivity();
       holdStarted = true;
       holdCompleted = false;
@@ -2617,7 +3313,7 @@
     }
 
     function openSettings() {
-      if (state.animationState || solverRunning) return;
+      if (isMotionDraining() || solverRunning) return;
       clearIdleHints();
       elements.settingsDialog.showModal();
       requestAnimationFrame(() => elements.levelSelect.focus());
@@ -2696,7 +3392,13 @@
       elements.resetProgress.addEventListener("click", handleResetProgress);
       elements.closeSettings.addEventListener("click", () => elements.settingsDialog.close());
       elements.settingsDialog.addEventListener("close", noteActivity);
-      document.addEventListener("visibilitychange", () => { if (document.hidden) clearIdleHints(); else noteActivity(); });
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+          clearIdleHints();
+          settleActiveMotionImmediately();
+        } else noteActivity();
+      });
+      window.addEventListener("resize", settleActiveMotionImmediately, { passive: true });
     }
 
     async function init() {
@@ -2706,6 +3408,37 @@
       const initial = validQueryProblem() || sampleCurriculumProblem(profile.currentLevel);
       startProblem(initial);
     }
+
+    function getMotionSnapshot() {
+      return state ? {
+        phase: state.phase,
+        onesAcceptedCursor: state.onesAcceptedCursor,
+        onesLandedCursor: state.onesCursor,
+        tensAcceptedCursor: state.tensAcceptedCursor,
+        tensLandedCursor: state.tensCursor,
+        queueLength: state.dropQueue.length,
+        queueBoundary: state.phase === "counting-ones"
+          ? nextQueueBoundary(state.onesCursor, problem.onesTotal, Boolean(problem.carryToTens), state.visibleOnesCarry)
+          : nextQueueBoundary(state.tensCursor, problem.tensTotal, Boolean(problem.carryToHundreds), state.visibleHundredsCarry),
+        animationState: state.animationState,
+        carryPhase: state.carryPhase,
+        carryKind: state.carryKind,
+        visibleOnesCarry: state.visibleOnesCarry,
+        visibleHundredsCarry: state.visibleHundredsCarry,
+        solverRunning,
+        activeOverlayCount: document.querySelectorAll(".motion-overlay").length,
+        beetleReactionCount,
+        soundEffectCount,
+        reducedMotion: reduceMotion,
+        controlsLocked: isMotionDraining() || solverRunning
+      } : null;
+    }
+
+    const motionDiagnostics = Object.freeze({
+      snapshot: getMotionSnapshot,
+      events: () => motionEvents.slice(),
+      clearEvents: () => { motionEvents.length = 0; }
+    });
 
     window.NumberGarden = {
       deriveProblem,
@@ -2719,8 +3452,13 @@
       promptKeyForState,
       selectPromptTemplate,
       formatPrompt,
+      nextQueueBoundary,
+      canQueuePlaceUnit,
       LEVEL_DEFINITIONS,
       PROMPT_POOLS,
+      MOTION_TIMINGS,
+      ACTIVE_MOTION_TIMINGS: activeMotionTimings,
+      motionDiagnostics,
       constants: Object.freeze({
         LEVEL_COUNT,
         STANDARD_CURRENT_LEVEL_MIX,
@@ -2735,7 +3473,8 @@
         CURRENT_LEVEL_ADVANCEMENT_TARGET,
         HIGHER_LEVEL_ADVANCEMENT_TARGET,
         HUNDREDS_UNLOCK_LEVEL,
-        PROFILE_SCHEMA_VERSION
+        PROFILE_SCHEMA_VERSION,
+        MOTION_TIMINGS
       }),
       CATEGORY_NAMES,
       PROGRESS_EMOJIS

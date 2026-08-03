@@ -77,11 +77,18 @@
 
     async function countNextUnits(frame, count) {
       const doc = frame.contentDocument;
+      const diagnostics = frame.contentWindow.NumberGarden.motionDiagnostics;
       for (let index = 0; index < count; index += 1) {
         await waitFor(() => doc.querySelector(".unit.eligible"), "eligible unit " + (index + 1));
         const unit = doc.querySelector(".unit.eligible");
+        const place = unit.dataset.place;
+        const before = diagnostics.snapshot();
+        const landedBefore = place === "ones" ? before.onesLandedCursor : before.tensLandedCursor;
         unit.click();
-        await waitFor(() => !unit.isConnected, "counted unit " + (index + 1));
+        await waitFor(() => {
+          const snapshot = diagnostics.snapshot();
+          return (place === "ones" ? snapshot.onesLandedCursor : snapshot.tensLandedCursor) > landedBefore;
+        }, "landed unit " + (index + 1));
       }
     }
 
@@ -93,6 +100,15 @@
 
       assert(api.LEVEL_DEFINITIONS.length === 9, "nine level definitions are exposed");
       assert(api.constants.PROFILE_SCHEMA_VERSION === 2, "profile schema v2 is exposed");
+      assert(Object.isFrozen(api.MOTION_TIMINGS) && api.MOTION_TIMINGS.BLOCK_FALL_LAND === 520 &&
+        api.MOTION_TIMINGS.CARRY_FORMATION === 300 && api.MOTION_TIMINGS.CARRY_TRAVEL === 560 &&
+        api.MOTION_TIMINGS.CARRY_LANDING === 140 && api.MOTION_TIMINGS.BEETLE_REACTION === 360 &&
+        api.MOTION_TIMINGS.SOLVER_GAP === 70, "production teaching-motion timings are frozen and exposed");
+      assert(Object.isFrozen(api.ACTIVE_MOTION_TIMINGS) && api.ACTIVE_MOTION_TIMINGS.BLOCK_FALL_LAND < api.MOTION_TIMINGS.BLOCK_FALL_LAND,
+        "harness mode compresses durations without skipping the lifecycle");
+      assert(api.nextQueueBoundary(0, 18, true, false) === 10 && api.nextQueueBoundary(10, 18, true, true) === 18 &&
+        api.canQueuePlaceUnit(9, 0, 18, true, false) && !api.canQueuePlaceUnit(10, 0, 18, true, false),
+        "queue-boundary helpers close at an unfinished trade and reopen afterward");
       const promptKeys = [
         "counting-ones", "counting-tens", "counting-tens-with-carry", "skip-zero-ones", "carrying-ones",
         "carrying-hundreds", "awaiting-answer", "completed", "place-value-fallback"
@@ -227,13 +243,172 @@
       assert(migrated.currentLevel === 1 && migrated.currentLevelSuccesses === 0 && migrated.higherLevelSuccesses === 0,
         "v1 migration initializes L1 counters");
 
+      frame = await openGame("?a=1&b=1");
+      let productionMotionApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      productionMotionApi.clearEvents();
+      frame.contentDocument.querySelector(".unit.eligible").click();
+      await waitFor(() => productionMotionApi.snapshot().onesLandedCursor === 1, "real-duration production drop", 3000);
+      const productionDropEvents = productionMotionApi.events();
+      const productionDropStart = productionDropEvents.find(event => event.type === "drop-start");
+      const productionDropLanded = productionDropEvents.find(event => event.type === "drop-landed");
+      assert(productionDropStart && productionDropLanded && productionDropLanded.at - productionDropStart.at >= 480,
+        "non-harness drops retain the full production teaching duration");
+
+      frame = await openGame("?a=9&b=9&harness=1");
+      let motionDoc = frame.contentDocument;
+      let motionApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      motionApi.clearEvents();
+      const onesSource = motionDoc.querySelector('[data-motion-role="source"][data-place="ones"][data-index="0"]');
+      const onesTarget = motionDoc.querySelector('[data-motion-role="result"][data-place="ones"][data-index="0"]');
+      const onesSourceRect = onesSource.getBoundingClientRect();
+      const onesTargetRect = onesTarget.getBoundingClientRect();
+      assert(onesSource.tagName === "BUTTON" && onesSource.getAttribute("aria-label") &&
+        onesSourceRect.width > 0 && onesTargetRect.width > 0 && onesSourceRect.top < onesTargetRect.top,
+        "keyboard-capable ones sources and result slots expose stable, live downward geometry");
+      assert(onesTarget.classList.contains("empty-unit") && motionApi.snapshot().beetleReactionCount === 0,
+        "the first result target is hidden and the beetle does not animate on initial render");
+      onesSource.click();
+      let motionSnapshot = motionApi.snapshot();
+      assert(motionSnapshot.onesAcceptedCursor === 1 && motionSnapshot.onesLandedCursor === 0 && motionSnapshot.queueLength === 1,
+        "a tap acknowledges the source before its result lands");
+      assert(motionDoc.querySelector('[data-motion-role="result"][data-place="ones"][data-index="0"]').classList.contains("empty-unit"),
+        "an accepted result remains hidden during flight");
+      assert(motionSnapshot.activeOverlayCount === 1 && motionDoc.querySelectorAll(".motion-overlay").length === 1,
+        "the first queued drop creates exactly one noninteractive overlay");
+      assert(motionDoc.querySelector("#resetCurrent").disabled && motionDoc.querySelector("#answerButton").disabled &&
+        motionDoc.querySelector("#settingsButton").disabled && motionDoc.querySelector(".dice").disabled,
+        "reset, answer, Settings, and alternatives lock while queued motion drains");
+      for (let index = 1; index < 10; index += 1) {
+        const next = motionDoc.querySelector(".unit.eligible");
+        if (!next) throw new Error("rapid ones queue closed before the first trade boundary");
+        next.click();
+      }
+      motionSnapshot = motionApi.snapshot();
+      assert(motionSnapshot.onesAcceptedCursor === 10 && motionSnapshot.onesLandedCursor === 0 &&
+        !motionDoc.querySelector(".unit.eligible") && motionSnapshot.activeOverlayCount === 1,
+        "rapid taps queue through ten, close the boundary, and keep one active overlay");
+      await waitFor(() => {
+        const snapshot = motionApi.snapshot();
+        return snapshot.visibleOnesCarry && snapshot.phase === "counting-ones";
+      }, "ones carry lifecycle completion", 8000);
+      motionSnapshot = motionApi.snapshot();
+      assert(motionSnapshot.onesAcceptedCursor === 10 && motionSnapshot.onesLandedCursor === 10 &&
+        motionDoc.querySelector('.unit.eligible[data-place="ones"][data-index="10"]'),
+        "the ones queue reopens only after the carried ten lands");
+      assert(motionDoc.querySelector('[data-carry-destination="tens"].owner-carry'),
+        "the permanent carried ten appears at the measured Tens destination");
+      let motionEvents = motionApi.events();
+      const dropStarts = motionEvents.filter(event => event.type === "drop-start" && event.place === "ones");
+      const dropLandings = motionEvents.filter(event => event.type === "drop-landed" && event.place === "ones");
+      assert(dropStarts.length === 10 && dropLandings.length === 10 && dropLandings.every((event, index) => event.index === index),
+        "rapid ones drops replay and land sequentially in accepted order");
+      assert(dropStarts.slice(1).every((event, index) => motionEvents.indexOf(event) > motionEvents.indexOf(dropLandings[index])),
+        "the next drop overlay starts only after the prior overlay lands");
+      const carryFormationIndex = motionEvents.findIndex(event => event.type === "carry-formation" && event.kind === "ones");
+      const carryTravelIndex = motionEvents.findIndex(event => event.type === "carry-travel" && event.kind === "ones");
+      const carryLandingIndex = motionEvents.findIndex(event => event.type === "carry-landing" && event.kind === "ones");
+      const carryLandedIndex = motionEvents.findIndex(event => event.type === "carry-landed" && event.kind === "ones");
+      assert(carryFormationIndex >= 0 && carryFormationIndex < carryTravelIndex && carryTravelIndex < carryLandingIndex && carryLandingIndex < carryLandedIndex,
+        "ones carry records formation, measured travel, bounce, and permanent landing in order");
+      assert(motionSnapshot.beetleReactionCount === 2 &&
+        motionEvents.filter(event => event.type === "beetle-reaction").length === 2,
+        "the beetle reacts once per changed carry message and ignores unrelated queue renders");
+      assert(motionSnapshot.soundEffectCount > 0, "Sound on produces synchronized drop, carry, and beetle effects");
+      for (let index = 10; index < 18; index += 1) motionDoc.querySelector(".unit.eligible").click();
+      await waitFor(() => motionApi.snapshot().phase === "counting-tens", "remaining ones queue drain", 8000);
+
+      frame = await openGame("?a=90&b=90&harness=1");
+      motionDoc = frame.contentDocument;
+      motionApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      motionApi.clearEvents();
+      const tensSource = motionDoc.querySelector('[data-motion-role="source"][data-place="tens"][data-index="0"]');
+      const tensTarget = motionDoc.querySelector('[data-motion-role="result"][data-place="tens"][data-index="0"]');
+      assert(tensSource.getBoundingClientRect().top < tensTarget.getBoundingClientRect().top &&
+        tensSource.getBoundingClientRect().width > 0 && tensTarget.getBoundingClientRect().width > 0,
+        "tens sources and result slots expose stable, live downward geometry");
+      for (let index = 0; index < 10; index += 1) motionDoc.querySelector(".unit.eligible").click();
+      motionSnapshot = motionApi.snapshot();
+      assert(motionSnapshot.tensAcceptedCursor === 10 && motionSnapshot.tensLandedCursor === 0 && !motionDoc.querySelector(".unit.eligible"),
+        "the Tens queue also closes at its group-of-ten boundary");
+      await waitFor(() => {
+        const snapshot = motionApi.snapshot();
+        return snapshot.visibleHundredsCarry && snapshot.phase === "counting-tens";
+      }, "compact hundreds carry lifecycle", 8000);
+      assert(motionDoc.querySelector('.unit.eligible[data-place="tens"][data-index="10"]'),
+        "the Tens queue reopens after the carried hundred settles");
+      motionEvents = motionApi.events();
+      assert(motionEvents.some(event => event.type === "carry-compact-settle" && event.kind === "hundreds" && !event.destinationVisible) &&
+        !motionEvents.some(event => event.type === "carry-travel" && event.kind === "hundreds"),
+        "a diagnostic hidden-Hundreds carry settles in its source cell without off-screen travel");
+
+      frame = await openGame("?a=2&b=3&harness=1&reducedMotion=1");
+      motionDoc = frame.contentDocument;
+      motionApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      motionDoc.querySelector("#settingsButton").click();
+      motionDoc.querySelector("#settingsSoundButton").click();
+      motionDoc.querySelector("#closeSettings").click();
+      const silentBaseline = motionApi.snapshot().soundEffectCount;
+      motionApi.clearEvents();
+      motionDoc.querySelector(".unit.eligible").click();
+      await waitFor(() => motionApi.snapshot().onesLandedCursor === 1, "reduced-motion immediate commit");
+      motionSnapshot = motionApi.snapshot();
+      assert(motionSnapshot.reducedMotion && motionSnapshot.activeOverlayCount === 0 &&
+        motionApi.events().some(event => event.type === "drop-static") && !motionApi.events().some(event => event.type === "drop-start"),
+        "reduced motion commits immediately with a static target flash and no travel overlay");
+      assert(motionSnapshot.soundEffectCount === silentBaseline,
+        "Sound off gates reduced-motion learning effects");
+      await countNextUnits(frame, 4);
+      const reducedAnswer = motionDoc.querySelector("#answerButton");
+      assert(reducedAnswer.textContent === "?" && reducedAnswer.classList.contains("answer-ready") &&
+        reducedAnswer.classList.contains("motion-reduced") && getComputedStyle(reducedAnswer).animationName === "none",
+        "reduced motion replaces the finished-count question-mark flash with a strong static highlight");
+      await enterAnswer(frame, 5);
+      const reducedNext = motionDoc.querySelector("#countBadge");
+      assert(reducedNext.classList.contains("success-next") && reducedNext.classList.contains("motion-reduced") &&
+        getComputedStyle(reducedNext).animationName === "none",
+        "reduced motion replaces the successful Next animation with a strong static highlight");
+      assert(motionApi.snapshot().soundEffectCount === silentBaseline,
+        "Sound off also gates completion effects while the Next highlight remains visual");
+      motionDoc.querySelector("#settingsButton").click();
+      motionDoc.querySelector("#settingsSoundButton").click();
+      motionDoc.querySelector("#closeSettings").click();
+
+      frame = await openGame("?a=2&b=3&harness=1");
+      motionDoc = frame.contentDocument;
+      motionApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      motionDoc.querySelector(".unit.eligible").click();
+      frame.contentWindow.dispatchEvent(new Event("resize"));
+      await waitFor(() => motionApi.snapshot().onesLandedCursor === 1 && !motionApi.snapshot().controlsLocked,
+        "resize motion settlement");
+      assert(motionApi.snapshot().activeOverlayCount === 0,
+        "resize interruption removes overlays and safely commits the active drop");
+
+      frame = await openGame("?a=99&b=99&harness=1");
+      motionDoc = frame.contentDocument;
+      motionApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      motionApi.clearEvents();
+      const solverScore = motionDoc.querySelector("#scoreValue").textContent;
+      motionDoc.querySelector("#settingsButton").click();
+      motionDoc.querySelector("#runSolverButton").click();
+      await waitFor(() => motionDoc.querySelector("#answerButton").textContent === "198", "99 plus 99 Solver completion", 20000);
+      motionEvents = motionApi.events();
+      assert(motionEvents.filter(event => event.type === "drop-landed").length === 37 &&
+        motionEvents.some(event => event.type === "carry-landed" && event.kind === "ones") &&
+        motionEvents.some(event => event.type === "carry-landed" && event.kind === "hundreds"),
+        "Solver uses the full drop and both-carry teaching paths for 99 + 99");
+      assert(motionDoc.querySelector("#scoreValue").textContent === solverScore && motionApi.snapshot().activeOverlayCount === 0,
+        "99 + 99 Solver finishes cleanly without a reward");
+      assert(motionDoc.querySelector("#countBadge").classList.contains("success-next"),
+        "Solver completion highlights the Next action");
+
       frame = await openGame("?a=2&b=3&harness=1");
       let promptDoc = frame.contentDocument;
       const initialOnesPrompt = promptDoc.querySelector("#promptText").textContent;
       assert(promptMatches(api, "counting-ones", initialOnesPrompt), "a new problem starts with a counting-ones variant");
       const firstOne = promptDoc.querySelector(".unit.eligible");
       firstOne.click();
-      await waitFor(() => !firstOne.isConnected, "first one counted for prompt stability");
+      await waitFor(() => frame.contentWindow.NumberGarden.motionDiagnostics.snapshot().onesLandedCursor === 1,
+        "first one landed for prompt stability");
       assert(promptDoc.querySelector("#promptText").textContent === initialOnesPrompt,
         "the beetle prompt stays stable during repeated renders of one learning step");
       promptDoc.querySelector("#resetCurrent").click();
@@ -244,9 +419,22 @@
       await waitFor(() => promptDoc.querySelector("#countBadge").textContent.includes("Answer"), "answer step after counting ones");
       assert(promptMatches(api, "awaiting-answer", promptDoc.querySelector("#promptText").textContent),
         "finished counting shows an awaiting-answer variant");
+      const readyAnswer = promptDoc.querySelector("#answerButton");
+      assert(readyAnswer.textContent === "?" && readyAnswer.classList.contains("answer-ready") &&
+        getComputedStyle(readyAnswer).animationName === "answer-ready-pulse" &&
+        getComputedStyle(readyAnswer).animationDuration === "0.65s" &&
+        getComputedStyle(readyAnswer).animationIterationCount === "infinite",
+        "finished counting continuously flashes the question-mark answer control in sync with action feedback");
       await enterAnswer(frame, 5);
+      assert(!promptDoc.querySelector("#answerButton").classList.contains("answer-ready"),
+        "answer completion stops the question-mark flash");
       assert(promptMatches(api, "completed", promptDoc.querySelector("#promptText").textContent, { a: 2, b: 3, result: 5 }),
         "manual completion shows a correctly formatted completion variant");
+      const completedNext = promptDoc.querySelector("#countBadge");
+      assert(completedNext.classList.contains("success-next") &&
+        getComputedStyle(completedNext).animationName === "success-next-pulse" &&
+        getComputedStyle(completedNext).animationIterationCount === "infinite",
+        "successful manual completion continuously highlights and animates Next");
 
       frame = await openGame("?a=12&b=23&harness=1");
       promptDoc = frame.contentDocument;
@@ -264,6 +452,7 @@
       await countNextUnits(frame, 9);
       const tenthOne = promptDoc.querySelector(".unit.eligible");
       tenthOne.click();
+      await waitFor(() => promptMatches(api, "carrying-ones", promptDoc.querySelector("#promptText").textContent), "ones carry prompt");
       assert(promptMatches(api, "carrying-ones", promptDoc.querySelector("#promptText").textContent),
         "a ones carry shows a carrying-ones variant");
       await waitFor(() => promptDoc.querySelector(".unit.eligible"), "ones carry animation completed", 2000);
@@ -276,6 +465,7 @@
       await countNextUnits(frame, 9);
       const tenthTen = promptDoc.querySelector(".unit.eligible");
       tenthTen.click();
+      await waitFor(() => promptMatches(api, "carrying-hundreds", promptDoc.querySelector("#promptText").textContent), "hundreds carry prompt");
       assert(promptMatches(api, "carrying-hundreds", promptDoc.querySelector("#promptText").textContent),
         "a tens carry shows a carrying-hundreds variant");
 
@@ -330,6 +520,17 @@
       assert(storedL6 && storedL6.schemaVersion === 2 && storedL6.currentLevel === 6 && storedL6.currentLevelSuccesses === 0 && storedL6.higherLevelSuccesses === 0,
         "manual level override persists L6 with reset counters");
 
+      frame = await openGame("?a=50&b=50&harness=1");
+      const fullCarryDoc = frame.contentDocument;
+      const fullCarryApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      fullCarryApi.clearEvents();
+      await countNextUnits(frame, 10);
+      await waitFor(() => fullCarryApi.snapshot().visibleHundredsCarry && fullCarryApi.snapshot().phase === "awaiting-answer",
+        "visible Hundreds carry completion", 8000);
+      assert(fullCarryApi.events().some(event => event.type === "carry-travel" && event.kind === "hundreds" && event.destination === "hundreds") &&
+        fullCarryDoc.querySelector('[data-carry-destination="hundreds"].filled'),
+        "an unlocked Hundreds carry travels left and reveals its permanent destination");
+
       frame = await openGame("?reload=1");
       const reloadedDoc = frame.contentDocument;
       assert(reloadedDoc.querySelector("#levelBadge").textContent === "L6", "level persists across reload");
@@ -371,7 +572,11 @@
     run().catch(error => {
       document.body.dataset.status = "failed";
       document.title = "FAIL: Number Garden curriculum checks";
-      results.textContent = checks.join("\n") + "\n\nFAIL: " + (error.stack || error.message);
+      const currentFrame = document.querySelector("iframe");
+      const motionApi = currentFrame && currentFrame.contentWindow.NumberGarden && currentFrame.contentWindow.NumberGarden.motionDiagnostics;
+      const diagnostic = motionApi ? "\n\nMOTION: " + JSON.stringify(motionApi.snapshot()) +
+        "\nEVENTS: " + JSON.stringify(motionApi.events()) : "";
+      results.textContent = checks.join("\n") + "\n\nFAIL: " + (error.stack || error.message) + diagnostic;
     });
   </script>
 </body>
