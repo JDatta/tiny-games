@@ -22,6 +22,10 @@
       return () => values.length ? values.shift() : 0;
     }
 
+    function promptMatches(api, key, text, values = {}) {
+      return api.PROMPT_POOLS[key].some(template => api.formatPrompt(template, values) === text);
+    }
+
     function waitFor(predicate, message, timeout = 5000) {
       const started = performance.now();
       return new Promise((resolve, reject) => {
@@ -89,6 +93,47 @@
 
       assert(api.LEVEL_DEFINITIONS.length === 9, "nine level definitions are exposed");
       assert(api.constants.PROFILE_SCHEMA_VERSION === 2, "profile schema v2 is exposed");
+      const promptKeys = [
+        "counting-ones", "counting-tens", "counting-tens-with-carry", "skip-zero-ones", "carrying-ones",
+        "carrying-hundreds", "awaiting-answer", "completed", "place-value-fallback"
+      ];
+      assert(JSON.stringify(Object.keys(api.PROMPT_POOLS).sort()) === JSON.stringify(promptKeys.slice().sort()),
+        "all nine beetle prompt pools are exposed");
+      promptKeys.forEach(key => {
+        const pool = api.PROMPT_POOLS[key];
+        assert(Object.isFrozen(pool) && pool.length === 24, key + " has 24 frozen prompt variants");
+        assert(new Set(pool).size === pool.length && pool.every(message => typeof message === "string" && message.trim() === message && message.length > 0),
+          key + " contains unique non-empty prompt text");
+        assert(pool.every(message => message.length <= 90), key + " prompts stay compact for the mobile layout");
+        assert(pool.every(message => Array.from(message.matchAll(/\{([^}]+)\}/g), match => match[1]).every(token => ["a", "b", "result"].includes(token))),
+          key + " uses only supported prompt placeholders");
+      });
+      assert(Object.isFrozen(api.PROMPT_POOLS), "the beetle prompt pool collection is frozen");
+      assert(api.PROMPT_POOLS.completed.every(message => message.includes("{a}") && message.includes("{b}") && message.includes("{result}")),
+        "every completion prompt includes the full equation");
+      assert(promptKeys.filter(key => key !== "completed").every(key => api.PROMPT_POOLS[key].every(message => !message.includes("{"))),
+        "only completion prompts contain dynamic placeholders");
+      assert(api.selectPromptTemplate(["first", "second"], "first", sequence(0)) === "second",
+        "prompt selection avoids the immediately previous template");
+      assert(api.selectPromptTemplate(["only"], "only", sequence(.8)) === "only",
+        "single-entry prompt selection remains safe");
+      assert(api.formatPrompt("Nice! {a} + {b} = {result}.", { a: 68, b: 56, result: 124 }) === "Nice! 68 + 56 = 124.",
+        "prompt formatting substitutes equation values");
+      const stateKeys = [
+        [{ phase: "completed" }, "completed"],
+        [{ phase: "awaiting-answer" }, "awaiting-answer"],
+        [{ phase: "carrying-to-tens", animationState: null }, "carrying-ones"],
+        [{ phase: "counting-ones", animationState: "ones" }, "carrying-ones"],
+        [{ phase: "carrying-to-hundreds", animationState: null }, "carrying-hundreds"],
+        [{ phase: "counting-tens", animationState: "hundreds" }, "carrying-hundreds"],
+        [{ phase: "counting-tens", skipMessage: true, tensCursor: 0 }, "skip-zero-ones"],
+        [{ phase: "counting-ones" }, "counting-ones"],
+        [{ phase: "counting-tens", visibleOnesCarry: true }, "counting-tens-with-carry"],
+        [{ phase: "counting-tens", visibleOnesCarry: false }, "counting-tens"],
+        [{ phase: "unknown" }, "place-value-fallback"]
+      ];
+      assert(stateKeys.every(([candidate, expected]) => api.promptKeyForState(candidate) === expected),
+        "game states map to the correct beetle prompt pools");
       assert(api.deriveProblem(1, 99).result === 100, "deriveProblem accepts a single-digit boundary");
       assert(api.deriveProblem(99, 99).result === 198, "deriveProblem supports the maximum result");
       let rangeRejected = false;
@@ -181,6 +226,58 @@
         "v1 migration preserves rewards and sound");
       assert(migrated.currentLevel === 1 && migrated.currentLevelSuccesses === 0 && migrated.higherLevelSuccesses === 0,
         "v1 migration initializes L1 counters");
+
+      frame = await openGame("?a=2&b=3&harness=1");
+      let promptDoc = frame.contentDocument;
+      const initialOnesPrompt = promptDoc.querySelector("#promptText").textContent;
+      assert(promptMatches(api, "counting-ones", initialOnesPrompt), "a new problem starts with a counting-ones variant");
+      const firstOne = promptDoc.querySelector(".unit.eligible");
+      firstOne.click();
+      await waitFor(() => !firstOne.isConnected, "first one counted for prompt stability");
+      assert(promptDoc.querySelector("#promptText").textContent === initialOnesPrompt,
+        "the beetle prompt stays stable during repeated renders of one learning step");
+      promptDoc.querySelector("#resetCurrent").click();
+      const resetOnesPrompt = promptDoc.querySelector("#promptText").textContent;
+      assert(promptMatches(api, "counting-ones", resetOnesPrompt) && resetOnesPrompt !== initialOnesPrompt,
+        "resetting a problem selects a different counting-ones variant");
+      await countNextUnits(frame, 5);
+      await waitFor(() => promptDoc.querySelector("#countBadge").textContent.includes("Answer"), "answer step after counting ones");
+      assert(promptMatches(api, "awaiting-answer", promptDoc.querySelector("#promptText").textContent),
+        "finished counting shows an awaiting-answer variant");
+      await enterAnswer(frame, 5);
+      assert(promptMatches(api, "completed", promptDoc.querySelector("#promptText").textContent, { a: 2, b: 3, result: 5 }),
+        "manual completion shows a correctly formatted completion variant");
+
+      frame = await openGame("?a=12&b=23&harness=1");
+      promptDoc = frame.contentDocument;
+      await countNextUnits(frame, 5);
+      assert(promptMatches(api, "counting-tens", promptDoc.querySelector("#promptText").textContent),
+        "a no-carry problem shows a counting-tens variant after ones");
+
+      frame = await openGame("?a=10&b=20&harness=1");
+      promptDoc = frame.contentDocument;
+      assert(promptMatches(api, "skip-zero-ones", promptDoc.querySelector("#promptText").textContent),
+        "a zero-ones problem shows a skip-zero-ones variant");
+
+      frame = await openGame("?a=7&b=5&harness=1");
+      promptDoc = frame.contentDocument;
+      await countNextUnits(frame, 9);
+      const tenthOne = promptDoc.querySelector(".unit.eligible");
+      tenthOne.click();
+      assert(promptMatches(api, "carrying-ones", promptDoc.querySelector("#promptText").textContent),
+        "a ones carry shows a carrying-ones variant");
+      await waitFor(() => promptDoc.querySelector(".unit.eligible"), "ones carry animation completed", 2000);
+      await countNextUnits(frame, 2);
+      assert(promptMatches(api, "counting-tens-with-carry", promptDoc.querySelector("#promptText").textContent),
+        "tens counting after an ones carry shows the carried-ten instructions");
+
+      frame = await openGame("?a=50&b=50&harness=1");
+      promptDoc = frame.contentDocument;
+      await countNextUnits(frame, 9);
+      const tenthTen = promptDoc.querySelector(".unit.eligible");
+      tenthTen.click();
+      assert(promptMatches(api, "carrying-hundreds", promptDoc.querySelector("#promptText").textContent),
+        "a tens carry shows a carrying-hundreds variant");
 
       frame = await openGame("?a=97&b=87&harness=1");
       const carryDoc = frame.contentDocument;

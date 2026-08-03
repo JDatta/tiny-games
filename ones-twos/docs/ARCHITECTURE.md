@@ -10,7 +10,7 @@ Number Garden is a client-only web application contained in [`index.html`](../in
 - **Arithmetic model:** `deriveProblem(a, b)` validates addends from 1 through 99 and derives digits, place totals, remainders, carries, result, and carry category. Arithmetic does not depend on the DOM.
 - **Curriculum model:** `problemMatchesLevel()`, `generateProblemForLevel()`, `selectCurriculumLevel()`, and `sampleCurriculumProblem()` define and select L1–L9 problems. Generated models include `curriculumLevel`; L8 also has `curriculumPattern` because its arithmetic overlaps L7/L9.
 - **Session state:** `freshState()` tracks the current phase, count cursors, visible carries, animation lock, solver use, and reward status.
-- **Rendering:** `render()` coordinates focused render helpers for the journey, board, prompts, answer state, and alternative problems. Interactive units are recreated from state and only the next valid unit is enabled.
+- **Rendering:** `render()` coordinates focused render helpers for the journey, board, prompts, answer state, and alternative problems. Beetle prompts come from frozen per-step pools and are cached in transient state so unrelated renders do not change the message. Interactive units are recreated from state and only the next valid unit is enabled.
 - **Interaction controllers:** event handlers advance manual counting, run Solver from the unfinished step, collect typed answers, change problems, reset state, toggle sound/fullscreen, override levels, and manage settings.
 - **Feedback services:** Web Audio produces optional cues; DOM/CSS effects provide carry and completion animations; an ARIA live region announces state changes.
 
@@ -29,7 +29,7 @@ Problems with zero ones begin at `counting-tens`. Manual play stops at `awaiting
 
 ## Data boundaries
 
-`problem` contains derived arithmetic plus an optional sampled curriculum tag. Query-forced diagnostic problems deliberately have no tag. `state` contains temporary interaction progress. Profile schema v2 contains durable score, milestone progress, sound, current level, current-level success count, higher-level success count, schema version, and update timestamp. Keeping these separate prevents rendered CSS classes from becoming a source of truth.
+`problem` contains derived arithmetic plus an optional sampled curriculum tag. Query-forced diagnostic problems deliberately have no tag. `state` contains temporary interaction progress, including the active beetle prompt key and template. A session-only map prevents an immediate repeat when a prompt type is selected again. Profile schema v2 contains durable score, milestone progress, sound, current level, current-level success count, higher-level success count, schema version, and update timestamp. Keeping these separate prevents rendered CSS classes from becoming a source of truth.
 
 Profile data is written to IndexedDB and mirrored to a compact cookie. The newest valid copy wins at startup; if storage is unavailable, the game continues with in-memory state. Schema-v1 records migrate to L1 with zero advancement counters while preserving score, milestones, sound, and timestamp. Reset creates a fresh L1 v2 profile but carries sound forward. There is no backend, account, telemetry, or cross-device synchronization.
 

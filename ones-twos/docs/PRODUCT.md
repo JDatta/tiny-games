@@ -42,7 +42,7 @@ Generated models keep their sampled curriculum level; this matters because L8 ov
 - The mathematical blocks are the visual focus; decorative garden elements stay secondary.
 - Blue and green distinguish addends, while labels, position, and state changes ensure color is not the only cue.
 - Only the next valid block is actionable, preventing accidental or out-of-order counting.
-- Instructions change with the current step and important updates are announced to assistive technology.
+- The beetle varies its kid-friendly instructions when the learning step changes, while keeping the chosen message stable during that step; important updates are announced precisely to assistive technology.
 - Controls are touch-friendly, keyboard accessible, and compatible with reduced-motion preferences.
 - Audio is optional and never required to understand the game.
 

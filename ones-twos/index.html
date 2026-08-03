@@ -1098,6 +1098,243 @@
       ["1F451", "Crown"], ["1F3AA", "Circus tent"], ["1F3AF", "Bullseye"], ["2728", "Sparkles"]
     ];
 
+    const PROMPT_POOLS = Object.freeze(Object.fromEntries(Object.entries({
+      "counting-ones": [
+        "Tap the glowing ones, in order.",
+        "Start with the ones. Tap each glowing block in order.",
+        "Count the ones by tapping the next glowing block.",
+        "One by one! Tap the glowing ones in order.",
+        "Follow the glow and count each one.",
+        "Tap the next glowing one to keep counting.",
+        "Let's count the ones. Follow the glowing blocks.",
+        "Count each one by tapping the glow.",
+        "Find the glowing one and tap it next.",
+        "Keep the ones in order. Tap the glowing block.",
+        "Ready to count? Tap the glowing ones one at a time.",
+        "Watch for the glow, then tap the next one.",
+        "Begin in the Ones column. Follow the glow.",
+        "Tap one glowing block at a time in the Ones column.",
+        "Count along by tapping each glowing one.",
+        "The ones go first. Tap the next glow.",
+        "Follow the glowing path through the ones.",
+        "Tap, count, and move to the next glowing one.",
+        "Count the ones in order, one glowing block at a time.",
+        "Find the next glow in Ones and give it a tap.",
+        "Let's begin with ones. Tap the glow in order.",
+        "Keep counting ones by following the glow.",
+        "Tap the glowing ones from first to last.",
+        "Your next one is glowing. Tap it to count it."
+      ],
+      "counting-tens": [
+        "Now tap the glowing tens, in order.",
+        "Move to Tens and tap each glowing block in order.",
+        "Count the tens by tapping the next glowing block.",
+        "Ten by ten! Follow the glowing blocks.",
+        "Tap the next glowing ten to keep counting.",
+        "Let's count the tens. Follow the glow in order.",
+        "Count each ten by tapping its glowing block.",
+        "Find the glowing ten and tap it next.",
+        "Keep the tens in order. Tap the glow.",
+        "Ready for tens? Tap one glowing block at a time.",
+        "Watch for the glow, then tap the next ten.",
+        "Begin in the Tens column and follow the glow.",
+        "Tap one glowing block at a time in the Tens column.",
+        "Count along by tapping each glowing ten.",
+        "The tens are next. Tap the glowing block.",
+        "Follow the glowing path through the tens.",
+        "Tap, count, and move to the next glowing ten.",
+        "Count the tens in order, one glowing block at a time.",
+        "Find the next glow in Tens and give it a tap.",
+        "Let's work through the tens. Tap the glow in order.",
+        "Keep counting tens by following the glow.",
+        "Tap the glowing tens from first to last.",
+        "Your next ten is glowing. Tap it to count it.",
+        "On to the tens! Follow each glowing block."
+      ],
+      "counting-tens-with-carry": [
+        "Count both tens rows, then the gold carried ten.",
+        "Tap the two tens rows first, then tap the gold ten.",
+        "Count the regular tens in order, then the gold carried ten.",
+        "Follow both tens rows, and finish with the gold ten.",
+        "Tap each row of tens before the gold carried ten.",
+        "Count the blue and green tens, then count the gold ten.",
+        "Work through both tens rows, then tap the carried ten.",
+        "The gold ten comes last. Count both rows first.",
+        "Follow the glowing tens. The gold carried ten is last.",
+        "Count every ten in the two rows, then the gold one.",
+        "Tap the tens in both rows before tapping the gold ten.",
+        "First count the two tens rows. Then count the carried ten.",
+        "Keep the order: both tens rows, then the gold ten.",
+        "Count the regular tens first and the carried ten last.",
+        "Tap through both rows, then finish with the gold ten.",
+        "The carried ten joins after both tens rows are counted.",
+        "Count the tens rows in order, then tap the gold carry.",
+        "Both rows come first. The gold carried ten comes next.",
+        "Follow the glow across the rows, then to the gold ten.",
+        "Tap all the row tens, and finish on the gold ten.",
+        "Count the two rows first, then add the gold carried ten.",
+        "Work in order through both rows and then the gold ten.",
+        "Start with the tens rows and end with the carried ten.",
+        "Follow every glowing ten, with the gold ten last."
+      ],
+      "skip-zero-ones": [
+        "There are 0 ones, so begin with the tens.",
+        "No ones this time. Start counting the tens.",
+        "The Ones column has 0, so move to Tens.",
+        "Zero ones means the tens are first today.",
+        "There are no ones to count. Begin with Tens.",
+        "Skip the empty Ones column and start with tens.",
+        "Nothing is in Ones, so let's count the tens.",
+        "The ones total is 0. Go straight to the tens.",
+        "No ones are waiting. Start in the Tens column.",
+        "With 0 ones, we can begin counting tens.",
+        "The Ones column is empty. Tens come next.",
+        "Zero in Ones! Move over and count the tens.",
+        "We can skip Ones because there are 0 to count.",
+        "There are no one-blocks, so start with ten-blocks.",
+        "Ones are finished already. Begin with the tens.",
+        "The ones add to 0, so head to the Tens column.",
+        "No tapping is needed in Ones. Start with Tens.",
+        "This sum has 0 ones. Count the tens first.",
+        "The Ones column is clear, so begin with tens.",
+        "Skip Ones this round and follow the glowing tens.",
+        "There are zero ones. The tens are ready to count.",
+        "No ones to add here. Let's start with the tens.",
+        "Begin at Tens because the ones total is 0.",
+        "The ones make 0, so go right to counting tens."
+      ],
+      "carrying-ones": [
+        "10 ones make 1 ten. Carry it to Tens!",
+        "A group of 10 ones becomes 1 ten. Move it to Tens!",
+        "Trade 10 ones for 1 ten and carry it over.",
+        "You made 10 ones! They become 1 ten.",
+        "Bundle those 10 ones into 1 ten for the Tens column.",
+        "10 ones are the same as 1 ten. Carry the new ten.",
+        "Great grouping! Move 1 ten from the 10 ones to Tens.",
+        "Turn the group of 10 ones into 1 ten.",
+        "Those 10 ones join together as 1 ten. Carry it.",
+        "Make the trade: 10 ones for 1 ten.",
+        "A full group of 10 ones carries into the Tens column.",
+        "Pack 10 ones together to make 1 ten.",
+        "10 one-blocks become 1 ten-block. Carry it to Tens.",
+        "The 10 ones regroup as 1 ten. Move it over.",
+        "Carry time! 10 ones make exactly 1 ten.",
+        "Join 10 ones into 1 ten for the next column.",
+        "That group of 10 ones is now 1 carried ten.",
+        "Swap the 10 ones for 1 ten in the Tens column.",
+        "The ones reached 10, so carry 1 ten.",
+        "Regroup 10 ones as 1 ten and move it to Tens.",
+        "One bundle of 10 ones makes 1 new ten.",
+        "Move the new ten over: it came from 10 ones.",
+        "10 ones fit perfectly into 1 ten. Carry it across.",
+        "The ones made a group of 10. Carry 1 ten to Tens."
+      ],
+      "carrying-hundreds": [
+        "10 tens make 1 hundred. Carry it to Hundreds!",
+        "A group of 10 tens becomes 1 hundred. Move it over!",
+        "Trade 10 tens for 1 hundred and carry it.",
+        "You made 10 tens! They become 1 hundred.",
+        "Bundle those 10 tens into 1 hundred for Hundreds.",
+        "10 tens are the same as 1 hundred. Carry it over.",
+        "Great grouping! Move 1 hundred from the 10 tens.",
+        "Turn the group of 10 tens into 1 hundred.",
+        "Those 10 tens join together as 1 hundred. Carry it.",
+        "Make the trade: 10 tens for 1 hundred.",
+        "A full group of 10 tens carries into Hundreds.",
+        "Pack 10 tens together to make 1 hundred.",
+        "10 ten-blocks become 1 hundred-block. Carry it over.",
+        "The 10 tens regroup as 1 hundred. Move it across.",
+        "Carry time! 10 tens make exactly 1 hundred.",
+        "Join 10 tens into 1 hundred for the next column.",
+        "That group of 10 tens is now 1 carried hundred.",
+        "Swap the 10 tens for 1 hundred in Hundreds.",
+        "The tens reached 10, so carry 1 hundred.",
+        "Regroup 10 tens as 1 hundred and move it over.",
+        "One bundle of 10 tens makes 1 new hundred.",
+        "Move the new hundred over: it came from 10 tens.",
+        "10 tens fit perfectly into 1 hundred. Carry it across.",
+        "The tens made a group of 10. Carry 1 to Hundreds."
+      ],
+      "awaiting-answer": [
+        "Counting is finished! Tap ? and enter the answer.",
+        "You counted every block. Tap ? to give your answer.",
+        "All counted! Tap ? and type the total.",
+        "The blocks are counted. Tap ? to enter the sum.",
+        "Ready to solve it? Tap ? and enter your answer.",
+        "Nice counting! Tap ? and tell me the total.",
+        "Now use your count. Tap ? and type the answer.",
+        "Counting complete! Tap ? to enter the total.",
+        "You reached the end. Tap ? and give the answer.",
+        "What is the total? Tap ? and type it in.",
+        "The counting is done. Tap ? to answer.",
+        "Use the blocks to help. Tap ? and enter the total.",
+        "Every block is counted. Tap ? to finish the sum.",
+        "Time for your answer! Tap ? and type the total.",
+        "Great counting. Tap ? to enter what you found.",
+        "You have the count! Tap ? and enter the answer.",
+        "Let's finish the sum. Tap ? and type your answer.",
+        "The total is ready. Tap ? to enter it.",
+        "What did the blocks make? Tap ? and answer.",
+        "Count complete! Tap ? and put in the total.",
+        "Now show your answer. Tap ? and type it.",
+        "You counted them all. Tap ? to solve the equation.",
+        "The blocks are ready. Tap ? and enter the answer.",
+        "Finish strong! Tap ? and type the total."
+      ],
+      "completed": [
+        "Wonderful! {a} + {b} = {result}.",
+        "Great work! {a} + {b} = {result}.",
+        "You got it! {a} + {b} = {result}.",
+        "Super counting! {a} + {b} = {result}.",
+        "That's right! {a} + {b} = {result}.",
+        "Fantastic! {a} + {b} = {result}.",
+        "Math star! {a} + {b} = {result}.",
+        "Brilliant job! {a} + {b} = {result}.",
+        "Well done! {a} + {b} = {result}.",
+        "Amazing adding! {a} + {b} = {result}.",
+        "Terrific! {a} + {b} = {result}.",
+        "You solved it! {a} + {b} = {result}.",
+        "Excellent work! {a} + {b} = {result}.",
+        "Hooray! {a} + {b} = {result}.",
+        "Nice adding! {a} + {b} = {result}.",
+        "Correct! {a} + {b} = {result}.",
+        "You did the math! {a} + {b} = {result}.",
+        "Super job! {a} + {b} = {result}.",
+        "What a solve! {a} + {b} = {result}.",
+        "You found it! {a} + {b} = {result}.",
+        "Bright thinking! {a} + {b} = {result}.",
+        "Great counting and adding! {a} + {b} = {result}.",
+        "That sum is solved! {a} + {b} = {result}.",
+        "Number power! {a} + {b} = {result}."
+      ],
+      "place-value-fallback": [
+        "Build the answer with place values.",
+        "Use the ones, tens, and hundreds to find the answer.",
+        "Let the place-value blocks guide you.",
+        "Work through each place to build the total.",
+        "Count by place value to solve the sum.",
+        "Build the total one place at a time.",
+        "Use each column to help find the answer.",
+        "Follow the place values and make the total.",
+        "Solve it step by step with the blocks.",
+        "The place-value blocks will show the way.",
+        "Start with the blocks and build the answer.",
+        "Use the columns to put the total together.",
+        "Count each place and find the sum.",
+        "Make the answer from ones, tens, and hundreds.",
+        "Work across the place values to solve it.",
+        "Let each column add a piece to the answer.",
+        "Build this sum with the place-value blocks.",
+        "Count carefully through each place.",
+        "Use the board to put the answer together.",
+        "Follow the columns and discover the total.",
+        "Each place value helps build the answer.",
+        "Use the blocks to solve one place at a time.",
+        "Put the ones, tens, and hundreds together.",
+        "Follow the place-value steps to the total."
+      ]
+    }).map(([key, messages]) => [key, Object.freeze(messages)])));
+
     const CATEGORY_NAMES = ["No carry", "Ones-only carry", "Tens-only carry", "Two carries"];
     const LEVEL_COUNT = 9;
     const STANDARD_CURRENT_LEVEL_MIX = 0.50;
@@ -1166,6 +1403,7 @@
     let audioContext = null;
     let hundredsUnlockPending = false;
     const curriculumPairCache = new Map();
+    const lastPromptTemplateByKey = Object.create(null);
 
     function defaultProfile() {
       return {
@@ -1242,7 +1480,9 @@
         animationState: null,
         solverUsed: false,
         rewardAwarded: false,
-        skipMessage: skipOnes
+        skipMessage: skipOnes,
+        promptKey: null,
+        promptTemplate: ""
       };
     }
 
@@ -2006,17 +2246,35 @@
       }
     }
 
+    function promptKeyForState(currentState) {
+      if (currentState.phase === "completed") return "completed";
+      if (currentState.phase === "awaiting-answer") return "awaiting-answer";
+      if (currentState.animationState === "ones" || currentState.phase === "carrying-to-tens") return "carrying-ones";
+      if (currentState.animationState === "hundreds" || currentState.phase === "carrying-to-hundreds") return "carrying-hundreds";
+      if (currentState.skipMessage && currentState.phase === "counting-tens" && currentState.tensCursor === 0) return "skip-zero-ones";
+      if (currentState.phase === "counting-ones") return "counting-ones";
+      if (currentState.phase === "counting-tens") return currentState.visibleOnesCarry ? "counting-tens-with-carry" : "counting-tens";
+      return "place-value-fallback";
+    }
+
+    function selectPromptTemplate(pool, previousTemplate = "", random = Math.random) {
+      if (!Array.isArray(pool) || !pool.length) return "";
+      const choices = pool.length > 1 ? pool.filter(template => template !== previousTemplate) : pool;
+      return choices[Math.floor(normalizedRandom(random) * choices.length)];
+    }
+
+    function formatPrompt(template, values = {}) {
+      return String(template).replace(/\{(a|b|result)\}/g, (_, key) => String(values[key] ?? ""));
+    }
+
     function getPrompt() {
-      if (state.phase === "completed") return "Wonderful! " + problem.a + " + " + problem.b + " = " + problem.result + ".";
-      if (state.phase === "awaiting-answer") return "Counting is finished! Tap ? and enter the answer.";
-      if (state.animationState === "ones") return "10 ones make 1 ten. Carry it to Tens!";
-      if (state.animationState === "hundreds") return "10 tens make 1 hundred. Carry it to Hundreds!";
-      if (state.phase === "carrying-to-tens") return "10 ones make 1 ten.";
-      if (state.phase === "carrying-to-hundreds") return "10 tens make 1 hundred.";
-      if (state.skipMessage && state.phase === "counting-tens" && state.tensCursor === 0) return "There are 0 ones, so begin with the tens.";
-      if (state.phase === "counting-ones") return "Tap the glowing ones, in order.";
-      if (state.phase === "counting-tens") return state.visibleOnesCarry ? "Now count both tens rows, then the gold carried ten." : "Now tap the glowing tens, in order.";
-      return "Build the answer with place values.";
+      const key = promptKeyForState(state);
+      if (state.promptKey !== key || !state.promptTemplate) {
+        state.promptKey = key;
+        state.promptTemplate = selectPromptTemplate(PROMPT_POOLS[key], lastPromptTemplateByKey[key]);
+        lastPromptTemplateByKey[key] = state.promptTemplate;
+      }
+      return formatPrompt(state.promptTemplate, problem);
     }
 
     function renderSuggestions() {
@@ -2458,7 +2716,11 @@
       applyProgressForSuccess,
       validateProfile,
       defaultProfile,
+      promptKeyForState,
+      selectPromptTemplate,
+      formatPrompt,
       LEVEL_DEFINITIONS,
+      PROMPT_POOLS,
       constants: Object.freeze({
         LEVEL_COUNT,
         STANDARD_CURRENT_LEVEL_MIX,
