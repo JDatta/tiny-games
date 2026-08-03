@@ -3327,7 +3327,16 @@
       clearTimeout(holdTimer);
       holdTimer = 0;
       elements.answer.classList.remove("holding");
-      if (!holdCompleted && event.type !== "pointercancel") openKeypad();
+      if (event.type === "pointercancel") holdCompleted = true;
+    }
+
+    function handleAnswerClick(event) {
+      event.preventDefault();
+      if (holdCompleted) {
+        holdCompleted = false;
+        return;
+      }
+      openKeypad();
     }
 
     function toggleSound() {
@@ -3449,7 +3458,7 @@
       elements.answer.addEventListener("pointerup", endHold);
       elements.answer.addEventListener("pointercancel", endHold);
       elements.answer.addEventListener("contextmenu", event => event.preventDefault());
-      elements.answer.addEventListener("click", event => event.preventDefault());
+      elements.answer.addEventListener("click", handleAnswerClick);
       elements.answer.addEventListener("keydown", event => {
         if ((event.key === "Enter" || event.key === " ") && !event.repeat) {
           event.preventDefault();

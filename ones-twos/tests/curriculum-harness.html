@@ -543,7 +543,12 @@
       settingsDialog.close();
 
       const keypadDialog = doc.querySelector("#keypadDialog");
-      keypadDialog.showModal();
+      const answerButton = doc.querySelector("#answerButton");
+      answerButton.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      answerButton.dispatchEvent(new Event("pointerup", { bubbles: true }));
+      assert(!keypadDialog.open, "the answer dialog waits for the tap's click before opening");
+      answerButton.click();
+      assert(keypadDialog.open, "the completed tap opens the answer dialog without a trailing activation");
       doc.querySelector("#keypadTitle").click();
       assert(keypadDialog.open, "clicking inside the answer dialog keeps it open");
       keypadDialog.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 0, clientY: 0 }));
