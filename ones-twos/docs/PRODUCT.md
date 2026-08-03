@@ -52,7 +52,7 @@ A correct typed answer on the current sampled level increments the current-level
 
 The top bar always shows the learner’s current level immediately after the bee. Below L6, the board contains Labels, Tens, and Ones. L6 previews the Hundreds column before L7 first requires it. Crossing upward into L6 through organic advancement or Settings animates or statically highlights the new column, announces it, and optionally sounds it; ordinary reloads do not replay the unlock.
 
-Score, milestones, level, two advancement counters, and sound preference persist when browser storage permits. Settings provides L1–L9 override, sound, Solver, and Reset Progress. A manual level selection starts a new weighted problem and clears both counters. Confirmed reset returns to L1 with zero coins, milestones, and counters while retaining sound. Supported browsers also receive a fullscreen control.
+Score, milestones, level, two advancement counters, and sound preference persist when browser storage permits. Settings provides L1–L9 override, sound, Solver, Reset Progress, and an in-dialog About view with the app's author, version, and license. A manual level selection starts a new weighted problem and clears both counters. Confirmed reset returns to L1 with zero coins, milestones, and counters while retaining sound. Supported browsers also receive a fullscreen control.
 
 ## Scope and non-goals
 

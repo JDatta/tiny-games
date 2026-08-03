@@ -961,6 +961,50 @@
     .sheet h2 { margin: 0 0 5px; font-size: 21px; }
     .sheet p { margin: 4px 0 10px; color: var(--muted); font-size: 13px; line-height: 1.35; }
 
+    .settings-sheet-header {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .settings-sheet-header h2 { margin: 0; }
+    .settings-back {
+      width: 44px;
+      height: 44px;
+      flex: 0 0 44px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      border: 1px solid #c9d4e2;
+      border-radius: 14px;
+      background: #f4f7fb;
+      font-size: 25px;
+      font-weight: 900;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .settings-back[hidden], .settings-view[hidden], .about-view[hidden] { display: none; }
+
+    .about-details {
+      margin: 8px 0 0;
+      border: 1px solid #d8e1eb;
+      border-radius: 14px;
+      background: #f9fbfe;
+      overflow: hidden;
+    }
+    .about-details div {
+      min-height: 54px;
+      padding: 9px 11px;
+      display: grid;
+      grid-template-columns: minmax(76px, .7fr) minmax(0, 1.3fr);
+      align-items: center;
+      gap: 12px;
+    }
+    .about-details div + div { border-top: 1px solid #d8e1eb; }
+    .about-details dt { color: var(--muted); font-size: 13px; font-weight: 800; }
+    .about-details dd { margin: 0; font-size: 14px; font-weight: 900; }
+    .about-details dd[data-version] { font-variant-numeric: tabular-nums; }
+
     .keypad-display {
       min-height: 48px;
       margin: 8px 0;
@@ -1204,30 +1248,43 @@
   <dialog id="settingsDialog" aria-labelledby="settingsTitle">
     <div class="sheet">
       <div class="sheet-handle" aria-hidden="true"></div>
-      <h2 id="settingsTitle" tabindex="-1" autofocus>Garden settings</h2>
-      <p>Tap <strong>?</strong> to type an answer. Hold it for about a second to let Solver continue from your place.</p>
-      <div class="setting-row">
-        <label for="levelSelect">Practice level</label>
-        <select id="levelSelect" class="level-select" aria-describedby="levelHelp">
-          <option value="1">L1</option><option value="2">L2</option><option value="3">L3</option>
-          <option value="4">L4</option><option value="5">L5</option><option value="6">L6</option>
-          <option value="7">L7</option><option value="8">L8</option><option value="9">L9</option>
-        </select>
+      <div class="settings-sheet-header">
+        <button id="settingsBackButton" class="settings-back" type="button" aria-label="Back to settings" hidden>←</button>
+        <h2 id="settingsTitle" tabindex="-1" autofocus>Garden settings</h2>
       </div>
-      <p id="levelHelp">Changing level starts a fresh problem and resets the two advancement counters.</p>
-      <div class="setting-row">
-        <span>Sound effects</span>
-        <button id="settingsSoundButton" class="sheet-button" type="button" aria-label="Turn sound off" aria-pressed="true">🔊 On</button>
+      <div id="settingsView" class="settings-view">
+        <p>Tap <strong>?</strong> to type an answer. Hold it for about a second to let Solver continue from your place.</p>
+        <div class="setting-row">
+          <label for="levelSelect">Practice level</label>
+          <select id="levelSelect" class="level-select" aria-describedby="levelHelp">
+            <option value="1">L1</option><option value="2">L2</option><option value="3">L3</option>
+            <option value="4">L4</option><option value="5">L5</option><option value="6">L6</option>
+            <option value="7">L7</option><option value="8">L8</option><option value="9">L9</option>
+          </select>
+        </div>
+        <p id="levelHelp">Changing level starts a fresh problem and resets the two advancement counters.</p>
+        <div class="setting-row">
+          <span>Sound effects</span>
+          <button id="settingsSoundButton" class="sheet-button" type="button" aria-label="Turn sound off" aria-pressed="true">🔊 On</button>
+        </div>
+        <div class="setting-row">
+          <span>Step through the blocks automatically</span>
+          <button id="runSolverButton" class="sheet-button primary" type="button">Run Solver</button>
+        </div>
+        <div class="setting-row">
+          <span>Erase coins, milestones, and level progress</span>
+          <button id="resetProgressButton" class="sheet-button danger" type="button">Reset Progress</button>
+        </div>
+        <button id="openAboutButton" class="sheet-button full" type="button">About Number Garden</button>
+        <button id="closeSettings" class="sheet-button full" type="button">Done</button>
       </div>
-      <div class="setting-row">
-        <span>Step through the blocks automatically</span>
-        <button id="runSolverButton" class="sheet-button primary" type="button">Run Solver</button>
+      <div id="aboutView" class="about-view" hidden>
+        <dl class="about-details">
+          <div><dt>Author</dt><dd>Joydip Datta</dd></div>
+          <div><dt>Version</dt><dd data-version>0.1a_29e687</dd></div>
+          <div><dt>License</dt><dd>All rights reserved.</dd></div>
+        </dl>
       </div>
-      <div class="setting-row">
-        <span>Erase coins, milestones, and level progress</span>
-        <button id="resetProgressButton" class="sheet-button danger" type="button">Reset Progress</button>
-      </div>
-      <button id="closeSettings" class="sheet-button full" type="button">Done</button>
     </div>
   </dialog>
 
@@ -1551,7 +1608,8 @@
       suggestions: $("#suggestions"), keypad: $("#keypadDialog"), keypadForm: $("#keypadForm"),
       keypadEquation: $("#keypadEquation"), typed: $("#typedValue"), keypadDisplay: $("#keypadDisplay"),
       check: $("#checkAnswer"), settingsDialog: $("#settingsDialog"), settingsTitle: $("#settingsTitle"),
-      levelSelect: $("#levelSelect"),
+      settingsView: $("#settingsView"), aboutView: $("#aboutView"), settingsBack: $("#settingsBackButton"),
+      openAbout: $("#openAboutButton"), levelSelect: $("#levelSelect"),
       sound: $("#settingsSoundButton"), runSolver: $("#runSolverButton"),
       resetProgress: $("#resetProgressButton"), closeSettings: $("#closeSettings"), toast: $("#toast"), live: $("#liveRegion")
     };
@@ -3313,9 +3371,26 @@
       if (isSupported) syncFullscreenControl();
     }
 
+    function showSettingsView(restoreFocus = false) {
+      elements.settingsTitle.textContent = "Garden settings";
+      elements.settingsBack.hidden = true;
+      elements.aboutView.hidden = true;
+      elements.settingsView.hidden = false;
+      if (restoreFocus) elements.openAbout.focus();
+    }
+
+    function showAboutView() {
+      elements.settingsTitle.textContent = "About";
+      elements.settingsView.hidden = true;
+      elements.aboutView.hidden = false;
+      elements.settingsBack.hidden = false;
+      elements.settingsTitle.focus();
+    }
+
     function openSettings() {
       if (isMotionDraining() || solverRunning) return;
       clearIdleHints();
+      showSettingsView();
       elements.settingsDialog.showModal();
       elements.settingsTitle.focus();
     }
@@ -3401,9 +3476,14 @@
       });
       elements.runSolver.addEventListener("click", runSolver);
       elements.resetProgress.addEventListener("click", handleResetProgress);
+      elements.openAbout.addEventListener("click", showAboutView);
+      elements.settingsBack.addEventListener("click", () => showSettingsView(true));
       elements.closeSettings.addEventListener("click", () => elements.settingsDialog.close());
       elements.settingsDialog.addEventListener("click", dismissDialogFromBackdrop);
-      elements.settingsDialog.addEventListener("close", noteActivity);
+      elements.settingsDialog.addEventListener("close", () => {
+        showSettingsView();
+        noteActivity();
+      });
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
           clearIdleHints();

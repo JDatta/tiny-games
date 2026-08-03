@@ -519,6 +519,29 @@
       assert(!settingsDialog.open && settingsDialog.returnValue === "cancel",
         "clicking outside Settings dismisses it like Cancel");
 
+      doc.querySelector("#settingsButton").click();
+      doc.querySelector("#openAboutButton").click();
+      assert(settingsDialog.open && doc.querySelector("#settingsView").hidden && !doc.querySelector("#aboutView").hidden &&
+        doc.querySelector("#settingsTitle").textContent === "About" && doc.activeElement === doc.querySelector("#settingsTitle"),
+        "About replaces Settings inside the same dialog and focuses its title");
+      const aboutValues = Array.from(doc.querySelectorAll(".about-details dd"), item => item.textContent);
+      assert(JSON.stringify(aboutValues) === JSON.stringify(["Joydip Datta", "0.1a_29e687", "All rights reserved."]),
+        "About shows the author, commit-stamped version, and license");
+      assert(doc.querySelector("#settingsBackButton").getAttribute("aria-label") === "Back to settings",
+        "About provides an accessible back arrow");
+      doc.querySelector("#settingsBackButton").click();
+      assert(!doc.querySelector("#settingsView").hidden && doc.querySelector("#aboutView").hidden &&
+        doc.querySelector("#settingsTitle").textContent === "Garden settings" && doc.activeElement === doc.querySelector("#openAboutButton"),
+        "the About back arrow restores Settings and returns focus to its trigger");
+      doc.querySelector("#openAboutButton").click();
+      settingsDialog.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 0, clientY: 0 }));
+      assert(!settingsDialog.open, "clicking outside About dismisses the shared Settings dialog");
+      doc.querySelector("#settingsButton").click();
+      assert(!doc.querySelector("#settingsView").hidden && doc.querySelector("#aboutView").hidden &&
+        doc.querySelector("#settingsTitle").textContent === "Garden settings",
+        "reopening Settings after dismissing About starts on the main view");
+      settingsDialog.close();
+
       const keypadDialog = doc.querySelector("#keypadDialog");
       keypadDialog.showModal();
       doc.querySelector("#keypadTitle").click();
