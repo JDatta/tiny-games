@@ -110,6 +110,21 @@
       filter: drop-shadow(0 2px 2px rgba(50,70,90,.12));
     }
 
+    .level-badge {
+      flex: 0 0 38px;
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 2px solid #7656ca;
+      border-radius: 13px;
+      color: #5036a4;
+      background: #f4f0ff;
+      font-size: 14px;
+      font-weight: 950;
+      box-shadow: 0 3px 0 rgba(80,54,164,.11);
+    }
+
     .journey {
       min-width: 0;
       flex: 1;
@@ -364,6 +379,21 @@
       overflow: hidden;
     }
 
+    .board.compact {
+      grid-template-columns: 64px 82px minmax(0, 1fr);
+    }
+
+    .board.unlocking .column-title.hundreds,
+    .board.unlocking .place-panel.hundreds {
+      animation: hundreds-unlock 1.35s ease-out;
+    }
+
+    @keyframes hundreds-unlock {
+      0% { transform: scale(.55); opacity: 0; box-shadow: 0 0 0 12px rgba(114,86,201,.22); }
+      48% { transform: scale(1.08); opacity: 1; box-shadow: 0 0 0 7px rgba(114,86,201,.16); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(114,86,201,0); }
+    }
+
     .column-title {
       min-width: 0;
       display: grid;
@@ -449,6 +479,9 @@
       box-shadow: 0 1px 3px rgba(46,64,88,.08);
     }
 
+    .digit-label .place-count { display: inline-flex; }
+    .digit-label .carry-digit { color: #aeb6c2; }
+
     .hundred-slot {
       width: 31px;
       height: 38px;
@@ -524,8 +557,11 @@
     .unit.eligible {
       z-index: 2;
       cursor: pointer;
-      animation: eligible-pulse 1s ease-in-out infinite;
       box-shadow: 0 0 0 4px rgba(114,86,201,.25), 0 0 0 8px rgba(114,86,201,.08);
+    }
+
+    .unit.eligible.next-unit-hint {
+      animation: next-unit-throb 1.15s ease-in-out infinite;
     }
 
     .unit.eligible::after {
@@ -534,7 +570,18 @@
       inset: -7px -4px;
     }
 
-    @keyframes eligible-pulse { 50% { transform: scale(1.08); filter: brightness(1.1); } }
+    @keyframes next-unit-throb {
+      0%, 100% {
+        transform: scale(1);
+        filter: brightness(1);
+        box-shadow: 0 0 0 4px rgba(114,86,201,.25), 0 0 0 8px rgba(114,86,201,.08);
+      }
+      50% {
+        transform: scale(1.12);
+        filter: brightness(1.22);
+        box-shadow: 0 0 0 7px rgba(114,86,201,.34), 0 0 0 15px rgba(114,86,201,.1), 0 0 18px 8px rgba(114,86,201,.2);
+      }
+    }
 
     .result-groups {
       width: 100%;
@@ -845,23 +892,36 @@
       border-radius: 14px;
       background: #f9fbfe;
     }
-    .setting-row span { font-size: 13px; font-weight: 800; }
+    .setting-row span, .setting-row label { font-size: 13px; font-weight: 800; }
     .setting-row button { flex: 0 0 auto; }
+
+    .level-select {
+      min-width: 82px;
+      min-height: 44px;
+      padding: 6px 28px 6px 10px;
+      border: 1px solid #9f8bd9;
+      border-radius: 12px;
+      color: #5036a4;
+      background: #f4f0ff;
+      font-weight: 950;
+      cursor: pointer;
+    }
 
     @media (max-width: 480px) {
       .topbar { gap: 4px; }
       .journey { gap: 1px; padding-left: 3px; padding-right: 3px; }
-      .milestone { width: 24px; height: 24px; flex-basis: 24px; font-size: 18px; }
-    }
-
-    @media (max-width: 430px) {
-      .fullscreen-supported .bee { display: none; }
+      .milestone { width: 20px; height: 24px; flex-basis: 20px; font-size: 16px; }
     }
 
     @media (max-width: 379px) {
       .score { min-width: 60px; padding: 0 6px; }
+      .bee, .level-badge { width: 34px; height: 34px; flex-basis: 34px; }
+      .bee { font-size: 21px; }
+      .level-badge { font-size: 13px; }
+      .icon-button { width: 40px; flex-basis: 40px; }
       .equation-card { padding-left: 7px; gap: 6px; }
       .board { grid-template-columns: 62px 50px 78px minmax(0, 1fr); }
+      .board.compact { grid-template-columns: 62px 78px minmax(0, 1fr); }
       .row-label { grid-template-columns: 18px minmax(0, 1fr); }
       .addend-badge { width: 38px; }
     }
@@ -888,6 +948,7 @@
     @media (min-width: 600px) {
       .app { padding-left: 20px; padding-right: 20px; }
       .board { grid-template-columns: 90px 80px 150px minmax(0,1fr); }
+      .board.compact { grid-template-columns: 90px 150px minmax(0,1fr); }
       .tens-grid { max-width: 128px; gap: 3px 5px; }
       .tens-grid .unit, .tens-grid .empty-unit { height: 10px; }
       .ones-strip { gap: 3px; max-width: 330px; }
@@ -898,6 +959,14 @@
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
       .unit.eligible { outline: 3px solid rgba(114,86,201,.55); animation: none; }
+      .unit.eligible.next-unit-hint {
+        outline: 5px solid rgba(114,86,201,.85);
+        outline-offset: 3px;
+        filter: brightness(1.18);
+        box-shadow: 0 0 0 7px rgba(114,86,201,.28), 0 0 16px 8px rgba(114,86,201,.18);
+      }
+      .board.unlocking .column-title.hundreds,
+      .board.unlocking .place-panel.hundreds { outline: 4px solid rgba(114,86,201,.45); outline-offset: -2px; animation: none; }
     }
   </style>
 </head>
@@ -907,9 +976,9 @@
 
     <header class="topbar">
       <div class="bee" aria-hidden="true">🐝</div>
+      <div id="levelBadge" class="level-badge" role="status" aria-label="Current learning level 1">L1</div>
       <div id="journey" class="journey" aria-label="Garden milestones"></div>
       <div class="score" aria-label="Coin score"><span aria-hidden="true">🪙</span><span id="scoreValue">0</span></div>
-      <button id="soundButton" class="icon-button" type="button" aria-label="Turn sound off" aria-pressed="true">🔊</button>
       <button id="settingsButton" class="icon-button" type="button" aria-label="Open settings">⚙️</button>
       <button id="fullscreenButton" class="icon-button fullscreen-button" type="button" aria-label="Enter fullscreen" aria-pressed="false" title="Enter fullscreen" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -988,11 +1057,24 @@
       <h2 id="settingsTitle">Garden settings</h2>
       <p>Tap <strong>?</strong> to type an answer. Hold it for about a second to let Solver continue from your place.</p>
       <div class="setting-row">
+        <label for="levelSelect">Practice level</label>
+        <select id="levelSelect" class="level-select" aria-describedby="levelHelp">
+          <option value="1">L1</option><option value="2">L2</option><option value="3">L3</option>
+          <option value="4">L4</option><option value="5">L5</option><option value="6">L6</option>
+          <option value="7">L7</option><option value="8">L8</option><option value="9">L9</option>
+        </select>
+      </div>
+      <p id="levelHelp">Changing level starts a fresh problem and resets the two advancement counters.</p>
+      <div class="setting-row">
+        <span>Sound effects</span>
+        <button id="settingsSoundButton" class="sheet-button" type="button" aria-label="Turn sound off" aria-pressed="true">🔊 On</button>
+      </div>
+      <div class="setting-row">
         <span>Step through the blocks automatically</span>
         <button id="runSolverButton" class="sheet-button primary" type="button">Run Solver</button>
       </div>
       <div class="setting-row">
-        <span>Erase coins and garden milestones</span>
+        <span>Erase coins, milestones, and level progress</span>
         <button id="resetProgressButton" class="sheet-button danger" type="button">Reset Progress</button>
       </div>
       <button id="closeSettings" class="sheet-button full" type="button">Done</button>
@@ -1017,24 +1099,52 @@
     ];
 
     const CATEGORY_NAMES = ["No carry", "Ones-only carry", "Tens-only carry", "Two carries"];
+    const LEVEL_COUNT = 9;
+    const STANDARD_CURRENT_LEVEL_MIX = 0.50;
+    const STANDARD_HIGHER_LEVEL_MIX = 0.25;
+    const STANDARD_LOWER_LEVEL_MIX = 0.25;
+    const LEVEL_ONE_CURRENT_MIX = 0.75;
+    const LEVEL_ONE_HIGHER_MIX = 0.25;
+    const LEVEL_NINE_CURRENT_MIX = 0.60;
+    const LEVEL_NINE_REVIEW_MIX = 0.40;
+    const LEVEL_EIGHT_TENS_ONLY_MIX = 0.50;
+    const LEVEL_EIGHT_BOTH_CARRIES_MIX = 0.50;
+    const CURRENT_LEVEL_ADVANCEMENT_TARGET = 4;
+    const HIGHER_LEVEL_ADVANCEMENT_TARGET = 2;
+    const HUNDREDS_UNLOCK_LEVEL = 6;
+    const PROFILE_SCHEMA_VERSION = 2;
+    const LEVEL_DEFINITIONS = Object.freeze([
+      { level: 1, label: "Single digits without regrouping" },
+      { level: 2, label: "One single digit and one two-digit number without regrouping" },
+      { level: 3, label: "Single digits that regroup into a ten" },
+      { level: 4, label: "One single digit and one two-digit number with an ones carry" },
+      { level: 5, label: "Two two-digit numbers without regrouping" },
+      { level: 6, label: "Two two-digit numbers with an ones carry and a two-digit result" },
+      { level: 7, label: "Two two-digit numbers with a tens-only carry" },
+      { level: 8, label: "Three-digit results with tens-only or both-column carries" },
+      { level: 9, label: "Two two-digit numbers with carries in both columns" }
+    ]);
     const DB_NAME = "numberGarden";
     const DB_VERSION = 1;
     const STORE_NAME = "state";
     const PROFILE_KEY = "profile";
     const COOKIE_NAME = "numberGardenProgress";
     const HOLD_DURATION = 650;
-    const IDLE_DURATION = 20000;
+    const NEXT_UNIT_THROB_DELAY = 3000;
+    const SOLVER_HINT_INITIAL_DELAY = 20000;
+    const SOLVER_HINT_REPEAT_DELAY = 5000;
     const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const $ = (selector) => document.querySelector(selector);
     const elements = {
-      journey: $("#journey"), score: $("#scoreValue"), sound: $("#soundButton"), settings: $("#settingsButton"),
+      journey: $("#journey"), levelBadge: $("#levelBadge"), score: $("#scoreValue"), settings: $("#settingsButton"),
       fullscreen: $("#fullscreenButton"), fullscreenIconPath: $("#fullscreenIconPath"),
       equationA: $("#equationA"), equationB: $("#equationB"), answer: $("#answerButton"), reset: $("#resetCurrent"),
       prompt: $("#promptText"), countBadge: $("#countBadge"), count: $("#countValue"), board: $("#board"),
       suggestions: $("#suggestions"), keypad: $("#keypadDialog"), keypadForm: $("#keypadForm"),
       keypadEquation: $("#keypadEquation"), typed: $("#typedValue"), keypadDisplay: $("#keypadDisplay"),
-      check: $("#checkAnswer"), settingsDialog: $("#settingsDialog"), runSolver: $("#runSolverButton"),
+      check: $("#checkAnswer"), settingsDialog: $("#settingsDialog"), levelSelect: $("#levelSelect"),
+      sound: $("#settingsSoundButton"), runSolver: $("#runSolverButton"),
       resetProgress: $("#resetProgressButton"), closeSettings: $("#closeSettings"), toast: $("#toast"), live: $("#liveRegion")
     };
 
@@ -1046,16 +1156,28 @@
     let typedAnswer = "";
     let saveChain = Promise.resolve();
     let databasePromise = null;
-    let idleTimer = 0;
+    let nextUnitHintTimer = 0;
+    let solverHintTimer = 0;
     let toastTimer = 0;
     let holdTimer = 0;
     let holdStarted = false;
     let holdCompleted = false;
     let solverRunning = false;
     let audioContext = null;
+    let hundredsUnlockPending = false;
+    const curriculumPairCache = new Map();
 
     function defaultProfile() {
-      return { schemaVersion: 1, score: 0, emojiProgress: 0, sound: true, updatedAt: Date.now() };
+      return {
+        schemaVersion: PROFILE_SCHEMA_VERSION,
+        score: 0,
+        emojiProgress: 0,
+        sound: true,
+        currentLevel: 1,
+        currentLevelSuccesses: 0,
+        higherLevelSuccesses: 0,
+        updatedAt: Date.now()
+      };
     }
 
     function validateProfile(value) {
@@ -1063,9 +1185,23 @@
       const score = Number(value.score);
       const emojiProgress = Number(value.emojiProgress);
       const updatedAt = Number(value.updatedAt);
-      if (Number(value.schemaVersion) !== 1 || !Number.isInteger(score) || score < 0 || !Number.isInteger(emojiProgress) || emojiProgress < 0 ||
-          typeof value.sound !== "boolean" || !Number.isFinite(updatedAt) || updatedAt <= 0) return null;
-      return { schemaVersion: 1, score, emojiProgress, sound: value.sound, updatedAt };
+      const schemaVersion = Number(value.schemaVersion);
+      if (![1, PROFILE_SCHEMA_VERSION].includes(schemaVersion) || !Number.isInteger(score) || score < 0 ||
+          !Number.isInteger(emojiProgress) || emojiProgress < 0 || typeof value.sound !== "boolean" ||
+          !Number.isFinite(updatedAt) || updatedAt <= 0) return null;
+      if (schemaVersion === 1) {
+        return { ...defaultProfile(), score, emojiProgress, sound: value.sound, updatedAt };
+      }
+      const currentLevel = Number(value.currentLevel);
+      const currentLevelSuccesses = Number(value.currentLevelSuccesses);
+      const higherLevelSuccesses = Number(value.higherLevelSuccesses);
+      if (!Number.isInteger(currentLevel) || currentLevel < 1 || currentLevel > LEVEL_COUNT ||
+          !Number.isInteger(currentLevelSuccesses) || currentLevelSuccesses < 0 ||
+          !Number.isInteger(higherLevelSuccesses) || higherLevelSuccesses < 0) return null;
+      return {
+        schemaVersion: PROFILE_SCHEMA_VERSION, score, emojiProgress, sound: value.sound, currentLevel,
+        currentLevelSuccesses, higherLevelSuccesses, updatedAt
+      };
     }
 
     function emojiFromCode(code) {
@@ -1073,8 +1209,8 @@
     }
 
     function deriveProblem(a, b) {
-      if (!Number.isInteger(a) || !Number.isInteger(b) || a < 10 || a > 99 || b < 10 || b > 99) {
-        throw new RangeError("Addends must be integers from 10 through 99.");
+      if (!Number.isInteger(a) || !Number.isInteger(b) || a < 1 || a > 99 || b < 1 || b > 99) {
+        throw new RangeError("Addends must be integers from 1 through 99.");
       }
       const digits = {
         a: { hundreds: 0, tens: Math.floor(a / 10), ones: a % 10 },
@@ -1112,30 +1248,123 @@
 
     function pairKey(a, b) { return [Math.min(a, b), Math.max(a, b)].join("+"); }
 
-    function randomProblemForCategory(category, exclusions = new Set()) {
-      for (let attempt = 0; attempt < 2000; attempt += 1) {
-        const a = 10 + Math.floor(Math.random() * 90);
-        const b = 10 + Math.floor(Math.random() * 90);
-        const candidate = deriveProblem(a, b);
-        const key = pairKey(a, b);
-        if (candidate.category === category && !exclusions.has(key)) return candidate;
+    function curriculumPattern(model) {
+      if (model.category === 2) return "tens-only";
+      if (model.category === 3) return "both-carries";
+      return null;
+    }
+
+    function problemMatchesLevel(model, level, pattern = null) {
+      const bothSingle = model.a < 10 && model.b < 10;
+      const bothDouble = model.a >= 10 && model.b >= 10;
+      const mixedDigits = (model.a < 10) !== (model.b < 10);
+      switch (level) {
+        case 1: return bothSingle && model.result <= 9;
+        case 2: return mixedDigits && model.category === 0;
+        case 3: return bothSingle && model.result >= 10;
+        case 4: return mixedDigits && model.category === 1 && model.result <= 99;
+        case 5: return bothDouble && model.category === 0;
+        case 6: return bothDouble && model.category === 1 && model.result <= 99;
+        case 7: return bothDouble && model.category === 2;
+        case 8:
+          return bothDouble && model.result >= 100 &&
+            (pattern ? curriculumPattern(model) === pattern : model.category === 2 || model.category === 3);
+        case 9: return bothDouble && model.category === 3;
+        default: return false;
       }
-      for (let a = 10; a <= 99; a += 1) {
-        for (let b = 10; b <= 99; b += 1) {
-          const candidate = deriveProblem(a, b);
-          if (candidate.category === category && !exclusions.has(pairKey(a, b))) return candidate;
+    }
+
+    function clampLevel(level) {
+      const numeric = Number(level);
+      return Number.isInteger(numeric) ? Math.max(1, Math.min(LEVEL_COUNT, numeric)) : 1;
+    }
+
+    function normalizedRandom(random) {
+      const value = Number(random());
+      if (!Number.isFinite(value) || value <= 0) return 0;
+      return Math.min(value, 1 - Number.EPSILON);
+    }
+
+    function uniformlySelectLevel(first, last, random) {
+      return first + Math.floor(normalizedRandom(random) * (last - first + 1));
+    }
+
+    function selectCurriculumLevel(currentLevel, random = Math.random) {
+      const level = clampLevel(currentLevel);
+      const roll = normalizedRandom(random);
+      if (level === 1) return roll < LEVEL_ONE_CURRENT_MIX ? 1 : 2;
+      if (level === LEVEL_COUNT) {
+        return roll < LEVEL_NINE_CURRENT_MIX ? LEVEL_COUNT : uniformlySelectLevel(1, LEVEL_COUNT - 1, random);
+      }
+      if (roll < STANDARD_CURRENT_LEVEL_MIX) return level;
+      if (roll < STANDARD_CURRENT_LEVEL_MIX + STANDARD_HIGHER_LEVEL_MIX) return level + 1;
+      return uniformlySelectLevel(1, level - 1, random);
+    }
+
+    function curriculumPairs(level, pattern = null) {
+      const key = level + ":" + (pattern || "all");
+      if (curriculumPairCache.has(key)) return curriculumPairCache.get(key);
+      const pairs = [];
+      for (let a = 1; a <= 99; a += 1) {
+        for (let b = a; b <= 99; b += 1) {
+          const model = deriveProblem(a, b);
+          if (problemMatchesLevel(model, level, pattern)) pairs.push([a, b]);
         }
       }
-      throw new Error("Unable to make a fresh problem.");
+      curriculumPairCache.set(key, pairs);
+      return pairs;
+    }
+
+    function generateProblemForLevel(level, exclusions = new Set(), random = Math.random) {
+      const curriculumLevel = clampLevel(level);
+      const pattern = curriculumLevel === 8
+        ? (normalizedRandom(random) < LEVEL_EIGHT_TENS_ONLY_MIX ? "tens-only" : "both-carries")
+        : null;
+      const allPairs = curriculumPairs(curriculumLevel, pattern);
+      const available = allPairs.filter(pair => !exclusions.has(pairKey(pair[0], pair[1])));
+      const pool = available.length ? available : allPairs;
+      if (!pool.length) throw new Error("No problems are defined for level " + curriculumLevel + ".");
+      const pair = pool[Math.floor(normalizedRandom(random) * pool.length)];
+      const swap = pair[0] !== pair[1] && normalizedRandom(random) >= 0.5;
+      const model = deriveProblem(swap ? pair[1] : pair[0], swap ? pair[0] : pair[1]);
+      return { ...model, curriculumLevel, curriculumPattern: pattern || curriculumPattern(model) };
+    }
+
+    function sampleCurriculumProblem(currentLevel, exclusions = new Set(), random = Math.random) {
+      return generateProblemForLevel(selectCurriculumLevel(currentLevel, random), exclusions, random);
+    }
+
+    function applyProgressForSuccess(sourceProfile, sampledLevel) {
+      const next = { ...sourceProfile };
+      const level = clampLevel(next.currentLevel);
+      next.currentLevel = level;
+      let credit = "none";
+      let advanced = false;
+      if (level < LEVEL_COUNT && Number.isInteger(sampledLevel)) {
+        if (sampledLevel === level) {
+          next.currentLevelSuccesses += 1;
+          credit = "current";
+        } else if (sampledLevel > level) {
+          next.higherLevelSuccesses += 1;
+          credit = "higher";
+        }
+        if (next.currentLevelSuccesses >= CURRENT_LEVEL_ADVANCEMENT_TARGET ||
+            next.higherLevelSuccesses >= HIGHER_LEVEL_ADVANCEMENT_TARGET) {
+          next.currentLevel = level + 1;
+          next.currentLevelSuccesses = 0;
+          next.higherLevelSuccesses = 0;
+          advanced = true;
+        }
+      }
+      return { profile: next, credit, advanced };
     }
 
     function makeTray(current) {
       const exclusions = new Set(recentPairs);
       exclusions.add(pairKey(current.a, current.b));
       const alternatives = [];
-      for (let category = 0; category < 4; category += 1) {
-        if (category === current.category) continue;
-        const candidate = randomProblemForCategory(category, exclusions);
+      for (let index = 0; index < 3; index += 1) {
+        const candidate = sampleCurriculumProblem(profile.currentLevel, exclusions);
         exclusions.add(pairKey(candidate.a, candidate.b));
         alternatives.push(candidate);
       }
@@ -1167,6 +1396,10 @@
       render();
       noteActivity();
       if (state.skipMessage) announce("There are zero ones, so we skip to tens.");
+    }
+
+    function startWeightedProblem() {
+      startProblem(sampleCurriculumProblem(profile.currentLevel, new Set(recentPairs)));
     }
 
     function openDatabase() {
@@ -1217,7 +1450,16 @@
 
     function writeProfileCookie(value) {
       try {
-        const compact = { schemaVersion: 1, score: value.score, emojiProgress: value.emojiProgress, sound: value.sound, updatedAt: value.updatedAt };
+        const compact = {
+          schemaVersion: PROFILE_SCHEMA_VERSION,
+          score: value.score,
+          emojiProgress: value.emojiProgress,
+          sound: value.sound,
+          currentLevel: value.currentLevel,
+          currentLevelSuccesses: value.currentLevelSuccesses,
+          higherLevelSuccesses: value.higherLevelSuccesses,
+          updatedAt: value.updatedAt
+        };
         const secure = location.protocol === "https:" ? "; Secure" : "";
         document.cookie = COOKIE_NAME + "=" + encodeURIComponent(JSON.stringify(compact)) + "; Max-Age=31536000; Path=/; SameSite=Lax" + secure;
       } catch (_) { /* Cookies may be unavailable under file://. */ }
@@ -1233,14 +1475,12 @@
       try { indexedProfile = await withTimeout(loadProfile(), 900); } catch (_) { /* use cookie or memory */ }
       const candidates = [cookieProfile, indexedProfile].filter(Boolean);
       profile = candidates.length ? candidates.sort((a, b) => b.updatedAt - a.updatedAt)[0] : defaultProfile();
-      if (!cookieProfile || cookieProfile.updatedAt < profile.updatedAt) writeProfileCookie(profile);
-      if (!indexedProfile || indexedProfile.updatedAt < profile.updatedAt) {
-        writeIndexedProfile(profile).catch(() => announce("Progress is saved where this browser allows."));
-      }
+      writeProfileCookie(profile);
+      writeIndexedProfile(profile).catch(() => announce("Progress is saved where this browser allows."));
     }
 
     function saveProfile() {
-      const snapshot = { ...profile, schemaVersion: 1, updatedAt: Date.now() };
+      const snapshot = { ...profile, schemaVersion: PROFILE_SCHEMA_VERSION, updatedAt: Date.now() };
       profile = snapshot;
       writeProfileCookie(snapshot);
       saveChain = saveChain.then(() => writeIndexedProfile(snapshot)).catch(() => {
@@ -1313,6 +1553,12 @@
           oscillator.stop(noteStart + note.duration + .02);
         });
       } catch (_) { /* Audio is optional. */ }
+    }
+
+    function playHundredsUnlockSound() {
+      if (!profile.sound) return;
+      cue(659.25, .12);
+      setTimeout(() => cue(987.77, .18), reduceMotion ? 20 : 110);
     }
 
     function playConfettiBurstSound() {
@@ -1419,23 +1665,53 @@
     function isDialogOpen() { return elements.keypad.open || elements.settingsDialog.open; }
     function isInteractionLocked() { return Boolean(state && state.animationState) || solverRunning || isDialogOpen(); }
 
-    function noteActivity() {
-      clearTimeout(idleTimer);
+    function clearIdleHints() {
+      clearTimeout(nextUnitHintTimer);
+      clearTimeout(solverHintTimer);
+      nextUnitHintTimer = 0;
+      solverHintTimer = 0;
       elements.answer.classList.remove("solver-hint", "static-hint");
-      if (!state || state.phase === "completed" || state.solverUsed || isDialogOpen() || state.animationState) return;
-      idleTimer = setTimeout(showIdleHint, IDLE_DURATION);
+      document.querySelectorAll(".unit.next-unit-hint").forEach(unit => unit.classList.remove("next-unit-hint"));
     }
 
-    function showIdleHint() {
-      if (!state || state.phase === "completed" || state.solverUsed || isDialogOpen() || state.animationState) return;
+    function idleHintsAllowed() {
+      return !document.hidden && state && state.phase !== "completed" && !state.solverUsed &&
+        !solverRunning && !isDialogOpen() && !state.animationState;
+    }
+
+    function noteActivity() {
+      clearIdleHints();
+      if (!idleHintsAllowed()) return;
+      if (document.querySelector(".unit.eligible")) {
+        nextUnitHintTimer = setTimeout(showNextUnitHint, NEXT_UNIT_THROB_DELAY);
+      }
+      solverHintTimer = setTimeout(showSolverHint, SOLVER_HINT_INITIAL_DELAY);
+    }
+
+    function showNextUnitHint() {
+      nextUnitHintTimer = 0;
+      if (!idleHintsAllowed()) {
+        clearIdleHints();
+        return;
+      }
+      const eligibleUnit = document.querySelector(".unit.eligible");
+      if (eligibleUnit) eligibleUnit.classList.add("next-unit-hint");
+    }
+
+    function showSolverHint(shouldAnnounce = true) {
+      solverHintTimer = 0;
+      if (!idleHintsAllowed()) {
+        clearIdleHints();
+        return;
+      }
       const className = reduceMotion ? "static-hint" : "solver-hint";
-      elements.answer.classList.remove(className);
-      void elements.answer.offsetWidth;
+      elements.answer.classList.remove("solver-hint", "static-hint");
+      if (!reduceMotion) void elements.answer.offsetWidth;
       elements.answer.classList.add(className);
       const message = "Need help? Hold the question mark for Solver.";
-      announce(message);
+      if (shouldAnnounce) announce(message);
       if (reduceMotion) showToast(message);
-      idleTimer = setTimeout(showIdleHint, IDLE_DURATION);
+      else solverHintTimer = setTimeout(showSolverHint, SOLVER_HINT_REPEAT_DELAY);
     }
 
     function renderJourney() {
@@ -1560,6 +1836,24 @@
       return "carry";
     }
 
+    function renderPlaceCountLabel(label, count, ariaLabel, showCarry) {
+      label.setAttribute("aria-label", ariaLabel);
+      if (!showCarry || count < 10) {
+        label.textContent = count;
+        return;
+      }
+      const value = document.createElement("span");
+      value.className = "place-count";
+      value.setAttribute("aria-hidden", "true");
+      const carry = document.createElement("span");
+      carry.className = "carry-digit";
+      carry.textContent = Math.floor(count / 10);
+      const remainder = document.createElement("span");
+      remainder.textContent = count % 10;
+      value.append(carry, remainder);
+      label.replaceChildren(value);
+    }
+
     function resultOnes() {
       const panel = document.createElement("div");
       panel.className = "place-panel ones result-panel";
@@ -1584,8 +1878,12 @@
       const label = document.createElement("span");
       label.className = "digit-label";
       const displayedOnes = state.phase === "completed" ? problem.onesRemainder : state.onesCursor;
-      label.textContent = displayedOnes;
-      label.setAttribute("aria-label", displayedOnes + (state.phase === "completed" ? " ones in the result" : " ones counted"));
+      renderPlaceCountLabel(
+        label,
+        displayedOnes,
+        displayedOnes + (state.phase === "completed" ? " ones in the result" : " ones counted"),
+        state.phase !== "completed"
+      );
       panel.append(label);
       return panel;
     }
@@ -1618,8 +1916,12 @@
       const label = document.createElement("span");
       label.className = "digit-label";
       const displayedTens = state.phase === "completed" ? problem.tensRemainder : state.tensCursor;
-      label.textContent = displayedTens;
-      label.setAttribute("aria-label", displayedTens + (state.phase === "completed" ? " tens in the result" : " tens counted"));
+      renderPlaceCountLabel(
+        label,
+        displayedTens,
+        displayedTens + (state.phase === "completed" ? " tens in the result" : " tens counted"),
+        state.phase !== "completed"
+      );
       panel.append(label);
       if (state.visibleOnesCarry && state.phase !== "completed") {
         const source = document.createElement("span");
@@ -1646,7 +1948,24 @@
     }
 
     function renderBoard() {
-      while (elements.board.children.length > 4) elements.board.lastElementChild.remove();
+      const showHundreds = profile.currentLevel >= HUNDREDS_UNLOCK_LEVEL;
+      elements.board.className = "board" + (showHundreds ? "" : " compact") + (hundredsUnlockPending ? " unlocking" : "");
+      elements.board.replaceChildren();
+      const emptyHeader = document.createElement("span");
+      emptyHeader.setAttribute("aria-hidden", "true");
+      elements.board.append(emptyHeader);
+      if (showHundreds) {
+        const hundredsTitle = document.createElement("div");
+        hundredsTitle.className = "column-title hundreds";
+        hundredsTitle.textContent = "Hundreds";
+        elements.board.append(hundredsTitle);
+      }
+      ["Tens", "Ones"].forEach(name => {
+        const title = document.createElement("div");
+        title.className = "column-title " + name.toLowerCase();
+        title.textContent = name;
+        elements.board.append(title);
+      });
       const rows = [
         { sign: "", badge: problem.a, badgeClass: "first", owner: "a", digits: problem.digits.a, offsets: { tens: 0, ones: 0 } },
         { sign: "+", badge: problem.b, badgeClass: "second", owner: "b", digits: problem.digits.b, offsets: { tens: problem.digits.a.tens, ones: problem.digits.a.ones } }
@@ -1663,7 +1982,9 @@
         badge.textContent = row.badge;
         badge.setAttribute("aria-label", "Addend " + row.badge);
         rowLabel.append(sign, badge);
-        elements.board.append(rowLabel, sourceHundreds(), sourceTens(row.owner, row.digits.tens, row.offsets.tens), sourceOnes(row.owner, row.digits.ones, row.offsets.ones));
+        elements.board.append(rowLabel);
+        if (showHundreds) elements.board.append(sourceHundreds());
+        elements.board.append(sourceTens(row.owner, row.digits.tens, row.offsets.tens), sourceOnes(row.owner, row.digits.ones, row.offsets.ones));
       });
       const resultLabel = document.createElement("div");
       resultLabel.className = "row-label";
@@ -1676,7 +1997,13 @@
       resultBadge.textContent = state.phase === "completed" ? problem.result : "?";
       resultBadge.setAttribute("aria-label", state.phase === "completed" ? "Result " + problem.result : "Result not yet revealed");
       resultLabel.append(equals, resultBadge);
-      elements.board.append(resultLabel, resultHundreds(), resultTens(), resultOnes());
+      elements.board.append(resultLabel);
+      if (showHundreds) elements.board.append(resultHundreds());
+      elements.board.append(resultTens(), resultOnes());
+      if (hundredsUnlockPending) {
+        hundredsUnlockPending = false;
+        setTimeout(() => elements.board.classList.remove("unlocking"), reduceMotion ? 1800 : 1450);
+      }
     }
 
     function getPrompt() {
@@ -1728,9 +2055,12 @@
       elements.reset.disabled = state.phase === "completed" || Boolean(state.animationState) || solverRunning;
       elements.prompt.textContent = getPrompt();
       elements.score.textContent = profile.score;
-      elements.sound.textContent = profile.sound ? "🔊" : "🔇";
+      elements.levelBadge.textContent = "L" + profile.currentLevel;
+      elements.levelBadge.setAttribute("aria-label", "Current learning level " + profile.currentLevel);
+      elements.sound.textContent = profile.sound ? "🔊 On" : "🔇 Off";
       elements.sound.setAttribute("aria-pressed", String(profile.sound));
       elements.sound.setAttribute("aria-label", profile.sound ? "Turn sound off" : "Turn sound on");
+      elements.levelSelect.value = String(profile.currentLevel);
       if (state.phase === "completed") {
         elements.countBadge.disabled = false;
         elements.countBadge.className = "count-badge next";
@@ -1793,6 +2123,7 @@
       state.tempCount = 0;
       state.skipMessage = false;
       render();
+      noteActivity();
       announce("Ones finished. Count the tens from zero.");
       if (problem.tensTotal === 0) finishTensPlace();
     }
@@ -1804,16 +2135,16 @@
         return;
       }
       state.phase = "awaiting-answer";
-      clearTimeout(idleTimer);
+      clearIdleHints();
       render();
-      noteActivity();
+      showSolverHint(false);
       cue(610, .08);
       announce("Counting finished. The answer is still hidden. Tap the question mark and enter the answer.");
     }
 
     async function performCarry(kind) {
       const isOnes = kind === "ones";
-      clearTimeout(idleTimer);
+      clearIdleHints();
       state.phase = isOnes ? "carrying-to-tens" : "carrying-to-hundreds";
       state.animationState = kind;
       render();
@@ -1837,31 +2168,49 @@
       state.visibleHundredsCarry = Boolean(problem.carryToHundreds);
       state.tempCount = problem.tensTotal;
       solverRunning = false;
-      clearTimeout(idleTimer);
-      if (!state.rewardAwarded) {
+      clearIdleHints();
+      const isManual = method === "typed";
+      let advanced = false;
+      let unlockedHundreds = false;
+      if (isManual && !state.rewardAwarded) {
         state.rewardAwarded = true;
+        const previousLevel = profile.currentLevel;
+        const progress = applyProgressForSuccess(profile, problem.curriculumLevel);
+        profile = progress.profile;
+        advanced = progress.advanced;
+        unlockedHundreds = previousLevel < HUNDREDS_UNLOCK_LEVEL && profile.currentLevel >= HUNDREDS_UNLOCK_LEVEL;
+        hundredsUnlockPending = unlockedHundreds;
         profile.score += 10;
         profile.emojiProgress += 1;
         saveProfile();
+        tray = makeTray(problem);
       }
       render();
       launchConfetti();
       playCelebrationSound();
       playConfettiBurstSound();
-      const source = method === "typed" ? "Correct" : "Garden complete";
-      announce(source + ". " + problem.a + " plus " + problem.b + " equals " + problem.result + ". You earned 10 coins.");
-      showToast("+10 coins · New milestone earned!");
+      if (unlockedHundreds) playHundredsUnlockSound();
+      if (isManual) {
+        const levelMessage = advanced ? " You advanced to level " + profile.currentLevel + "." : "";
+        const unlockMessage = unlockedHundreds ? " The Hundreds column is now unlocked." : "";
+        announce("Correct. " + problem.a + " plus " + problem.b + " equals " + problem.result + ". You earned 10 coins." + levelMessage + unlockMessage);
+        showToast(advanced ? "+10 coins · Welcome to L" + profile.currentLevel + "!" : "+10 coins · New milestone earned!");
+      } else {
+        announce("Solver complete. " + problem.a + " plus " + problem.b + " equals " + problem.result + ". No coins or level progress were awarded.");
+      }
     }
 
     async function runSolver() {
       if (!state || state.phase === "completed" || solverRunning || state.animationState) return;
+      clearTimeout(toastTimer);
+      elements.toast.classList.remove("show");
       if (isDialogOpen()) {
         if (elements.settingsDialog.open) elements.settingsDialog.close();
         if (elements.keypad.open) elements.keypad.close();
       }
       state.solverUsed = true;
       solverRunning = true;
-      clearTimeout(idleTimer);
+      clearIdleHints();
       if (state.phase === "awaiting-answer") {
         completeProblem("solver");
         return;
@@ -1884,8 +2233,8 @@
     }
 
     function nextProblem() {
-      if (state.phase !== "completed" || tray.length < 2) return;
-      startProblem(tray[1]);
+      if (state.phase !== "completed") return;
+      startWeightedProblem();
     }
 
     function handleCountBadgeClick() {
@@ -1904,7 +2253,7 @@
 
     function openKeypad() {
       if (state.phase === "completed" || state.animationState || solverRunning) return;
-      clearTimeout(idleTimer);
+      clearIdleHints();
       typedAnswer = "";
       updateTypedValue();
       elements.keypadEquation.textContent = problem.a + " + " + problem.b + " =";
@@ -2011,19 +2360,38 @@
 
     function openSettings() {
       if (state.animationState || solverRunning) return;
-      clearTimeout(idleTimer);
+      clearIdleHints();
       elements.settingsDialog.showModal();
-      requestAnimationFrame(() => elements.runSolver.focus());
+      requestAnimationFrame(() => elements.levelSelect.focus());
+    }
+
+    function handleLevelChange() {
+      const chosenLevel = clampLevel(Number(elements.levelSelect.value));
+      const previousLevel = profile.currentLevel;
+      const unlockedHundreds = previousLevel < HUNDREDS_UNLOCK_LEVEL && chosenLevel >= HUNDREDS_UNLOCK_LEVEL;
+      profile = {
+        ...profile,
+        currentLevel: chosenLevel,
+        currentLevelSuccesses: 0,
+        higherLevelSuccesses: 0
+      };
+      hundredsUnlockPending = unlockedHundreds;
+      saveProfile();
+      elements.settingsDialog.close();
+      startWeightedProblem();
+      if (unlockedHundreds) playHundredsUnlockSound();
+      announce("Practice level changed to level " + chosenLevel + ". Advancement counters reset." +
+        (unlockedHundreds ? " The Hundreds column is now unlocked." : ""));
+      showToast("Now practicing at L" + chosenLevel);
     }
 
     async function handleResetProgress() {
       noteActivity();
-      if (!confirm("Reset all coins and garden milestones? Your sound setting will stay the same.")) return;
+      if (!confirm("Reset coins, garden milestones, level, and advancement counters? Your sound setting will stay the same.")) return;
       await resetProfile();
       elements.settingsDialog.close();
-      const model = randomProblemForCategory(Math.floor(Math.random() * 4), new Set(recentPairs));
-      startProblem(model);
-      announce("Progress reset to the seed. Sound preference kept.");
+      startWeightedProblem();
+      announce("Progress reset to level 1 with zero coins, milestones, and advancement counters. Sound preference kept.");
       showToast("Progress reset");
     }
 
@@ -2052,6 +2420,7 @@
       elements.reset.addEventListener("click", resetCurrentProblem);
       elements.countBadge.addEventListener("click", handleCountBadgeClick);
       elements.sound.addEventListener("click", toggleSound);
+      elements.levelSelect.addEventListener("change", handleLevelChange);
       elements.settings.addEventListener("click", openSettings);
       elements.fullscreen.addEventListener("click", toggleFullscreen);
       document.addEventListener("fullscreenchange", () => syncFullscreenControl(true));
@@ -2069,18 +2438,46 @@
       elements.resetProgress.addEventListener("click", handleResetProgress);
       elements.closeSettings.addEventListener("click", () => elements.settingsDialog.close());
       elements.settingsDialog.addEventListener("close", noteActivity);
-      document.addEventListener("visibilitychange", () => { if (document.hidden) clearTimeout(idleTimer); else noteActivity(); });
+      document.addEventListener("visibilitychange", () => { if (document.hidden) clearIdleHints(); else noteActivity(); });
     }
 
     async function init() {
       initializeFullscreenControl();
       bindEvents();
       await initializeProfile();
-      const initial = validQueryProblem() || randomProblemForCategory(Math.floor(Math.random() * 4));
+      const initial = validQueryProblem() || sampleCurriculumProblem(profile.currentLevel);
       startProblem(initial);
     }
 
-    window.NumberGarden = { deriveProblem, CATEGORY_NAMES, PROGRESS_EMOJIS };
+    window.NumberGarden = {
+      deriveProblem,
+      problemMatchesLevel,
+      selectCurriculumLevel,
+      generateProblemForLevel,
+      sampleCurriculumProblem,
+      applyProgressForSuccess,
+      validateProfile,
+      defaultProfile,
+      LEVEL_DEFINITIONS,
+      constants: Object.freeze({
+        LEVEL_COUNT,
+        STANDARD_CURRENT_LEVEL_MIX,
+        STANDARD_HIGHER_LEVEL_MIX,
+        STANDARD_LOWER_LEVEL_MIX,
+        LEVEL_ONE_CURRENT_MIX,
+        LEVEL_ONE_HIGHER_MIX,
+        LEVEL_NINE_CURRENT_MIX,
+        LEVEL_NINE_REVIEW_MIX,
+        LEVEL_EIGHT_TENS_ONLY_MIX,
+        LEVEL_EIGHT_BOTH_CARRIES_MIX,
+        CURRENT_LEVEL_ADVANCEMENT_TARGET,
+        HIGHER_LEVEL_ADVANCEMENT_TARGET,
+        HUNDREDS_UNLOCK_LEVEL,
+        PROFILE_SCHEMA_VERSION
+      }),
+      CATEGORY_NAMES,
+      PROGRESS_EMOJIS
+    };
     init();
   </script>
 </body>

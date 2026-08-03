@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Number Garden curriculum checks</title>
+</head>
+<body data-status="running">
+  <h1>Number Garden curriculum checks</h1>
+  <pre id="results">Running…</pre>
+  <script>
+    "use strict";
+
+    const results = document.querySelector("#results");
+    const checks = [];
+
+    function assert(condition, message) {
+      if (!condition) throw new Error(message);
+      checks.push("PASS: " + message);
+    }
+
+    function sequence(...values) {
+      return () => values.length ? values.shift() : 0;
+    }
+
+    function waitFor(predicate, message, timeout = 5000) {
+      const started = performance.now();
+      return new Promise((resolve, reject) => {
+        function check() {
+          if (predicate()) return resolve();
+          if (performance.now() - started >= timeout) return reject(new Error("Timed out: " + message));
+          setTimeout(check, 20);
+        }
+        check();
+      });
+    }
+
+    function clearDatabase() {
+      return new Promise(resolve => {
+        const request = indexedDB.deleteDatabase("numberGarden");
+        request.onsuccess = request.onerror = request.onblocked = () => resolve();
+      });
+    }
+
+    function profileCookie() {
+      const part = document.cookie.split(";").map(item => item.trim()).find(item => item.startsWith("numberGardenProgress="));
+      return part ? JSON.parse(decodeURIComponent(part.slice("numberGardenProgress=".length))) : null;
+    }
+
+    function openGame(query = "") {
+      const old = document.querySelector("iframe");
+      if (old) old.remove();
+      const frame = document.createElement("iframe");
+      frame.title = "Game under test";
+      frame.src = "../index.html" + query;
+      document.body.append(frame);
+      return waitFor(() => frame.contentWindow.NumberGarden && frame.contentDocument.querySelector(".row-label"), "game initialization")
+        .then(() => frame);
+    }
+
+    function enterAnswer(frame, answer, includeWrongAttempt = false) {
+      const doc = frame.contentDocument;
+      doc.querySelector("#answerButton").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      return waitFor(() => doc.querySelector("#keypadDialog").open, "keypad open").then(() => {
+        if (includeWrongAttempt) {
+          doc.querySelector('[data-key="0"]').click();
+          doc.querySelector("#checkAnswer").click();
+        }
+        String(answer).split("").forEach(digit => doc.querySelector('[data-key="' + digit + '"]').click());
+        doc.querySelector("#checkAnswer").click();
+        return waitFor(() => doc.querySelector("#answerButton").textContent === String(answer), "manual completion");
+      });
+    }
+
+    async function countNextUnits(frame, count) {
+      const doc = frame.contentDocument;
+      for (let index = 0; index < count; index += 1) {
+        await waitFor(() => doc.querySelector(".unit.eligible"), "eligible unit " + (index + 1));
+        const unit = doc.querySelector(".unit.eligible");
+        unit.click();
+        await waitFor(() => !unit.isConnected, "counted unit " + (index + 1));
+      }
+    }
+
+    async function run() {
+      document.cookie = "numberGardenProgress=; Max-Age=0; Path=/; SameSite=Lax";
+      await clearDatabase();
+      let frame = await openGame("?harness=1");
+      const api = frame.contentWindow.NumberGarden;
+
+      assert(api.LEVEL_DEFINITIONS.length === 9, "nine level definitions are exposed");
+      assert(api.constants.PROFILE_SCHEMA_VERSION === 2, "profile schema v2 is exposed");
+      assert(api.deriveProblem(1, 99).result === 100, "deriveProblem accepts a single-digit boundary");
+      assert(api.deriveProblem(99, 99).result === 198, "deriveProblem supports the maximum result");
+      let rangeRejected = false;
+      try { api.deriveProblem(0, 10); } catch (error) { rangeRejected = error.name === "RangeError"; }
+      assert(rangeRejected, "deriveProblem rejects operands outside 1–99");
+
+      const examples = [
+        [1, 4, 5], [2, 9, 10], [3, 1, 9], [4, 8, 82], [5, 10, 10],
+        [6, 49, 49], [7, 50, 50], [8, 50, 50], [9, 99, 99]
+      ];
+      examples.forEach(([level, a, b]) => {
+        assert(api.problemMatchesLevel(api.deriveProblem(a, b), level), "representative operands match L" + level);
+      });
+      assert(!api.problemMatchesLevel(api.deriveProblem(9, 91), 4), "L4 excludes a three-digit result");
+      assert(api.problemMatchesLevel(api.deriveProblem(50, 50), 8, "tens-only"), "L8 tags its tens-only pattern");
+      assert(api.problemMatchesLevel(api.deriveProblem(55, 55), 8, "both-carries"), "L8 tags its both-carries pattern");
+
+      for (let level = 1; level <= 9; level += 1) {
+        let allValid = true;
+        for (let index = 0; index < 40; index += 1) {
+          const model = api.generateProblemForLevel(level);
+          allValid &&= model.curriculumLevel === level && api.problemMatchesLevel(model, level, model.curriculumPattern);
+        }
+        assert(allValid, "40 generated L" + level + " problems are valid and tagged");
+      }
+      const l8Tens = api.generateProblemForLevel(8, new Set(), sequence(.499, 0, 0));
+      const l8Both = api.generateProblemForLevel(8, new Set(), sequence(.5, 0, 0));
+      assert(l8Tens.curriculumPattern === "tens-only", "L8 roll below 50% selects tens-only carry");
+      assert(l8Both.curriculumPattern === "both-carries", "L8 roll at 50% selects both-column carries");
+      const l2Left = api.generateProblemForLevel(2, new Set(), sequence(0, .49));
+      const l2Right = api.generateProblemForLevel(2, new Set(), sequence(0, .5));
+      assert(l2Left.a < 10 && l2Right.b < 10, "L2 randomizes which side has the single-digit addend");
+      const l4Left = api.generateProblemForLevel(4, new Set(), sequence(0, .49));
+      const l4Right = api.generateProblemForLevel(4, new Set(), sequence(0, .5));
+      assert(l4Left.a < 10 && l4Right.b < 10, "L4 randomizes which side has the single-digit addend");
+
+      assert(api.selectCurriculumLevel(1, sequence(.7499)) === 1, "L1 roll below 75% selects L1");
+      assert(api.selectCurriculumLevel(1, sequence(.75)) === 2, "L1 roll at 75% selects L2");
+      assert(api.selectCurriculumLevel(5, sequence(.4999)) === 5, "standard roll below 50% selects current level");
+      assert(api.selectCurriculumLevel(5, sequence(.5)) === 6, "standard roll at 50% selects the higher level");
+      assert(api.selectCurriculumLevel(5, sequence(.75, 0)) === 1, "standard roll at 75% enters lower-level review");
+      for (let lower = 1; lower < 5; lower += 1) {
+        const lowerRoll = (lower - .5) / 4;
+        assert(api.selectCurriculumLevel(5, sequence(.9, lowerRoll)) === lower, "uniform review can select L" + lower);
+      }
+      assert(api.selectCurriculumLevel(9, sequence(.5999)) === 9, "L9 roll below 60% selects L9");
+      for (let review = 1; review <= 8; review += 1) {
+        const reviewRoll = (review - .5) / 8;
+        assert(api.selectCurriculumLevel(9, sequence(.6, reviewRoll)) === review, "L9 review can select L" + review);
+      }
+
+      function freshAt(level) {
+        return { ...api.defaultProfile(), currentLevel: level, currentLevelSuccesses: 0, higherLevelSuccesses: 0 };
+      }
+      let progress = freshAt(3);
+      for (let count = 1; count <= 3; count += 1) {
+        const transition = api.applyProgressForSuccess(progress, 3);
+        progress = transition.profile;
+        assert(!transition.advanced && progress.currentLevel === 3, "current-level success " + count + " does not advance early");
+      }
+      let transition = api.applyProgressForSuccess(progress, 3);
+      assert(transition.advanced && transition.profile.currentLevel === 4, "fourth current-level success advances exactly one level");
+      assert(transition.profile.currentLevelSuccesses === 0 && transition.profile.higherLevelSuccesses === 0, "advancement resets both counters");
+
+      progress = freshAt(3);
+      transition = api.applyProgressForSuccess(progress, 7);
+      assert(!transition.advanced && transition.profile.higherLevelSuccesses === 1, "first higher-level success does not advance early");
+      transition = api.applyProgressForSuccess(transition.profile, 9);
+      assert(transition.advanced && transition.profile.currentLevel === 4, "second higher-level success advances only one level");
+
+      progress = freshAt(5);
+      progress = api.applyProgressForSuccess(progress, 5).profile;
+      progress = api.applyProgressForSuccess(progress, 8).profile;
+      assert(progress.currentLevelSuccesses === 1 && progress.higherLevelSuccesses === 1, "advancement counters remain independent");
+      const lowerTransition = api.applyProgressForSuccess(progress, 4);
+      assert(lowerTransition.credit === "none" && lowerTransition.profile.currentLevelSuccesses === 1 && lowerTransition.profile.higherLevelSuccesses === 1,
+        "lower-level success earns no advancement credit");
+      const diagnosticTransition = api.applyProgressForSuccess(progress, undefined);
+      assert(diagnosticTransition.credit === "none", "untagged diagnostic success earns no advancement credit");
+      progress = freshAt(1);
+      progress = api.applyProgressForSuccess(progress, 9).profile;
+      transition = api.applyProgressForSuccess(progress, 9);
+      assert(transition.profile.currentLevel === 2, "higher-level credit never skips a level");
+      progress = freshAt(9);
+      transition = api.applyProgressForSuccess(progress, 9);
+      assert(!transition.advanced && transition.profile.currentLevel === 9 && transition.profile.currentLevelSuccesses === 0, "L9 is capped");
+
+      const migrated = api.validateProfile({ schemaVersion: 1, score: 70, emojiProgress: 7, sound: false, updatedAt: 123 });
+      assert(migrated.schemaVersion === 2 && migrated.score === 70 && migrated.emojiProgress === 7 && !migrated.sound,
+        "v1 migration preserves rewards and sound");
+      assert(migrated.currentLevel === 1 && migrated.currentLevelSuccesses === 0 && migrated.higherLevelSuccesses === 0,
+        "v1 migration initializes L1 counters");
+
+      frame = await openGame("?a=97&b=87&harness=1");
+      const carryDoc = frame.contentDocument;
+      await countNextUnits(frame, 9);
+      let placeLabel = carryDoc.querySelector(".result-panel.ones .digit-label");
+      assert(placeLabel.textContent === "9" && !placeLabel.querySelector(".carry-digit"),
+        "single-digit place counts use the normal digit style");
+      await countNextUnits(frame, 1);
+      placeLabel = carryDoc.querySelector(".result-panel.ones .digit-label");
+      assert(placeLabel.textContent === "10" && placeLabel.querySelector(".carry-digit").textContent === "1",
+        "ten ones dims the carried leading digit");
+      await countNextUnits(frame, 4);
+      placeLabel = carryDoc.querySelector(".result-panel.ones .digit-label");
+      const carriedDigit = placeLabel.querySelector(".carry-digit");
+      const remainderDigit = placeLabel.querySelector(".place-count span:last-child");
+      assert(placeLabel.textContent === "14" && placeLabel.querySelector(".carry-digit").textContent === "1" &&
+        placeLabel.getAttribute("aria-label") === "14 ones counted",
+        "14 ones dims only the carried one and keeps one accessible count");
+      assert(getComputedStyle(carriedDigit).color === "rgb(174, 182, 194)" &&
+        getComputedStyle(remainderDigit).color === "rgb(72, 86, 108)",
+        "carried and remainder digits use faint and normal gray respectively");
+      await countNextUnits(frame, 18);
+      placeLabel = carryDoc.querySelector(".result-panel.tens .digit-label");
+      assert(placeLabel.textContent === "18" && placeLabel.querySelector(".carry-digit").textContent === "1" &&
+        placeLabel.getAttribute("aria-label") === "18 tens counted",
+        "18 tens dims only the carried hundred and keeps one accessible count");
+      carryDoc.querySelector("#settingsButton").click();
+      carryDoc.querySelector("#runSolverButton").click();
+      await waitFor(() => carryDoc.querySelector("#answerButton").textContent === "184", "carry example Solver completion");
+      const completedLabels = carryDoc.querySelectorAll(".result-panel .digit-label");
+      assert(Array.from(completedLabels).every(label => !label.querySelector(".carry-digit")),
+        "completed place-value remainder labels use the normal digit style");
+
+      frame = await openGame("?harness=1");
+
+      const doc = frame.contentDocument;
+      assert(doc.querySelector(".bee").nextElementSibling.id === "levelBadge", "level badge is immediately right of the bee");
+      assert(!doc.querySelector("#soundButton") && doc.querySelector("#settingsSoundButton"), "sound control lives in Settings");
+      assert(doc.querySelector("#board").classList.contains("compact") && !doc.querySelector(".column-title.hundreds"),
+        "L1 board collapses to Labels, Tens, and Ones");
+
+      doc.querySelector("#settingsButton").click();
+      doc.querySelector("#levelSelect").value = "6";
+      doc.querySelector("#levelSelect").dispatchEvent(new Event("change", { bubbles: true }));
+      await waitFor(() => doc.querySelector("#levelBadge").textContent === "L6" && doc.querySelector(".column-title.hundreds"), "L6 override");
+      assert(doc.querySelector("#board").classList.contains("unlocking"), "crossing to L6 activates the Hundreds unlock highlight");
+      await waitFor(() => doc.querySelector("#liveRegion").textContent.includes("Hundreds column is now unlocked"), "Hundreds unlock announcement");
+      assert(doc.querySelector("#liveRegion").textContent.includes("Hundreds column is now unlocked"), "Hundreds unlock is announced");
+      const storedL6 = profileCookie();
+      assert(storedL6 && storedL6.schemaVersion === 2 && storedL6.currentLevel === 6 && storedL6.currentLevelSuccesses === 0 && storedL6.higherLevelSuccesses === 0,
+        "manual level override persists L6 with reset counters");
+
+      frame = await openGame("?reload=1");
+      const reloadedDoc = frame.contentDocument;
+      assert(reloadedDoc.querySelector("#levelBadge").textContent === "L6", "level persists across reload");
+      assert(reloadedDoc.querySelector(".column-title.hundreds") && !reloadedDoc.querySelector("#board").classList.contains("unlocking"),
+        "ordinary reload shows Hundreds without replaying its unlock");
+
+      reloadedDoc.querySelector("#settingsButton").click();
+      reloadedDoc.querySelector("#settingsSoundButton").click();
+      assert(reloadedDoc.querySelector("#settingsSoundButton").getAttribute("aria-pressed") === "false" && profileCookie().sound === false,
+        "Settings sound toggle is accessible and persistent");
+      reloadedDoc.defaultView.confirm = () => true;
+      reloadedDoc.querySelector("#resetProgressButton").click();
+      await waitFor(() => reloadedDoc.querySelector("#levelBadge").textContent === "L1" && reloadedDoc.querySelector("#scoreValue").textContent === "0", "progress reset", 10000);
+      const reset = profileCookie();
+      assert(reset.currentLevel === 1 && reset.currentLevelSuccesses === 0 && reset.higherLevelSuccesses === 0 && reset.score === 0 && reset.emojiProgress === 0 && !reset.sound,
+        "Reset Progress clears level counters and rewards while retaining sound");
+
+      reloadedDoc.querySelector("#toast").classList.remove("show");
+      reloadedDoc.querySelector("#toast").textContent = "";
+      reloadedDoc.querySelector("#settingsButton").click();
+      reloadedDoc.querySelector("#runSolverButton").click();
+      await waitFor(() => reloadedDoc.querySelector("#answerButton").textContent !== "?", "Solver completion", 8000);
+      assert(reloadedDoc.querySelector("#scoreValue").textContent === "0" && profileCookie().score === 0 && profileCookie().emojiProgress === 0,
+        "Solver changes neither rewards nor persistent progress");
+      assert(!reloadedDoc.querySelector("#toast").classList.contains("show") && reloadedDoc.querySelector("#toast").textContent === "",
+        "Solver shows no reward toast");
+
+      reloadedDoc.querySelector("#countBadge").click();
+      const answer = Number(reloadedDoc.querySelector("#equationA").textContent) + Number(reloadedDoc.querySelector("#equationB").textContent);
+      await enterAnswer(frame, answer, true);
+      assert(reloadedDoc.querySelector("#scoreValue").textContent === "10" && profileCookie().score === 10 && profileCookie().emojiProgress === 1,
+        "manual completion after a wrong attempt awards exactly one reward");
+
+      document.body.dataset.status = "passed";
+      document.title = "PASS: Number Garden curriculum checks";
+      results.textContent = checks.join("\n") + "\n\n" + checks.length + " checks passed.";
+    }
+
+    run().catch(error => {
+      document.body.dataset.status = "failed";
+      document.title = "FAIL: Number Garden curriculum checks";
+      results.textContent = checks.join("\n") + "\n\nFAIL: " + (error.stack || error.message);
+    });
+  </script>
+</body>
+</html>

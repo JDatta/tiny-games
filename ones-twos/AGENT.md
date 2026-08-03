@@ -4,7 +4,7 @@
 
 ### Product
 
-Ones Twos contains **Number Garden**, a mobile-first learning game that teaches children how two-digit addition works through visible ones, tens, hundreds, and regrouping. A learner counts the next highlighted unit in sequence, watches groups of ten carry into the next place, and enters the answer only after completing the concrete counting activity. The game supports sums from `10 + 10` through `99 + 99`, including all carry combinations and three-digit results.
+Ones Twos contains **Number Garden**, a mobile-first learning game that teaches addition through visible ones, tens, hundreds, and regrouping. Nine persistent curriculum levels grow from single-digit sums to two-column carries. A learner counts the next highlighted unit in sequence and watches groups of ten carry into the next place. Organic problems may use addends from 1 through 99 and results through 198.
 
 ### Implementation
 
@@ -24,6 +24,7 @@ The runtime separates pure problem arithmetic (`problem`), temporary interaction
 | `plans/init-game.md` | Original implementation brief and acceptance criteria. Useful for product intent, but the shipped code and current docs describe present behavior. |
 | `docs/PRODUCT.md` | Product goals, audience, learning flow, supported problem categories, accessibility principles, and scope boundaries. |
 | `docs/ARCHITECTURE.md` | Runtime structure, state flow, persistence boundaries, diagnostics, and architectural change guidance. |
+| `tests/curriculum-harness.html` | Deterministic browser harness for curriculum predicates/generation, sampler boundaries, progression, migration, reward paths, Settings, persistence, and the Hundreds unlock. |
 
 ## Gotchas
 
@@ -33,9 +34,14 @@ The runtime separates pure problem arithmetic (`problem`), temporary interaction
 - A new or changed phase must be handled consistently by prompts, enabled-unit selection, input locks, manual advancement, Solver, accessibility announcements, and rendering.
 - Only the next valid block is interactive. Do not make rendered order, CSS state, or arbitrary tap order determine the count.
 - Carry behavior is derived from the addends. Validate no-carry, ones-carry, tens-carry, and two-carry cases, including zero ones and a result of `198`.
-- Use `?a=<10-99>&b=<10-99>` for deterministic browser checks. `window.NumberGarden.deriveProblem()` is also exposed for console diagnostics.
+- Keep the nine curriculum predicates, generated `curriculumLevel` tags, and weighted sampler aligned. L8 intentionally overlaps L7/L9 arithmetic and distinguishes its 50/50 patterns with `curriculumPattern`.
+- Startup, Next, suggestions, alternative refresh, and dice alternatives must all use `sampleCurriculumProblem()` and preserve unordered recent-pair avoidance.
+- Use `?a=<1-99>&b=<1-99>` for deterministic browser checks. Query-forced problems are untagged and must not change advancement counters. Pure generation, selection, progression, profile, definitions, and constants are exposed through `window.NumberGarden`.
 - Solver resumes at the next unfinished unit and follows the same carry transitions as manual play; it must not become a separate arithmetic path.
-- Completing manually or through Solver awards exactly 10 coins once. Resetting the current problem must not reset persistent progress, while the confirmed profile reset keeps the sound preference.
+- Only a typed correct answer awards exactly 10 coins, one milestone, and eligible level credit once. Solver may celebrate but must never change score, milestones, counters, or level and must not show a reward toast.
+- Profile schema v2 persists `currentLevel`, `currentLevelSuccesses`, and `higherLevelSuccesses` alongside the v1 fields. Preserve v1 score, milestones, and sound during migration. A confirmed progress reset returns to L1 with zero counters/rewards and keeps sound.
+- Below L6 the board renders Labels/Tens/Ones. L6+ renders Hundreds too. Crossing upward into L6 through advancement or Settings announces and highlights the unlock once for that session; reloads must not replay it.
+- Keep the bee and current-level badge visible on narrow/fullscreen layouts. Sound belongs in Settings.
 - Maintain touch targets, keyboard access, ARIA announcements, focus handling, and `prefers-reduced-motion` behavior whenever controls or animations change.
 - Do not edit `@poc-game.html` to implement product changes. Make shipped behavior changes in `index.html`.
 - The mock and original plan can contain outdated or illustrative details. Prefer current behavior, `docs/PRODUCT.md`, and `docs/ARCHITECTURE.md` when they disagree.
