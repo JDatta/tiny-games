@@ -103,9 +103,72 @@
       assert(Object.isFrozen(api.MOTION_TIMINGS) && api.MOTION_TIMINGS.BLOCK_FALL_LAND === 520 &&
         api.MOTION_TIMINGS.CARRY_FORMATION === 300 && api.MOTION_TIMINGS.CARRY_TRAVEL === 560 &&
         api.MOTION_TIMINGS.CARRY_LANDING === 140 && api.MOTION_TIMINGS.BEETLE_REACTION === 360 &&
+        api.MOTION_TIMINGS.DICE_TUMBLE === 380 && api.MOTION_TIMINGS.DICE_CARD_POP === 150 &&
+        api.MOTION_TIMINGS.DICE_CARD_STAGGER === 35 && api.MOTION_TIMINGS.DICE_REDUCED_HIGHLIGHT === 140 &&
         api.MOTION_TIMINGS.SOLVER_GAP === 70, "production teaching-motion timings are frozen and exposed");
       assert(Object.isFrozen(api.ACTIVE_MOTION_TIMINGS) && api.ACTIVE_MOTION_TIMINGS.BLOCK_FALL_LAND < api.MOTION_TIMINGS.BLOCK_FALL_LAND,
         "harness mode compresses durations without skipping the lifecycle");
+      const diceDoc = frame.contentDocument;
+      const diceMotion = api.motionDiagnostics;
+      diceMotion.clearEvents();
+      const stableCurrentCard = diceDoc.querySelector(".suggestion.current");
+      const stableCurrentMarkup = stableCurrentCard.innerHTML;
+      const rollingDice = diceDoc.querySelector(".dice");
+      const diceSoundBaseline = diceMotion.snapshot().soundEffectCount;
+      rollingDice.focus();
+      rollingDice.click();
+      rollingDice.click();
+      let diceSnapshot = diceMotion.snapshot();
+      assert(diceSnapshot.diceRefreshState === "tumbling" && diceSnapshot.controlsLocked &&
+        diceDoc.querySelector("#suggestionTray").getAttribute("aria-busy") === "true" &&
+        rollingDice.classList.contains("rolling") && rollingDice.getAttribute("aria-disabled") === "true" &&
+        rollingDice.getAttribute("aria-label").includes("Rolling the die"),
+        "dice refresh enters a busy rolling state with an accessible in-progress label");
+      assert(diceDoc.querySelector("#resetCurrent").disabled && diceDoc.querySelector("#answerButton").disabled &&
+        diceDoc.querySelector("#settingsButton").disabled && diceDoc.querySelector("#countBadge").disabled &&
+        diceDoc.querySelector(".unit.eligible").disabled &&
+        Array.from(diceDoc.querySelectorAll(".suggestion:not(.current)")).every(button => button.disabled),
+        "dice refresh locks counting and every competing problem control");
+      assert(diceDoc.querySelector(".suggestion.current") === stableCurrentCard && stableCurrentCard.innerHTML === stableCurrentMarkup,
+        "the current-problem card stays mounted and unchanged while the die tumbles");
+      await waitFor(() => diceMotion.snapshot().diceRefreshState === "emphasizing", "staggered dice alternatives");
+      const poppingAlternatives = Array.from(diceDoc.querySelectorAll(".suggestion:not(.current)"));
+      assert(poppingAlternatives.length === 3 && poppingAlternatives.every(button =>
+        button.classList.contains("refresh-pop") && button.dataset.refreshEmphasis === "pop" &&
+        getComputedStyle(button).animationName === "suggestion-refresh-pop"),
+        "all three refreshed alternatives receive the staggered pop and colored glow treatment");
+      assert(diceDoc.querySelector(".suggestion.current") === stableCurrentCard &&
+        !stableCurrentCard.classList.contains("refresh-pop") && !stableCurrentCard.dataset.refreshEmphasis,
+        "the current card receives no refreshed-card emphasis");
+      await waitFor(() => diceMotion.snapshot().diceRefreshState === "idle", "dice refresh completion");
+      diceSnapshot = diceMotion.snapshot();
+      const diceEvents = diceMotion.events();
+      assert(diceSnapshot.diceRefreshCount === 1 &&
+        diceEvents.filter(event => event.type === "dice-refresh-start").length === 1 &&
+        diceEvents.some(event => event.type === "dice-tumble-start") &&
+        diceEvents.some(event => event.type === "dice-landed") &&
+        diceEvents.filter(event => event.type === "dice-card-emphasis").length === 3 &&
+        diceEvents.some(event => event.type === "dice-refresh-complete"),
+        "rapid repeat activation is ignored and the complete dice-refresh lifecycle is diagnosed");
+      assert(diceDoc.activeElement === rollingDice && !diceDoc.querySelector("#suggestionTray").hasAttribute("aria-busy") &&
+        !rollingDice.hasAttribute("aria-disabled") && rollingDice.getAttribute("aria-label") === "Refresh the three alternative sums" &&
+        !diceSnapshot.controlsLocked && !diceDoc.querySelector("#settingsButton").disabled && !diceDoc.querySelector(".unit.eligible").disabled,
+        "completion restores dice focus, accessible labels, and competing controls");
+      assert(diceSnapshot.soundEffectCount > diceSoundBaseline,
+        "a sound-on dice roll produces the synthesized rattle and landing effect");
+
+      diceDoc.querySelector("#settingsButton").click();
+      diceDoc.querySelector("#settingsSoundButton").click();
+      diceDoc.querySelector("#closeSettings").click();
+      const silentDiceMotion = frame.contentWindow.NumberGarden.motionDiagnostics;
+      const silentDiceBaseline = silentDiceMotion.snapshot().soundEffectCount;
+      diceDoc.querySelector(".dice").click();
+      await waitFor(() => silentDiceMotion.snapshot().diceRefreshState === "idle", "silent dice refresh");
+      assert(silentDiceMotion.snapshot().soundEffectCount === silentDiceBaseline,
+        "a sound-off dice roll remains silent");
+      diceDoc.querySelector("#settingsButton").click();
+      diceDoc.querySelector("#settingsSoundButton").click();
+      diceDoc.querySelector("#closeSettings").click();
       assert(api.nextQueueBoundary(0, 18, true, false) === 10 && api.nextQueueBoundary(10, 18, true, true) === 18 &&
         api.canQueuePlaceUnit(9, 0, 18, true, false) && !api.canQueuePlaceUnit(10, 0, 18, true, false),
         "queue-boundary helpers close at an unfinished trade and reopen afterward");
@@ -344,6 +407,33 @@
       frame = await openGame("?a=2&b=3&harness=1&reducedMotion=1");
       motionDoc = frame.contentDocument;
       motionApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      motionApi.clearEvents();
+      const reducedCurrentCard = motionDoc.querySelector(".suggestion.current");
+      const reducedCurrentMarkup = reducedCurrentCard.innerHTML;
+      const reducedDice = motionDoc.querySelector(".dice");
+      const reducedDiceSoundBaseline = motionApi.snapshot().soundEffectCount;
+      const reducedDiceStarted = performance.now();
+      reducedDice.focus();
+      reducedDice.click();
+      const staticAlternatives = Array.from(motionDoc.querySelectorAll(".suggestion:not(.current)"));
+      assert(motionApi.snapshot().diceRefreshState === "static-highlight" && !reducedDice.classList.contains("rolling") &&
+        staticAlternatives.length === 3 && staticAlternatives.every(button =>
+          button.classList.contains("refresh-static") && button.dataset.refreshEmphasis === "static"),
+        "reduced motion refreshes immediately with a static highlight and no die tumble");
+      assert(motionDoc.querySelector(".suggestion.current") === reducedCurrentCard && reducedCurrentCard.innerHTML === reducedCurrentMarkup &&
+        !reducedCurrentCard.classList.contains("refresh-static"),
+        "reduced motion also leaves the current card stable and unhighlighted");
+      await waitFor(() => motionApi.snapshot().diceRefreshState === "idle", "reduced-motion dice refresh");
+      const reducedDiceEvents = motionApi.events();
+      assert(performance.now() - reducedDiceStarted < 500 &&
+        !reducedDiceEvents.some(event => event.type === "dice-tumble-start" || event.type === "dice-face") &&
+        reducedDiceEvents.filter(event => event.type === "dice-card-emphasis" && event.reduced).length === 3 &&
+        Array.from(motionDoc.querySelectorAll(".suggestion:not(.current)"))
+          .every(button => button.dataset.refreshEmphasis === "static"),
+        "reduced-motion dice refresh completes promptly without tumble or stagger movement");
+      assert(motionApi.snapshot().soundEffectCount > reducedDiceSoundBaseline && motionDoc.activeElement === reducedDice &&
+        !motionDoc.querySelector("#suggestionTray").hasAttribute("aria-busy"),
+        "reduced motion keeps optional dice audio and restores focus and busy state");
       motionDoc.querySelector("#settingsButton").click();
       motionDoc.querySelector("#settingsSoundButton").click();
       motionDoc.querySelector("#closeSettings").click();

@@ -19,6 +19,8 @@ The primary audience is early elementary learners, with a parent or teacher avai
 
 Holding the `?` button runs Solver from the child’s current position. Solver demonstrates the same counting and carry sequence instead of only revealing the answer. It can keep its completion celebration and sounds, but awards no coins, milestone, or level progress and shows no reward toast.
 
+The “Try another sum” die refreshes only the three alternative cards; the current-problem card stays fixed. A refresh plays a short tumbling die with changing faces and an optional dry rattle/landing sound, then gives the new cards a staggered colored pop. While that sequence runs, counting and other problem-changing controls are locked and the tray exposes its busy state to assistive technology. Keyboard focus returns to the die when the new choices are ready.
+
 ## Curriculum and sampling
 
 | Level | Generated problems |
@@ -43,7 +45,7 @@ Generated models keep their sampled curriculum level; this matters because L8 ov
 - Blue and green distinguish addends, while labels, position, and state changes ensure color is not the only cue.
 - Only the next valid block is actionable, preventing accidental or out-of-order counting.
 - The beetle varies its kid-friendly instructions when the learning step changes, while keeping the chosen message stable during that step; important updates are announced precisely to assistive technology.
-- Controls are touch-friendly, keyboard accessible, and compatible with reduced-motion preferences.
+- Controls are touch-friendly, keyboard accessible, and compatible with reduced-motion preferences. With reduced motion, the die updates the alternatives immediately and uses a brief non-moving card highlight instead of tumbling or staggered pops.
 - Audio is optional and never required to understand the game.
 
 ## Progress, board unlocks, and settings

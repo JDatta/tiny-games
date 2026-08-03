@@ -840,7 +840,48 @@
 
     .suggestion:disabled, .dice:disabled { opacity: .55; }
     .suggestion.current:disabled { opacity: 1; }
-    .dice { font-size: 22px; }
+    .dice {
+      font-size: 22px;
+      transform-origin: 50% 58%;
+    }
+
+    .dice.rolling {
+      color: #5036a4;
+      background: #f7f3ff;
+      border-color: #8a72d6;
+      box-shadow: 0 4px 11px rgba(80,54,164,.24);
+      will-change: transform;
+    }
+
+    .suggestion.refresh-pop {
+      animation: suggestion-refresh-pop var(--refresh-duration, 150ms) cubic-bezier(.2,.9,.3,1.25) var(--refresh-delay, 0ms) both;
+      will-change: transform, box-shadow;
+    }
+
+    .suggestion.refresh-static {
+      outline: 3px solid var(--refresh-glow, #7256c9);
+      outline-offset: 1px;
+      background: #fffdf4;
+      box-shadow: 0 0 0 5px color-mix(in srgb, var(--refresh-glow, #7256c9) 18%, transparent);
+      filter: brightness(1.05);
+    }
+
+    @keyframes suggestion-refresh-pop {
+      0% {
+        transform: translateY(0) scale(1);
+        outline: 0 solid transparent;
+      }
+      48% {
+        transform: translateY(-7px) scale(1.075);
+        outline: 3px solid var(--refresh-glow, #7256c9);
+        outline-offset: 2px;
+        box-shadow: 0 7px 16px color-mix(in srgb, var(--refresh-glow, #7256c9) 34%, transparent);
+      }
+      100% {
+        transform: translateY(0) scale(1);
+        outline: 0 solid transparent;
+      }
+    }
 
     .toast {
       position: fixed;
@@ -1161,6 +1202,8 @@
         outline-offset: 4px;
         filter: brightness(1.1);
       }
+      .dice.rolling { animation: none; transform: none; }
+      .suggestion.refresh-pop { animation: none; transform: none; }
     }
   </style>
 </head>
@@ -1209,7 +1252,7 @@
       <!-- Rows are rendered by JavaScript. -->
     </section>
 
-    <section class="tray" aria-label="Try another sum">
+    <section id="suggestionTray" class="tray" aria-label="Try another sum">
       <p class="tray-title">Try another sum</p>
       <div id="suggestions" class="suggestions"></div>
     </section>
@@ -1583,6 +1626,10 @@
       CARRY_TRAVEL: 560,
       CARRY_LANDING: 140,
       BEETLE_REACTION: 360,
+      DICE_TUMBLE: 380,
+      DICE_CARD_POP: 150,
+      DICE_CARD_STAGGER: 35,
+      DICE_REDUCED_HIGHLIGHT: 140,
       SOLVER_GAP: 70
     });
     const HARNESS_MOTION_TIMINGS = Object.freeze({
@@ -1591,8 +1638,14 @@
       CARRY_TRAVEL: 38,
       CARRY_LANDING: 18,
       BEETLE_REACTION: 28,
+      DICE_TUMBLE: 48,
+      DICE_CARD_POP: 32,
+      DICE_CARD_STAGGER: 8,
+      DICE_REDUCED_HIGHLIGHT: 26,
       SOLVER_GAP: 6
     });
+    const DICE_FACES = Object.freeze(["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]);
+    const DICE_REFRESH_GLOWS = Object.freeze(["#f0a000", "#4a8fe7", "#43a85b"]);
     const diagnosticParams = new URLSearchParams(location.search);
     const harnessMode = diagnosticParams.get("harness") === "1";
     const activeMotionTimings = harnessMode ? HARNESS_MOTION_TIMINGS : MOTION_TIMINGS;
@@ -1605,7 +1658,7 @@
       fullscreen: $("#fullscreenButton"), fullscreenIconPath: $("#fullscreenIconPath"),
       equationA: $("#equationA"), equationB: $("#equationB"), answer: $("#answerButton"), reset: $("#resetCurrent"),
       prompt: $("#promptText"), countBadge: $("#countBadge"), count: $("#countValue"), board: $("#board"),
-      suggestions: $("#suggestions"), keypad: $("#keypadDialog"), keypadForm: $("#keypadForm"),
+      tray: $("#suggestionTray"), suggestions: $("#suggestions"), keypad: $("#keypadDialog"), keypadForm: $("#keypadForm"),
       keypadEquation: $("#keypadEquation"), typed: $("#typedValue"), keypadDisplay: $("#keypadDisplay"),
       check: $("#checkAnswer"), settingsDialog: $("#settingsDialog"), settingsTitle: $("#settingsTitle"),
       settingsView: $("#settingsView"), aboutView: $("#aboutView"), settingsBack: $("#settingsBackButton"),
@@ -1637,6 +1690,10 @@
     let dropDrainPromise = null;
     let motionSession = 0;
     let motionSkipRequested = false;
+    let diceRefreshState = "idle";
+    let diceRefreshCount = 0;
+    let diceFace = "🎲";
+    let diceRefreshDisabledState = null;
     let lastRenderedPrompt = null;
     let beetleReactionCount = 0;
     let soundEffectCount = 0;
@@ -1867,12 +1924,114 @@
       return [current, ...alternatives];
     }
 
-    function refreshAlternatives() {
+    function setDiceRefreshControlsLocked(locked, dice) {
+      if (locked) {
+        const controls = [
+          elements.answer, elements.reset, elements.settings, elements.countBadge, elements.fullscreen,
+          ...elements.board.querySelectorAll("button"),
+          ...elements.suggestions.querySelectorAll(".suggestion:not(.current)")
+        ].filter(Boolean);
+        diceRefreshDisabledState = new Map(controls.map(control => [control, control.disabled]));
+        controls.forEach(control => { control.disabled = true; });
+        elements.tray.setAttribute("aria-busy", "true");
+        dice.classList.toggle("rolling", !reduceMotion);
+        dice.setAttribute("aria-disabled", "true");
+        dice.setAttribute("aria-label", reduceMotion
+          ? "Refreshing the three alternative sums"
+          : "Rolling the die for three new alternative sums");
+        return;
+      }
+      if (diceRefreshDisabledState) {
+        diceRefreshDisabledState.forEach((wasDisabled, control) => {
+          if (control.isConnected) control.disabled = wasDisabled;
+        });
+      }
+      diceRefreshDisabledState = null;
+      elements.suggestions.querySelectorAll(".suggestion:not(.current)").forEach(button => {
+        button.disabled = isMotionDraining() || solverRunning;
+      });
+      elements.tray.removeAttribute("aria-busy");
+      dice.classList.remove("rolling");
+      dice.removeAttribute("aria-disabled");
+      dice.setAttribute("aria-label", "Refresh the three alternative sums");
+    }
+
+    async function animateDiceTumble(dice) {
+      const duration = activeMotionTimings.DICE_TUMBLE;
+      let faceIndex = Math.floor(normalizedRandom(Math.random) * DICE_FACES.length);
+      const showNextFace = () => {
+        diceFace = DICE_FACES[faceIndex % DICE_FACES.length];
+        dice.textContent = diceFace;
+        recordMotion("dice-face", { face: diceFace });
+        faceIndex += 1 + Math.floor(normalizedRandom(Math.random) * (DICE_FACES.length - 1));
+      };
+      showNextFace();
+      const faceTimer = setInterval(showNextFace, Math.max(8, Math.floor(duration / 6)));
+      recordMotion("dice-tumble-start", { duration });
+      try {
+        await Promise.all([
+          animateTracked(dice, [
+            { transform: "translateY(0) rotate(0deg) scale(1)", offset: 0 },
+            { transform: "translateY(-9px) rotate(78deg) scale(1.06)", offset: .2 },
+            { transform: "translateY(1px) rotate(168deg) scale(.92)", offset: .43 },
+            { transform: "translateY(-6px) rotate(266deg) scale(1.04)", offset: .66 },
+            { transform: "translateY(1px) rotate(344deg) scale(.94)", offset: .86 },
+            { transform: "translateY(0) rotate(360deg) scale(1)", offset: 1 }
+          ], { duration, easing: "cubic-bezier(.25,.78,.35,1)", fill: "none" }),
+          pause(duration)
+        ]);
+      } finally {
+        clearInterval(faceTimer);
+      }
+      diceFace = DICE_FACES[Math.floor(normalizedRandom(Math.random) * DICE_FACES.length)];
+      dice.textContent = diceFace;
+      recordMotion("dice-landed", { face: diceFace });
+    }
+
+    async function emphasizeRefreshedAlternatives(buttons, mode) {
+      const reduced = mode === "static";
+      buttons.forEach((button, index) => {
+        const glow = DICE_REFRESH_GLOWS[index];
+        button.dataset.refreshEmphasis = mode;
+        button.style.setProperty("--refresh-glow", glow);
+        button.style.setProperty("--refresh-duration", activeMotionTimings.DICE_CARD_POP + "ms");
+        button.style.setProperty("--refresh-delay", index * activeMotionTimings.DICE_CARD_STAGGER + "ms");
+        button.classList.add(reduced ? "refresh-static" : "refresh-pop");
+        recordMotion("dice-card-emphasis", { index, mode, reduced });
+      });
+      await pause(reduced
+        ? activeMotionTimings.DICE_REDUCED_HIGHLIGHT
+        : activeMotionTimings.DICE_CARD_POP + activeMotionTimings.DICE_CARD_STAGGER * (buttons.length - 1));
+      buttons.forEach(button => button.classList.remove("refresh-pop", "refresh-static"));
+    }
+
+    async function refreshAlternatives(event) {
       if (isInteractionLocked()) return;
-      tray = makeTray(problem);
-      renderSuggestions();
+      const dice = event && event.currentTarget instanceof HTMLElement
+        ? event.currentTarget
+        : elements.suggestions.querySelector(".dice");
+      if (!dice) return;
+      diceRefreshState = reduceMotion ? "static-highlight" : "tumbling";
+      diceRefreshCount += 1;
+      recordMotion("dice-refresh-start", { reduced: reduceMotion, refreshCount: diceRefreshCount });
+      setDiceRefreshControlsLocked(true, dice);
       noteActivity();
-      cue(300, .045);
+      playDiceRefreshSound();
+      try {
+        if (!reduceMotion) await animateDiceTumble(dice);
+        diceRefreshState = reduceMotion ? "static-highlight" : "emphasizing";
+        tray = makeTray(problem);
+        const refreshedButtons = replaceAlternativeSuggestions(reduceMotion ? "static" : "pop");
+        recordMotion("dice-alternatives-updated", { reduced: reduceMotion, count: refreshedButtons.length });
+        await emphasizeRefreshedAlternatives(refreshedButtons, reduceMotion ? "static" : "pop");
+      } finally {
+        diceRefreshState = "idle";
+        motionSkipRequested = false;
+        setDiceRefreshControlsLocked(false, dice);
+        recordMotion("dice-refresh-complete", { reduced: reduceMotion, refreshCount: diceRefreshCount });
+        announce("Three new alternative sums are ready.");
+        if (dice.isConnected) dice.focus({ preventScroll: true });
+      }
     }
 
     function rememberProblem(model) {
@@ -2056,6 +2215,62 @@
 
     function cue(frequency = 440, duration = .06) {
       playTone({ frequency, duration, volume: .11 });
+    }
+
+    function playDiceRefreshSound() {
+      if (!profile.sound) return;
+      const context = getAudioContext();
+      if (!context) return;
+      try {
+        const now = context.currentTime + .006;
+        const duration = Math.max(.09, (reduceMotion
+          ? activeMotionTimings.DICE_REDUCED_HIGHLIGHT
+          : activeMotionTimings.DICE_TUMBLE) / 1000);
+        const length = Math.max(1, Math.floor(context.sampleRate * duration));
+        const buffer = context.createBuffer(1, length, context.sampleRate);
+        const data = buffer.getChannelData(0);
+        const hitTimes = [0, .2, .42, .64, .82, .96].map(value => value * duration);
+        for (let index = 0; index < length; index += 1) {
+          const time = index / context.sampleRate;
+          let envelope = 0;
+          hitTimes.forEach(hit => {
+            const distance = Math.max(0, time - hit);
+            if (distance < .028) envelope += Math.exp(-distance * 115);
+          });
+          data[index] = (Math.random() * 2 - 1) * Math.min(1, envelope);
+        }
+        const noise = context.createBufferSource();
+        const bandpass = context.createBiquadFilter();
+        const noiseGain = context.createGain();
+        noise.buffer = buffer;
+        bandpass.type = "bandpass";
+        bandpass.Q.setValueAtTime(1.25, now);
+        bandpass.frequency.setValueAtTime(1450, now);
+        bandpass.frequency.exponentialRampToValueAtTime(760, now + duration);
+        noiseGain.gain.setValueAtTime(.052, now);
+        noiseGain.gain.exponentialRampToValueAtTime(.018, now + duration);
+        noise.connect(bandpass).connect(noiseGain).connect(context.destination);
+        noise.start(now);
+
+        [
+          { offset: duration * .2, frequency: 235, volume: .026, length: .035 },
+          { offset: duration * .64, frequency: 190, volume: .032, length: .045 },
+          { offset: duration * .94, frequency: 132, volume: .085, length: .075 }
+        ].forEach(impact => {
+          const start = now + impact.offset;
+          const oscillator = context.createOscillator();
+          const gain = context.createGain();
+          oscillator.type = "triangle";
+          oscillator.frequency.setValueAtTime(impact.frequency, start);
+          oscillator.frequency.exponentialRampToValueAtTime(impact.frequency * .58, start + impact.length);
+          gain.gain.setValueAtTime(impact.volume, start);
+          gain.gain.exponentialRampToValueAtTime(.001, start + impact.length);
+          oscillator.connect(gain).connect(context.destination);
+          oscillator.start(start);
+          oscillator.stop(start + impact.length + .01);
+        });
+        soundEffectCount += 1;
+      } catch (_) { /* Audio is optional. */ }
     }
 
     function playDropImpact(place, delay = 0) {
@@ -2264,7 +2479,9 @@
         state.onesAcceptedCursor !== state.onesCursor || state.tensAcceptedCursor !== state.tensCursor));
     }
 
-    function isInteractionLocked() { return isMotionDraining() || solverRunning || isDialogOpen(); }
+    function isInteractionLocked() {
+      return isMotionDraining() || solverRunning || diceRefreshState !== "idle" || isDialogOpen();
+    }
 
     function cleanupMotionOverlays() {
       document.querySelectorAll(".motion-overlay").forEach(overlay => overlay.remove());
@@ -2827,27 +3044,43 @@
       lastRenderedPrompt = nextPrompt;
     }
 
+    function createSuggestionButton(item, index) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "suggestion" + (index === 0 ? " current" : "");
+      button.innerHTML = item.a + "<br>+ " + item.b;
+      button.setAttribute("aria-label", item.a + " plus " + item.b + ", " + CATEGORY_NAMES[item.category]);
+      if (index === 0) {
+        button.disabled = true;
+        button.setAttribute("aria-current", "true");
+      } else {
+        button.disabled = isMotionDraining() || solverRunning || diceRefreshState !== "idle";
+        button.addEventListener("click", () => selectSuggestion(item));
+      }
+      return button;
+    }
+
+    function replaceAlternativeSuggestions(mode) {
+      const existing = Array.from(elements.suggestions.querySelectorAll(".suggestion:not(.current)"));
+      return tray.slice(1).map((item, index) => {
+        const button = createSuggestionButton(item, index + 1);
+        button.disabled = true;
+        button.dataset.refreshEmphasis = mode;
+        if (existing[index]) existing[index].replaceWith(button);
+        else elements.suggestions.querySelector(".dice")?.before(button);
+        return button;
+      });
+    }
+
     function renderSuggestions() {
       elements.suggestions.replaceChildren();
       tray.forEach((item, index) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "suggestion" + (index === 0 ? " current" : "");
-        button.innerHTML = item.a + "<br>+ " + item.b;
-        button.setAttribute("aria-label", item.a + " plus " + item.b + ", " + CATEGORY_NAMES[item.category]);
-        if (index === 0) {
-          button.disabled = true;
-          button.setAttribute("aria-current", "true");
-        } else {
-          button.disabled = isMotionDraining() || solverRunning;
-          button.addEventListener("click", () => selectSuggestion(item));
-        }
-        elements.suggestions.append(button);
+        elements.suggestions.append(createSuggestionButton(item, index));
       });
       const dice = document.createElement("button");
       dice.type = "button";
       dice.className = "dice";
-      dice.textContent = "🎲";
+      dice.textContent = diceFace;
       dice.setAttribute("aria-label", "Refresh the three alternative sums");
       dice.disabled = isMotionDraining() || solverRunning;
       dice.addEventListener("click", refreshAlternatives);
@@ -2855,7 +3088,7 @@
     }
 
     function render() {
-      const motionLocked = isMotionDraining();
+      const motionLocked = isMotionDraining() || diceRefreshState !== "idle";
       elements.equationA.textContent = problem.a;
       elements.equationB.textContent = problem.b;
       elements.answer.textContent = state.phase === "completed" ? problem.result : "?";
@@ -2875,12 +3108,12 @@
       elements.sound.setAttribute("aria-label", profile.sound ? "Turn sound off" : "Turn sound on");
       elements.levelSelect.value = String(profile.currentLevel);
       if (state.phase === "completed") {
-        elements.countBadge.disabled = false;
+        elements.countBadge.disabled = motionLocked;
         elements.countBadge.className = "count-badge next success-next" + (reduceMotion ? " motion-reduced" : "");
         elements.countBadge.innerHTML = '<span class="count-label">Next →</span>';
         elements.countBadge.setAttribute("aria-label", "Open the next problem");
       } else if (state.phase === "awaiting-answer") {
-        elements.countBadge.disabled = false;
+        elements.countBadge.disabled = motionLocked;
         elements.countBadge.className = "count-badge next";
         elements.countBadge.innerHTML = '<span class="count-label">Answer →</span>';
         elements.countBadge.setAttribute("aria-label", "Enter the answer");
@@ -2902,7 +3135,7 @@
 
     function onUnitTap(event) {
       const unit = event.currentTarget;
-      if (!unit || solverRunning || isDialogOpen() || state.phase === "completed") return;
+      if (!unit || solverRunning || diceRefreshState !== "idle" || isDialogOpen() || state.phase === "completed") return;
       noteActivity();
       acceptPlaceUnit(unit.dataset.place, unit, false);
     }
@@ -3246,7 +3479,7 @@
     }
 
     function nextProblem() {
-      if (state.phase !== "completed") return;
+      if (state.phase !== "completed" || diceRefreshState !== "idle") return;
       startWeightedProblem();
     }
 
@@ -3265,7 +3498,7 @@
     }
 
     function openKeypad() {
-      if (state.phase === "completed" || isMotionDraining() || solverRunning) return;
+      if (state.phase === "completed" || isMotionDraining() || solverRunning || diceRefreshState !== "idle") return;
       clearIdleHints();
       typedAnswer = "";
       updateTypedValue();
@@ -3305,7 +3538,7 @@
 
     function startHold(event) {
       if (event.button !== undefined && event.button !== 0) return;
-      if (state.phase === "completed" || isMotionDraining() || solverRunning) return;
+      if (state.phase === "completed" || isMotionDraining() || solverRunning || diceRefreshState !== "idle") return;
       noteActivity();
       holdStarted = true;
       holdCompleted = false;
@@ -3397,7 +3630,7 @@
     }
 
     function openSettings() {
-      if (isMotionDraining() || solverRunning) return;
+      if (isMotionDraining() || solverRunning || diceRefreshState !== "idle") return;
       clearIdleHints();
       showSettingsView();
       elements.settingsDialog.showModal();
@@ -3527,11 +3760,14 @@
         visibleOnesCarry: state.visibleOnesCarry,
         visibleHundredsCarry: state.visibleHundredsCarry,
         solverRunning,
+        diceRefreshState,
+        diceRefreshCount,
+        diceFace,
         activeOverlayCount: document.querySelectorAll(".motion-overlay").length,
         beetleReactionCount,
         soundEffectCount,
         reducedMotion: reduceMotion,
-        controlsLocked: isMotionDraining() || solverRunning
+        controlsLocked: isMotionDraining() || solverRunning || diceRefreshState !== "idle"
       } : null;
     }
 
