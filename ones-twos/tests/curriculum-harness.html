@@ -83,11 +83,13 @@
         const unit = doc.querySelector(".unit.eligible");
         const place = unit.dataset.place;
         const before = diagnostics.snapshot();
-        const landedBefore = place === "ones" ? before.onesLandedCursor : before.tensLandedCursor;
+        const landedBefore = place === "ones" ? before.onesLandedCursor
+          : place === "tens" ? before.tensLandedCursor : before.hundredsLandedCursor;
         unit.click();
         await waitFor(() => {
           const snapshot = diagnostics.snapshot();
-          return (place === "ones" ? snapshot.onesLandedCursor : snapshot.tensLandedCursor) > landedBefore;
+          return (place === "ones" ? snapshot.onesLandedCursor
+            : place === "tens" ? snapshot.tensLandedCursor : snapshot.hundredsLandedCursor) > landedBefore;
         }, "landed unit " + (index + 1));
       }
     }
@@ -205,6 +207,7 @@
         [{ phase: "counting-ones", animationState: "ones" }, "carrying-ones"],
         [{ phase: "carrying-to-hundreds", animationState: null }, "carrying-hundreds"],
         [{ phase: "counting-tens", animationState: "hundreds" }, "carrying-hundreds"],
+        [{ phase: "counting-hundreds" }, "carrying-hundreds"],
         [{ phase: "counting-tens", skipMessage: true, tensCursor: 0 }, "skip-zero-ones"],
         [{ phase: "counting-ones" }, "counting-ones"],
         [{ phase: "counting-tens", visibleOnesCarry: true }, "counting-tens-with-carry"],
@@ -663,7 +666,7 @@
       assert(storedL6 && storedL6.schemaVersion === 2 && storedL6.currentLevel === 6 && storedL6.currentLevelSuccesses === 0 && storedL6.higherLevelSuccesses === 0,
         "manual level override persists L6 with reset counters");
 
-      frame = await openGame("?a=50&b=50&harness=1");
+      frame = await openGame("?a=60&b=50&harness=1");
       const fullCarryDoc = frame.contentDocument;
       const fullCarryApi = frame.contentWindow.NumberGarden.motionDiagnostics;
       fullCarryApi.clearEvents();
@@ -685,8 +688,15 @@
       const hundredCarryObserver = new MutationObserver(captureHundredCarryStyles);
       hundredCarryObserver.observe(fullCarryDoc.body, { childList: true, subtree: true });
       await countNextUnits(frame, 10);
-      await waitFor(() => fullCarryApi.snapshot().visibleHundredsCarry && fullCarryApi.snapshot().phase === "awaiting-answer",
-        "visible Hundreds carry completion", 8000);
+      await waitFor(() => fullCarryApi.snapshot().visibleHundredsCarry && fullCarryApi.snapshot().phase === "counting-tens",
+        "visible Hundreds carry parked during remaining Tens", 8000);
+      const parkedHundredSource = fullCarryDoc.querySelector('[data-motion-role="source"][data-place="hundreds"].filled');
+      assert(parkedHundredSource && !parkedHundredSource.classList.contains("eligible") &&
+        fullCarryDoc.querySelector('.unit.eligible[data-place="tens"][data-index="10"]'),
+        "the carried 100 stays parked while the remaining Tens are counted first");
+      await countNextUnits(frame, 1);
+      await waitFor(() => fullCarryApi.snapshot().phase === "counting-hundreds",
+        "visible Hundreds carry ready to count", 4000);
       hundredCarryObserver.disconnect();
       const fullCarryEvents = fullCarryApi.events();
       const hundredFormationIndex = fullCarryEvents.findIndex(event => event.type === "carry-formation" && event.kind === "hundreds");
@@ -695,14 +705,56 @@
       const hundredLandedIndex = fullCarryEvents.findIndex(event => event.type === "carry-landed" && event.kind === "hundreds");
       assert(hundredFormationIndex >= 0 && hundredFormationIndex < hundredTravelIndex &&
         hundredTravelIndex < hundredLandingIndex && hundredLandingIndex < hundredLandedIndex,
-        "an unlocked Hundreds carry records formation, measured travel, bounce, and permanent landing in order");
+        "an unlocked Hundreds carry records formation, measured travel, bounce, and source landing in order");
       const goldCarryStyle = style => style && style.borderTopColor === "rgb(155, 91, 0)" &&
         style.backgroundImage.includes("repeating-linear-gradient") && style.boxShadow !== "none";
       assert(goldCarryStyle(hundredCarryStyles.formation) && goldCarryStyle(hundredCarryStyles.travel),
         "the forming and in-flight hundred use the gold striped carry border, fill, and glow");
-      const landedHundred = fullCarryDoc.querySelector('[data-carry-destination="hundreds"].filled');
-      assert(landedHundred && goldCarryStyle(carryStyleSnapshot(landedHundred)),
-        "the permanent 100 destination remains gold striped and glowing after landing");
+      const carriedHundredSource = fullCarryDoc.querySelector('[data-motion-role="source"][data-place="hundreds"].filled');
+      assert(carriedHundredSource && carriedHundredSource.classList.contains("eligible") &&
+        goldCarryStyle(carryStyleSnapshot(carriedHundredSource)),
+        "the landed 100 waits as the eligible gold carried-hundred source");
+      const landedHundredBadge = carriedHundredSource.closest(".carried-hundred-source");
+      const landedHundredBadgeStyle = landedHundredBadge && frame.contentWindow.getComputedStyle(landedHundredBadge);
+      const hundredsPanelRect = fullCarryDoc.querySelector(".result-panel.hundreds").getBoundingClientRect();
+      const landedHundredBadgeRect = landedHundredBadge.getBoundingClientRect();
+      assert(landedHundredBadge && landedHundredBadge.textContent === "carry100" &&
+        landedHundredBadgeStyle.borderTopColor === "rgb(231, 173, 25)" &&
+        landedHundredBadgeStyle.backgroundColor === "rgb(255, 245, 189)" &&
+        carriedHundredSource.getBoundingClientRect().width === carriedHundredSource.getBoundingClientRect().height &&
+        landedHundredBadgeRect.left - hundredsPanelRect.left < 6 && landedHundredBadgeRect.top - hundredsPanelRect.top < 6,
+        "the carried 100 waits at the top left in a yellow outlined carry badge");
+      const emptyHundredResult = fullCarryDoc.querySelector('[data-motion-role="result"][data-place="hundreds"]');
+      assert(!emptyHundredResult.classList.contains("filled") &&
+        !fullCarryDoc.querySelector(".result-panel.hundreds .digit-label"),
+        "the Hundreds result and count stay empty until the carry is tapped");
+      carriedHundredSource.click();
+      let hundredCountSnapshot = fullCarryApi.snapshot();
+      assert(hundredCountSnapshot.hundredsAcceptedCursor === 1 && hundredCountSnapshot.hundredsLandedCursor === 0 &&
+        hundredCountSnapshot.activeOverlayCount === 1,
+        "tapping the carried 100 acknowledges it before it lands in the result");
+      await waitFor(() => fullCarryApi.snapshot().hundredsLandedCursor === 1 && fullCarryApi.snapshot().phase === "awaiting-answer",
+        "carried hundred count completion", 4000);
+      hundredCountSnapshot = fullCarryApi.snapshot();
+      const countedHundred = fullCarryDoc.querySelector('[data-motion-role="result"][data-place="hundreds"].filled');
+      const hundredCountLabel = fullCarryDoc.querySelector(".result-panel.hundreds .digit-label.hundreds-count");
+      assert(countedHundred && goldCarryStyle(carryStyleSnapshot(countedHundred)) &&
+        hundredCountLabel && hundredCountLabel.textContent === "1" &&
+        fullCarryApi.events().some(event => event.type === "drop-landed" && event.place === "hundreds" && event.index === 0),
+        "the tapped carry lands as a gold 100 and reveals a Hundreds count of 1");
+
+      frame = await openGame("?a=50&b=50&harness=1");
+      const visibleCarrySolverDoc = frame.contentDocument;
+      const visibleCarrySolverApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      visibleCarrySolverApi.clearEvents();
+      visibleCarrySolverDoc.querySelector("#settingsButton").click();
+      visibleCarrySolverDoc.querySelector("#runSolverButton").click();
+      await waitFor(() => visibleCarrySolverDoc.querySelector("#answerButton").textContent === "100",
+        "visible Hundreds Solver completion", 10000);
+      assert(visibleCarrySolverApi.events().filter(event => event.type === "drop-landed").length === 11 &&
+        visibleCarrySolverApi.events().some(event => event.type === "drop-landed" && event.place === "hundreds") &&
+        visibleCarrySolverApi.snapshot().hundredsLandedCursor === 1,
+        "Solver follows the same explicit carried-hundred counting step when Hundreds is visible");
 
       frame = await openGame("?reload=1");
       const reloadedDoc = frame.contentDocument;

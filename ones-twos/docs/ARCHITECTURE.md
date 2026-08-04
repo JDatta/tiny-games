@@ -23,11 +23,13 @@ counting-ones
   -> counting-tens
   -> queued drops (accepted -> landed, one overlay at a time)
   -> carrying-to-hundreds (formation -> travel -> landing, when needed)
+  -> counting-hundreds (tap the parked carried hundred when Hundreds is visible)
+  -> queued hundred drop (accepted -> landed)
   -> awaiting-answer
   -> completed
 ```
 
-Problems with zero ones begin at `counting-tens`. Rapid manual taps may queue through the next group-of-ten boundary, then input pauses until regrouping lands. Result units remain hidden until their matching overlay lands. Manual play stops at `awaiting-answer` until the child enters the correct total. Solver uses the same full drop/carry path and completes automatically. Queue, animation, and solver state lock competing controls while transitions run. Reduced motion commits immediately and flashes the target without directional travel.
+Problems with zero ones begin at `counting-tens`. Rapid manual taps may queue through the next group-of-ten boundary, then input pauses until regrouping lands. A visible carried hundred parks at the top left until Tens are finished, then becomes the next eligible unit; tapping it lands the `100` in the result and reveals the Hundreds count. Hidden-Hundreds diagnostic problems retain their compact settlement because they have no visible target. Result units remain hidden until their matching overlay lands. Manual play stops at `awaiting-answer` until the child enters the correct total. Solver uses the same full drop/carry path and completes automatically. Queue, animation, and solver state lock competing controls while transitions run. Reduced motion commits immediately and flashes the target without directional travel.
 
 The suggestion tray has an independent transient sequence: `idle -> tumbling -> emphasizing -> idle`. The current card and die remain mounted while the three alternative buttons are replaced, preserving the current card visually and keeping keyboard focus on the die. The tray is `aria-busy` throughout, repeat rolls and competing controls are locked, and diagnostics record refresh start, face cycling, landing, each card emphasis, and completion. Production timing is approximately 600 ms. Reduced motion skips the tumble and stagger, replaces the alternatives synchronously, and holds a brief static highlight while leaving optional audio available.
 

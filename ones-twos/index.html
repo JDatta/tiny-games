@@ -556,6 +556,7 @@
 
     .digit-label .place-count { display: inline-flex; }
     .digit-label .carry-digit { color: #aeb6c2; }
+    .digit-label.hundreds-count { left: 5px; right: auto; bottom: 5px; }
 
     .hundred-slot {
       width: 31px;
@@ -571,11 +572,40 @@
     }
 
     .hundred-slot.filled {
+      height: 31px;
       border: 2px solid #9b5b00;
       color: #724100;
       background: repeating-linear-gradient(135deg, #ffc446 0 4px, #f0a000 4px 7px);
       box-shadow: 0 0 0 4px rgba(255,196,70,.18), 0 0 11px rgba(255,190,40,.55);
     }
+
+    .carried-hundred-source {
+      position: absolute;
+      z-index: 4;
+      top: 2px;
+      left: 2px;
+      max-width: 100%;
+      padding: 3px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      border: 1px solid #e7ad19;
+      border-radius: 8px;
+      background: #fff5bd;
+      color: #724100;
+      font-size: 7px;
+      font-weight: 950;
+      line-height: 1;
+      box-shadow: 0 2px 5px rgba(130,83,0,.12);
+    }
+
+    .carried-hundred-source .hundred-slot {
+      width: 31px;
+      height: 31px;
+    }
+
+    .carried-hundred-source.placeholder { visibility: hidden; }
 
     .tens-grid {
       width: 100%;
@@ -1757,6 +1787,8 @@
         onesCursor: 0,
         tensAcceptedCursor: 0,
         tensCursor: 0,
+        hundredsAcceptedCursor: 0,
+        hundredsCursor: 0,
         tempCount: 0,
         visibleOnesCarry: false,
         visibleHundredsCarry: false,
@@ -2460,7 +2492,8 @@
 
     function isMotionDraining() {
       return Boolean(state && (state.animationState || state.dropQueue.length ||
-        state.onesAcceptedCursor !== state.onesCursor || state.tensAcceptedCursor !== state.tensCursor));
+        state.onesAcceptedCursor !== state.onesCursor || state.tensAcceptedCursor !== state.tensCursor ||
+        state.hundredsAcceptedCursor !== state.hundredsCursor));
     }
 
     function isInteractionLocked() {
@@ -2683,6 +2716,16 @@
           phase: "counting-ones"
         };
       }
+      if (place === "hundreds") {
+        return {
+          accepted: state.hundredsAcceptedCursor,
+          landed: state.hundredsCursor,
+          total: problem.hundreds,
+          carryNeeded: false,
+          carryVisible: true,
+          phase: "counting-hundreds"
+        };
+      }
       return {
         accepted: state.tensAcceptedCursor,
         landed: state.tensCursor,
@@ -2756,13 +2799,44 @@
     function resultHundreds() {
       const panel = document.createElement("div");
       panel.className = "place-panel hundreds result-panel";
-      const showHundred = state.phase === "completed" ? problem.hundreds : state.visibleHundredsCarry;
+      const countedHundreds = state.phase === "completed" ? problem.hundreds : state.hundredsCursor;
       const slot = document.createElement("span");
-      slot.className = "hundred-slot" + (showHundred ? " filled" : "");
-      slot.dataset.carryDestination = "hundreds";
-      slot.setAttribute("aria-label", showHundred ? "One hundred" : "Empty hundreds slot");
-      if (showHundred) slot.textContent = "100";
+      slot.className = "hundred-slot" + (countedHundreds ? " filled" : "");
+      slot.dataset.motionRole = "result";
+      slot.dataset.place = "hundreds";
+      slot.dataset.index = "0";
+      slot.setAttribute("aria-label", countedHundreds ? "One hundred counted" : "Empty hundreds result slot");
+      if (countedHundreds) slot.textContent = "100";
       panel.append(slot);
+      if (problem.carryToHundreds && state.phase !== "completed") {
+        const carriedHundred = document.createElement("span");
+        carriedHundred.className = "carried-hundred-source" + (state.visibleHundredsCarry ? "" : " placeholder");
+        const carryLabel = document.createElement("span");
+        carryLabel.textContent = "carry";
+        carryLabel.setAttribute("aria-hidden", "true");
+        const eligible = state.visibleHundredsCarry && canAcceptPlaceUnit("hundreds") && state.hundredsAcceptedCursor === 0;
+        const counted = state.hundredsCursor > 0;
+        const queued = state.hundredsAcceptedCursor > 0 && !counted;
+        const carryToken = state.visibleHundredsCarry
+          ? makeUnit("carry", counted, eligible, "Count the gold carried hundred", false,
+            { role: "source", place: "hundreds", index: 0 }, queued)
+          : makeEmptyUnit({ role: "source", place: "hundreds", index: 0 });
+        carryToken.classList.add("hundred-slot");
+        if (state.visibleHundredsCarry) {
+          carryToken.classList.add("filled");
+          carryToken.textContent = "100";
+        }
+        carryToken.dataset.carryDestination = "hundreds";
+        carriedHundred.append(carryLabel, carryToken);
+        panel.append(carriedHundred);
+      }
+      if (countedHundreds) {
+        const label = document.createElement("span");
+        label.className = "digit-label hundreds-count";
+        label.textContent = countedHundreds;
+        label.setAttribute("aria-label", countedHundreds + (state.phase === "completed" ? " hundred in the result" : " hundred counted"));
+        panel.append(label);
+      }
       if (state.carryKind === "hundreds") {
         const callout = document.createElement("span");
         callout.className = "carry-callout";
@@ -2982,6 +3056,7 @@
       if (currentState.phase === "awaiting-answer") return "awaiting-answer";
       if (currentState.animationState === "ones" || currentState.phase === "carrying-to-tens") return "carrying-ones";
       if (currentState.animationState === "hundreds" || currentState.phase === "carrying-to-hundreds") return "carrying-hundreds";
+      if (currentState.phase === "counting-hundreds") return "carrying-hundreds";
       if (currentState.skipMessage && currentState.phase === "counting-tens" && currentState.tensCursor === 0) return "skip-zero-ones";
       if (currentState.phase === "counting-ones") return "counting-ones";
       if (currentState.phase === "counting-tens") return currentState.visibleOnesCarry ? "counting-tens-with-carry" : "counting-tens";
@@ -3121,11 +3196,12 @@
       const item = {
         place,
         index,
-        owner: unit.dataset.owner || (place === "ones" ? ownerForOnes(index) : ownerForTens(index)),
+        owner: unit.dataset.owner || (place === "ones" ? ownerForOnes(index) : place === "tens" ? ownerForTens(index) : "carry"),
         origin: rectSnapshot(unit)
       };
       if (place === "ones") state.onesAcceptedCursor += 1;
-      else state.tensAcceptedCursor += 1;
+      else if (place === "tens") state.tensAcceptedCursor += 1;
+      else state.hundredsAcceptedCursor += 1;
       state.dropQueue.push(item);
       state.animationState = "drop";
       recordMotion("drop-accepted", { place, index, accepted: index + 1 });
@@ -3134,7 +3210,9 @@
     }
 
     function acceptNextPlaceUnitForSolver() {
-      const place = state.phase === "counting-ones" ? "ones" : state.phase === "counting-tens" ? "tens" : null;
+      const place = state.phase === "counting-ones" ? "ones"
+        : state.phase === "counting-tens" ? "tens"
+          : state.phase === "counting-hundreds" ? "hundreds" : null;
       if (!place || !canAcceptPlaceUnit(place, true)) return null;
       const progress = placeProgress(place);
       return acceptPlaceUnit(place, sourceUnit(place, progress.accepted), true);
@@ -3161,7 +3239,8 @@
         return true;
       }
       cleanupMotionOverlays();
-      const overlay = makeMotionOverlay(item.origin, "unit owner-" + item.owner, {
+      const overlay = makeMotionOverlay(item.origin,
+        "unit owner-" + item.owner + (item.place === "hundreds" ? " hundred-slot filled" : ""), {
         motionKind: "drop", place: item.place, index: item.index
       });
       if (!overlay) return true;
@@ -3192,11 +3271,12 @@
         const useStaticFlash = await animateDrop(item);
         if (!state || session !== motionSession) return;
         if (item.place === "ones") state.onesCursor = item.index + 1;
-        else state.tensCursor = item.index + 1;
+        else if (item.place === "tens") state.tensCursor = item.index + 1;
+        else state.hundredsCursor = item.index + 1;
         state.tempCount = item.index + 1;
         state.dropQueue.shift();
         recordMotion("drop-landed", { place: item.place, index: item.index, landed: item.index + 1 });
-        announce("Count " + state.tempCount + " " + item.place + ".");
+        announce(item.place === "hundreds" ? "Count 1 hundred." : "Count " + state.tempCount + " " + item.place + ".");
 
         const carryKind = item.place === "ones" && state.onesCursor === 10 && problem.carryToTens && !state.visibleOnesCarry
           ? "ones"
@@ -3220,7 +3300,8 @@
           const progress = placeProgress(item.place);
           if (progress.landed >= progress.total) {
             if (item.place === "ones") finishOnesPlace();
-            else finishTensPlace();
+            else if (item.place === "tens") finishTensPlace();
+            else finishHundredsPlace();
           }
         }
       }
@@ -3245,6 +3326,29 @@
     }
 
     function finishTensPlace() {
+      if (state.phase === "completed") return;
+      state.animationState = null;
+      if (problem.carryToHundreds && state.visibleHundredsCarry && !state.hundredsCursor &&
+          profile.currentLevel >= HUNDREDS_UNLOCK_LEVEL) {
+        state.phase = "counting-hundreds";
+        state.tempCount = 0;
+        render();
+        announce("Tens finished. Tap the gold carried hundred.");
+        return;
+      }
+      if (solverRunning) {
+        completeProblem("solver");
+        return;
+      }
+      state.phase = "awaiting-answer";
+      clearIdleHints();
+      render();
+      showSolverHint(false);
+      cue(610, .08);
+      announce("Counting finished. The answer is still hidden. Tap the question mark and enter the answer.");
+    }
+
+    function finishHundredsPlace() {
       if (state.phase === "completed") return;
       state.animationState = null;
       if (solverRunning) {
@@ -3376,6 +3480,8 @@
       state.onesCursor = problem.onesTotal;
       state.tensAcceptedCursor = problem.tensTotal;
       state.tensCursor = problem.tensTotal;
+      state.hundredsAcceptedCursor = problem.hundreds;
+      state.hundredsCursor = problem.hundreds;
       state.dropQueue.length = 0;
       state.animationState = null;
       state.carryPhase = null;
@@ -3434,7 +3540,7 @@
       announce("Solver started from the next unfinished block.");
       render();
       while (state.phase !== "completed") {
-        if (state.phase === "counting-ones" || state.phase === "counting-tens") {
+        if (state.phase === "counting-ones" || state.phase === "counting-tens" || state.phase === "counting-hundreds") {
           const drain = acceptNextPlaceUnitForSolver();
           if (drain) await drain;
         }
@@ -3717,10 +3823,14 @@
         onesLandedCursor: state.onesCursor,
         tensAcceptedCursor: state.tensAcceptedCursor,
         tensLandedCursor: state.tensCursor,
+        hundredsAcceptedCursor: state.hundredsAcceptedCursor,
+        hundredsLandedCursor: state.hundredsCursor,
         queueLength: state.dropQueue.length,
         queueBoundary: state.phase === "counting-ones"
           ? nextQueueBoundary(state.onesCursor, problem.onesTotal, Boolean(problem.carryToTens), state.visibleOnesCarry)
-          : nextQueueBoundary(state.tensCursor, problem.tensTotal, Boolean(problem.carryToHundreds), state.visibleHundredsCarry),
+          : state.phase === "counting-hundreds"
+            ? nextQueueBoundary(state.hundredsCursor, problem.hundreds, false, true)
+            : nextQueueBoundary(state.tensCursor, problem.tensTotal, Boolean(problem.carryToHundreds), state.visibleHundredsCarry),
         animationState: state.animationState,
         carryPhase: state.carryPhase,
         carryKind: state.carryKind,
