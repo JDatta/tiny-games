@@ -667,12 +667,42 @@
       const fullCarryDoc = frame.contentDocument;
       const fullCarryApi = frame.contentWindow.NumberGarden.motionDiagnostics;
       fullCarryApi.clearEvents();
+      const hundredCarryStyles = { formation: null, travel: null };
+      const carryStyleSnapshot = element => {
+        const style = frame.contentWindow.getComputedStyle(element);
+        return {
+          borderTopColor: style.borderTopColor,
+          backgroundImage: style.backgroundImage,
+          boxShadow: style.boxShadow
+        };
+      };
+      const captureHundredCarryStyles = () => {
+        const formation = fullCarryDoc.querySelector('[data-carry-origin="hundreds"]');
+        const travel = fullCarryDoc.querySelector('.motion-overlay.carry-token.hundred-token');
+        if (formation && !hundredCarryStyles.formation) hundredCarryStyles.formation = carryStyleSnapshot(formation);
+        if (travel && !hundredCarryStyles.travel) hundredCarryStyles.travel = carryStyleSnapshot(travel);
+      };
+      const hundredCarryObserver = new MutationObserver(captureHundredCarryStyles);
+      hundredCarryObserver.observe(fullCarryDoc.body, { childList: true, subtree: true });
       await countNextUnits(frame, 10);
       await waitFor(() => fullCarryApi.snapshot().visibleHundredsCarry && fullCarryApi.snapshot().phase === "awaiting-answer",
         "visible Hundreds carry completion", 8000);
-      assert(fullCarryApi.events().some(event => event.type === "carry-travel" && event.kind === "hundreds" && event.destination === "hundreds") &&
-        fullCarryDoc.querySelector('[data-carry-destination="hundreds"].filled'),
-        "an unlocked Hundreds carry travels left and reveals its permanent destination");
+      hundredCarryObserver.disconnect();
+      const fullCarryEvents = fullCarryApi.events();
+      const hundredFormationIndex = fullCarryEvents.findIndex(event => event.type === "carry-formation" && event.kind === "hundreds");
+      const hundredTravelIndex = fullCarryEvents.findIndex(event => event.type === "carry-travel" && event.kind === "hundreds" && event.destination === "hundreds");
+      const hundredLandingIndex = fullCarryEvents.findIndex(event => event.type === "carry-landing" && event.kind === "hundreds");
+      const hundredLandedIndex = fullCarryEvents.findIndex(event => event.type === "carry-landed" && event.kind === "hundreds");
+      assert(hundredFormationIndex >= 0 && hundredFormationIndex < hundredTravelIndex &&
+        hundredTravelIndex < hundredLandingIndex && hundredLandingIndex < hundredLandedIndex,
+        "an unlocked Hundreds carry records formation, measured travel, bounce, and permanent landing in order");
+      const goldCarryStyle = style => style && style.borderTopColor === "rgb(155, 91, 0)" &&
+        style.backgroundImage.includes("repeating-linear-gradient") && style.boxShadow !== "none";
+      assert(goldCarryStyle(hundredCarryStyles.formation) && goldCarryStyle(hundredCarryStyles.travel),
+        "the forming and in-flight hundred use the gold striped carry border, fill, and glow");
+      const landedHundred = fullCarryDoc.querySelector('[data-carry-destination="hundreds"].filled');
+      assert(landedHundred && goldCarryStyle(carryStyleSnapshot(landedHundred)),
+        "the permanent 100 destination remains gold striped and glowing after landing");
 
       frame = await openGame("?reload=1");
       const reloadedDoc = frame.contentDocument;
