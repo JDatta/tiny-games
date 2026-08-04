@@ -125,7 +125,7 @@
         rollingDice.getAttribute("aria-label").includes("Rolling the die"),
         "dice refresh enters a busy rolling state with an accessible in-progress label");
       assert(diceDoc.querySelector("#resetCurrent").disabled && diceDoc.querySelector("#answerButton").disabled &&
-        diceDoc.querySelector("#settingsButton").disabled && diceDoc.querySelector("#countBadge").disabled &&
+        diceDoc.querySelector("#settingsButton").disabled && diceDoc.querySelector("#nextButton").disabled &&
         diceDoc.querySelector(".unit.eligible").disabled &&
         Array.from(diceDoc.querySelectorAll(".suggestion:not(.current)")).every(button => button.disabled),
         "dice refresh locks counting and every competing problem control");
@@ -453,8 +453,8 @@
         reducedAnswer.classList.contains("motion-reduced") && getComputedStyle(reducedAnswer).animationName === "none",
         "reduced motion replaces the finished-count question-mark flash with a strong static highlight");
       await enterAnswer(frame, 5);
-      const reducedNext = motionDoc.querySelector("#countBadge");
-      assert(reducedNext.classList.contains("success-next") && reducedNext.classList.contains("motion-reduced") &&
+      const reducedNext = motionDoc.querySelector("#nextButton");
+      assert(!reducedNext.hidden && reducedNext.classList.contains("success-next") && reducedNext.classList.contains("motion-reduced") &&
         getComputedStyle(reducedNext).animationName === "none",
         "reduced motion replaces the successful Next animation with a strong static highlight");
       assert(motionApi.snapshot().soundEffectCount === silentBaseline,
@@ -488,13 +488,18 @@
         "Solver uses the full drop and both-carry teaching paths for 99 + 99");
       assert(motionDoc.querySelector("#scoreValue").textContent === solverScore && motionApi.snapshot().activeOverlayCount === 0,
         "99 + 99 Solver finishes cleanly without a reward");
-      assert(motionDoc.querySelector("#countBadge").classList.contains("success-next"),
+      assert(!motionDoc.querySelector("#nextButton").hidden && motionDoc.querySelector("#nextButton").classList.contains("success-next"),
         "Solver completion highlights the Next action");
 
       frame = await openGame("?a=2&b=3&harness=1");
       let promptDoc = frame.contentDocument;
       const initialOnesPrompt = promptDoc.querySelector("#promptText").textContent;
       assert(promptMatches(api, "counting-ones", initialOnesPrompt), "a new problem starts with a counting-ones variant");
+      const promptRow = promptDoc.querySelector("#promptRow");
+      const initialNext = promptDoc.querySelector("#nextButton");
+      assert(initialNext.hidden && initialNext.disabled && !promptRow.classList.contains("has-next") &&
+        Math.abs(promptRow.getBoundingClientRect().width - promptDoc.querySelector(".speech").getBoundingClientRect().width) < 1,
+        "counting hides the redundant Count control and lets the beetle bubble fill the prompt row");
       const firstOne = promptDoc.querySelector(".unit.eligible");
       firstOne.click();
       await waitFor(() => frame.contentWindow.NumberGarden.motionDiagnostics.snapshot().onesLandedCursor === 1,
@@ -506,22 +511,24 @@
       assert(promptMatches(api, "counting-ones", resetOnesPrompt) && resetOnesPrompt !== initialOnesPrompt,
         "resetting a problem selects a different counting-ones variant");
       await countNextUnits(frame, 5);
-      await waitFor(() => promptDoc.querySelector("#countBadge").textContent.includes("Answer"), "answer step after counting ones");
+      await waitFor(() => frame.contentWindow.NumberGarden.motionDiagnostics.snapshot().phase === "awaiting-answer", "answer step after counting ones");
       assert(promptMatches(api, "awaiting-answer", promptDoc.querySelector("#promptText").textContent),
         "finished counting shows an awaiting-answer variant");
       const readyAnswer = promptDoc.querySelector("#answerButton");
-      assert(readyAnswer.textContent === "?" && readyAnswer.classList.contains("answer-ready") &&
+      assert(initialNext.hidden && initialNext.disabled && !promptRow.classList.contains("has-next") &&
+        promptRow.querySelectorAll("button:not([hidden])").length === 0 && readyAnswer.textContent === "?" && readyAnswer.classList.contains("answer-ready") &&
         getComputedStyle(readyAnswer).animationName === "answer-ready-pulse" &&
         getComputedStyle(readyAnswer).animationDuration === "0.65s" &&
         getComputedStyle(readyAnswer).animationIterationCount === "infinite",
-        "finished counting continuously flashes the question-mark answer control in sync with action feedback");
+        "finished counting keeps ? as the only answer control and continuously flashes it in sync with action feedback");
       await enterAnswer(frame, 5);
       assert(!promptDoc.querySelector("#answerButton").classList.contains("answer-ready"),
         "answer completion stops the question-mark flash");
       assert(promptMatches(api, "completed", promptDoc.querySelector("#promptText").textContent, { a: 2, b: 3, result: 5 }),
         "manual completion shows a correctly formatted completion variant");
-      const completedNext = promptDoc.querySelector("#countBadge");
-      assert(completedNext.classList.contains("success-next") &&
+      const completedNext = promptDoc.querySelector("#nextButton");
+      assert(!completedNext.hidden && !completedNext.disabled && promptRow.classList.contains("has-next") &&
+        completedNext.classList.contains("success-next") &&
         getComputedStyle(completedNext).animationName === "success-next-pulse" &&
         getComputedStyle(completedNext).animationIterationCount === "infinite",
         "successful manual completion continuously highlights and animates Next");
@@ -694,7 +701,7 @@
       assert(!reloadedDoc.querySelector("#toast").classList.contains("show") && reloadedDoc.querySelector("#toast").textContent === "",
         "Solver shows no reward toast");
 
-      reloadedDoc.querySelector("#countBadge").click();
+      reloadedDoc.querySelector("#nextButton").click();
       const answer = Number(reloadedDoc.querySelector("#equationA").textContent) + Number(reloadedDoc.querySelector("#equationB").textContent);
       await enterAnswer(frame, answer, true);
       assert(reloadedDoc.querySelector("#scoreValue").textContent === "10" && profileCookie().score === 10 && profileCookie().emojiProgress === 1,

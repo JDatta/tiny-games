@@ -358,10 +358,12 @@
     .prompt-row {
       min-height: 52px;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr);
       align-items: stretch;
       gap: 6px;
     }
+
+    .prompt-row.has-next { grid-template-columns: minmax(0, 1fr) auto; }
 
     .speech {
       min-width: 0;
@@ -389,12 +391,11 @@
     }
     #promptText { min-width: 0; }
 
-    .count-badge {
+    .next-button {
       min-width: 82px;
       min-height: 52px;
       padding: 4px 9px;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
       border: 2px solid #efbd34;
@@ -403,14 +404,13 @@
       color: #713c06;
       font-weight: 900;
       box-shadow: 0 3px 0 rgba(204,139,18,.13);
-      cursor: default;
+      cursor: pointer;
+      font-size: 15px;
     }
 
-    .count-badge .count-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
-    .count-badge strong { font-size: 25px; line-height: 1; font-variant-numeric: tabular-nums; }
-    .count-badge.next { cursor: pointer; font-size: 15px; }
-    .count-badge.next .count-label { font-size: 15px; text-transform: none; letter-spacing: 0; }
-    .count-badge.success-next {
+    .next-button[hidden] { display: none; }
+
+    .next-button.success-next {
       border-color: #5d42c2;
       background: linear-gradient(135deg, #fff1a8, #f1eaff 55%, #ddf8e7);
       color: #3f278d;
@@ -432,7 +432,7 @@
       }
     }
 
-    .count-badge.success-next.motion-reduced {
+    .next-button.success-next.motion-reduced {
       animation: none;
       outline: 4px solid rgba(114,86,201,.38);
       outline-offset: 2px;
@@ -1148,7 +1148,7 @@
       .bee, .journey, .score { height: 38px; }
       .equation-card { min-height: 68px; font-size: clamp(28px, 9.5vw, 40px); }
       .answer-button { width: 54px; height: 54px; flex-basis: 54px; font-size: 31px; }
-      .prompt-row, .count-badge { min-height: 48px; }
+      .prompt-row, .next-button { min-height: 48px; }
       .prompt-mascot { font-size: 21px; }
       .board { grid-template-rows: 22px repeat(3, minmax(58px, 1fr)); }
       .tray { min-height: 66px; padding-top: 3px; }
@@ -1190,7 +1190,7 @@
         outline-offset: 2px;
         filter: brightness(1.22);
       }
-      .count-badge.success-next {
+      .next-button.success-next {
         animation: none;
         outline: 4px solid rgba(114,86,201,.38);
         outline-offset: 2px;
@@ -1233,15 +1233,12 @@
       <button id="resetCurrent" class="reset-current" type="button" aria-label="Reset this problem" title="Reset this problem">↻</button>
     </section>
 
-    <section class="prompt-row" aria-label="Instructions and count">
+    <section id="promptRow" class="prompt-row" aria-label="Instructions">
       <div class="speech">
         <span class="prompt-mascot" aria-hidden="true">🐞</span>
         <span id="promptText">Tap the glowing ones, in order.</span>
       </div>
-      <button id="countBadge" class="count-badge" type="button" disabled>
-        <span class="count-label">Count</span>
-        <strong id="countValue">0</strong>
-      </button>
+      <button id="nextButton" class="next-button" type="button" aria-label="Open the next problem" hidden disabled>Next →</button>
     </section>
 
     <section id="board" class="board" aria-label="Place-value board">
@@ -1657,7 +1654,7 @@
       journey: $("#journey"), levelBadge: $("#levelBadge"), score: $("#scoreValue"), settings: $("#settingsButton"),
       fullscreen: $("#fullscreenButton"), fullscreenIconPath: $("#fullscreenIconPath"),
       equationA: $("#equationA"), equationB: $("#equationB"), answer: $("#answerButton"), reset: $("#resetCurrent"),
-      prompt: $("#promptText"), countBadge: $("#countBadge"), count: $("#countValue"), board: $("#board"),
+      promptRow: $("#promptRow"), prompt: $("#promptText"), next: $("#nextButton"), board: $("#board"),
       tray: $("#suggestionTray"), suggestions: $("#suggestions"), keypad: $("#keypadDialog"), keypadForm: $("#keypadForm"),
       keypadEquation: $("#keypadEquation"), typed: $("#typedValue"), keypadDisplay: $("#keypadDisplay"),
       check: $("#checkAnswer"), settingsDialog: $("#settingsDialog"), settingsTitle: $("#settingsTitle"),
@@ -1927,7 +1924,7 @@
     function setDiceRefreshControlsLocked(locked, dice) {
       if (locked) {
         const controls = [
-          elements.answer, elements.reset, elements.settings, elements.countBadge, elements.fullscreen,
+          elements.answer, elements.reset, elements.settings, elements.next, elements.fullscreen,
           ...elements.board.querySelectorAll("button"),
           ...elements.suggestions.querySelectorAll(".suggestion:not(.current)")
         ].filter(Boolean);
@@ -3107,23 +3104,11 @@
       elements.sound.setAttribute("aria-pressed", String(profile.sound));
       elements.sound.setAttribute("aria-label", profile.sound ? "Turn sound off" : "Turn sound on");
       elements.levelSelect.value = String(profile.currentLevel);
-      if (state.phase === "completed") {
-        elements.countBadge.disabled = motionLocked;
-        elements.countBadge.className = "count-badge next success-next" + (reduceMotion ? " motion-reduced" : "");
-        elements.countBadge.innerHTML = '<span class="count-label">Next →</span>';
-        elements.countBadge.setAttribute("aria-label", "Open the next problem");
-      } else if (state.phase === "awaiting-answer") {
-        elements.countBadge.disabled = motionLocked;
-        elements.countBadge.className = "count-badge next";
-        elements.countBadge.innerHTML = '<span class="count-label">Answer →</span>';
-        elements.countBadge.setAttribute("aria-label", "Enter the answer");
-      } else {
-        elements.countBadge.disabled = true;
-        elements.countBadge.className = "count-badge";
-        elements.countBadge.innerHTML = '<span class="count-label">Count</span><strong id="countValue">' + state.tempCount + "</strong>";
-        elements.countBadge.removeAttribute("aria-label");
-        elements.count = $("#countValue");
-      }
+      const showNext = state.phase === "completed";
+      elements.promptRow.classList.toggle("has-next", showNext);
+      elements.next.hidden = !showNext;
+      elements.next.disabled = !showNext || motionLocked;
+      elements.next.className = "next-button" + (showNext ? " success-next" + (reduceMotion ? " motion-reduced" : "") : "");
       renderJourney();
       renderBoard();
       renderSuggestions();
@@ -3483,11 +3468,6 @@
       startWeightedProblem();
     }
 
-    function handleCountBadgeClick() {
-      if (state.phase === "awaiting-answer") openKeypad();
-      else nextProblem();
-    }
-
     function resetCurrentProblem() {
       if (state.phase === "completed" || isInteractionLocked()) return;
       state = freshState(problem);
@@ -3699,7 +3679,7 @@
         }
       });
       elements.reset.addEventListener("click", resetCurrentProblem);
-      elements.countBadge.addEventListener("click", handleCountBadgeClick);
+      elements.next.addEventListener("click", nextProblem);
       elements.sound.addEventListener("click", toggleSound);
       elements.levelSelect.addEventListener("change", handleLevelChange);
       elements.settings.addEventListener("click", openSettings);
