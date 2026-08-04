@@ -2815,14 +2815,13 @@
         carryLabel.textContent = "carry";
         carryLabel.setAttribute("aria-hidden", "true");
         const eligible = state.visibleHundredsCarry && canAcceptPlaceUnit("hundreds") && state.hundredsAcceptedCursor === 0;
-        const counted = state.hundredsCursor > 0;
-        const queued = state.hundredsAcceptedCursor > 0 && !counted;
-        const carryToken = state.visibleHundredsCarry
-          ? makeUnit("carry", counted, eligible, "Count the gold carried hundred", false,
-            { role: "source", place: "hundreds", index: 0 }, queued)
+        const carryAvailable = state.visibleHundredsCarry && state.hundredsAcceptedCursor <= 0;
+        const carryToken = carryAvailable
+          ? makeUnit("carry", false, eligible, "Count the gold carried hundred", false,
+            { role: "source", place: "hundreds", index: 0 })
           : makeEmptyUnit({ role: "source", place: "hundreds", index: 0 });
         carryToken.classList.add("hundred-slot");
-        if (state.visibleHundredsCarry) {
+        if (carryAvailable) {
           carryToken.classList.add("filled");
           carryToken.textContent = "100";
         }
@@ -2966,12 +2965,11 @@
         source.append(document.createTextNode("carry"));
         const carryIndex = problem.originalTensTotal;
         const eligible = state.visibleOnesCarry && canAcceptPlaceUnit("tens") && state.tensAcceptedCursor === carryIndex;
-        const counted = state.tensCursor > carryIndex;
-        const queued = state.tensAcceptedCursor > carryIndex && !counted;
-        const token = state.visibleOnesCarry
-          ? makeUnit("carry", counted, eligible, "Count the gold carried ten", false,
-            { role: "source", place: "tens", index: carryIndex }, queued)
-          : makeEmptyUnit();
+        const carryAvailable = state.visibleOnesCarry && state.tensAcceptedCursor <= carryIndex;
+        const metadata = { role: "source", place: "tens", index: carryIndex };
+        const token = carryAvailable
+          ? makeUnit("carry", false, eligible, "Count the gold carried ten", false, metadata)
+          : makeEmptyUnit(metadata);
         token.dataset.carryDestination = "tens";
         source.append(token);
         panel.append(source);

@@ -382,6 +382,38 @@
       assert(motionSnapshot.soundEffectCount > 0, "Sound on produces synchronized drop, carry, and beetle effects");
       for (let index = 10; index < 18; index += 1) motionDoc.querySelector(".unit.eligible").click();
       await waitFor(() => motionApi.snapshot().phase === "counting-tens", "remaining ones queue drain", 8000);
+      const carriedTenSource = motionDoc.querySelector('[data-motion-role="source"][data-place="tens"].owner-carry');
+      const carriedTenRect = carriedTenSource.getBoundingClientRect();
+      const emptyTenResult = motionDoc.querySelector('[data-motion-role="result"][data-place="tens"][data-index="0"]');
+      assert(carriedTenSource.classList.contains("eligible") && emptyTenResult.classList.contains("empty-unit"),
+        "the carried ten waits in its badge while the Tens result remains empty");
+      carriedTenSource.click();
+      motionSnapshot = motionApi.snapshot();
+      const emptiedTenBadge = motionDoc.querySelector(".carried-ten-source");
+      const emptiedTenSource = emptiedTenBadge.querySelector('.empty-unit[data-motion-role="source"][data-place="tens"]');
+      const movingTen = motionDoc.querySelector(".motion-overlay.owner-carry");
+      const movingTenStyle = movingTen && frame.contentWindow.getComputedStyle(movingTen);
+      const emptiedTenRect = emptiedTenSource.getBoundingClientRect();
+      assert(motionSnapshot.tensAcceptedCursor === 1 && motionSnapshot.tensLandedCursor === 0 &&
+        emptiedTenBadge.textContent === "carry" && emptiedTenSource &&
+        emptiedTenRect.width === carriedTenRect.width && emptiedTenRect.height === carriedTenRect.height,
+        "tapping the carried ten immediately leaves an equal-sized outlined bar slot in the yellow badge");
+      assert(motionSnapshot.activeOverlayCount === 1 && motionDoc.querySelectorAll(".motion-overlay.owner-carry").length === 1 &&
+        movingTenStyle.borderTopColor === "rgb(155, 91, 0)" && movingTenStyle.backgroundImage.includes("repeating-linear-gradient"),
+        "the accepted carried ten becomes exactly one gold moving overlay");
+      assert(motionDoc.querySelector('[data-motion-role="result"][data-place="tens"][data-index="0"]').classList.contains("empty-unit"),
+        "the Tens result target remains empty while the carried ten travels");
+      await waitFor(() => motionApi.snapshot().tensLandedCursor === 1 && motionApi.snapshot().phase === "awaiting-answer",
+        "carried ten count completion", 4000);
+      const settledTenBadge = motionDoc.querySelector(".carried-ten-source");
+      const settledTenBadgeStyle = frame.contentWindow.getComputedStyle(settledTenBadge);
+      assert(settledTenBadge && settledTenBadge.textContent === "carry" && settledTenBadge.querySelector(".empty-unit") &&
+        !settledTenBadge.querySelector(".owner-carry") && settledTenBadgeStyle.borderTopColor === "rgb(231, 173, 25)" &&
+        settledTenBadgeStyle.backgroundColor === "rgb(255, 245, 189)",
+        "the empty yellow carried-ten badge and carry label remain through awaiting-answer");
+      await enterAnswer(frame, 18);
+      assert(!motionDoc.querySelector(".carried-ten-source"),
+        "correct-answer completion removes the empty carried-ten badge");
 
       frame = await openGame("?a=90&b=90&harness=1");
       motionDoc = frame.contentDocument;
@@ -728,11 +760,25 @@
       assert(!emptyHundredResult.classList.contains("filled") &&
         !fullCarryDoc.querySelector(".result-panel.hundreds .digit-label"),
         "the Hundreds result and count stay empty until the carry is tapped");
+      const carriedHundredRect = carriedHundredSource.getBoundingClientRect();
       carriedHundredSource.click();
       let hundredCountSnapshot = fullCarryApi.snapshot();
+      const emptiedHundredBadge = fullCarryDoc.querySelector(".carried-hundred-source");
+      const emptiedHundredSource = emptiedHundredBadge.querySelector('.empty-unit[data-motion-role="source"][data-place="hundreds"]');
+      const movingHundred = fullCarryDoc.querySelector(".motion-overlay.owner-carry.hundred-slot.filled");
+      const emptiedHundredRect = emptiedHundredSource.getBoundingClientRect();
       assert(hundredCountSnapshot.hundredsAcceptedCursor === 1 && hundredCountSnapshot.hundredsLandedCursor === 0 &&
-        hundredCountSnapshot.activeOverlayCount === 1,
-        "tapping the carried 100 acknowledges it before it lands in the result");
+        emptiedHundredBadge.textContent === "carry" && emptiedHundredSource && !emptiedHundredSource.classList.contains("filled") &&
+        emptiedHundredRect.width === carriedHundredRect.width && emptiedHundredRect.height === carriedHundredRect.height,
+        "tapping the carried 100 immediately leaves an equal-sized outlined square slot in the yellow badge");
+      assert(hundredCountSnapshot.activeOverlayCount === 1 &&
+        fullCarryDoc.querySelectorAll(".motion-overlay.owner-carry.hundred-slot.filled").length === 1 &&
+        goldCarryStyle(carryStyleSnapshot(movingHundred)),
+        "the accepted carried 100 becomes exactly one gold moving overlay");
+      const travelingHundredResult = fullCarryDoc.querySelector('[data-motion-role="result"][data-place="hundreds"]');
+      assert(!travelingHundredResult.classList.contains("filled") &&
+        !fullCarryDoc.querySelector(".result-panel.hundreds .digit-label"),
+        "the Hundreds result target and count remain empty while the carried 100 travels");
       await waitFor(() => fullCarryApi.snapshot().hundredsLandedCursor === 1 && fullCarryApi.snapshot().phase === "awaiting-answer",
         "carried hundred count completion", 4000);
       hundredCountSnapshot = fullCarryApi.snapshot();
@@ -742,6 +788,16 @@
         hundredCountLabel && hundredCountLabel.textContent === "1" &&
         fullCarryApi.events().some(event => event.type === "drop-landed" && event.place === "hundreds" && event.index === 0),
         "the tapped carry lands as a gold 100 and reveals a Hundreds count of 1");
+      const settledHundredBadge = fullCarryDoc.querySelector(".carried-hundred-source");
+      const settledHundredBadgeStyle = frame.contentWindow.getComputedStyle(settledHundredBadge);
+      assert(settledHundredBadge && settledHundredBadge.textContent === "carry" &&
+        settledHundredBadge.querySelector(".empty-unit.hundred-slot") && !settledHundredBadge.querySelector(".filled") &&
+        settledHundredBadgeStyle.borderTopColor === "rgb(231, 173, 25)" &&
+        settledHundredBadgeStyle.backgroundColor === "rgb(255, 245, 189)",
+        "the empty yellow carried-hundred badge and carry label remain through awaiting-answer");
+      await enterAnswer(frame, 110);
+      assert(!fullCarryDoc.querySelector(".carried-hundred-source"),
+        "correct-answer completion removes the empty carried-hundred badge");
 
       frame = await openGame("?a=50&b=50&harness=1");
       const visibleCarrySolverDoc = frame.contentDocument;
@@ -753,7 +809,8 @@
         "visible Hundreds Solver completion", 10000);
       assert(visibleCarrySolverApi.events().filter(event => event.type === "drop-landed").length === 11 &&
         visibleCarrySolverApi.events().some(event => event.type === "drop-landed" && event.place === "hundreds") &&
-        visibleCarrySolverApi.snapshot().hundredsLandedCursor === 1,
+        visibleCarrySolverApi.snapshot().hundredsLandedCursor === 1 &&
+        !visibleCarrySolverDoc.querySelector(".carried-hundred-source"),
         "Solver follows the same explicit carried-hundred counting step when Hundreds is visible");
 
       frame = await openGame("?reload=1");
