@@ -814,6 +814,31 @@
       border-radius: 7px;
     }
 
+    .tutorial-hand-cue {
+      position: fixed;
+      z-index: 100;
+      width: 44px;
+      height: 48px;
+      display: grid;
+      place-items: start center;
+      color: #7a4b16;
+      font-size: 36px;
+      line-height: 1;
+      filter: drop-shadow(0 3px 3px rgba(39, 28, 15, .28));
+      pointer-events: none;
+      user-select: none;
+      transform: translate(-50%, 6px);
+      transform-origin: 50% 0;
+      will-change: transform, opacity;
+    }
+
+    .tutorial-hand-cue.static {
+      opacity: .95;
+      transform: translate(-50%, 3px);
+    }
+
+    #keypadDialog { overflow: visible; }
+
     .motion-target-flash { animation: motion-target-flash 240ms ease-out; }
 
     @keyframes motion-target-flash {
@@ -1020,6 +1045,21 @@
     }
 
     dialog::backdrop { background: rgba(22,37,61,.48); backdrop-filter: blur(2px); }
+
+    #launchDialog {
+      width: min(100% - 28px, 400px);
+      margin: auto;
+      border-radius: 24px;
+      text-align: center;
+      box-shadow: 0 18px 55px rgba(25,48,78,.3);
+    }
+
+    .launch-sheet { padding: 22px 18px 20px; }
+    .launch-mark { margin-bottom: 6px; font-size: 42px; line-height: 1; }
+    .launch-sheet h2 { font-size: 24px; }
+    .launch-sheet p { margin: 7px auto 16px; max-width: 31ch; font-size: 14px; }
+    .launch-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .launch-actions .sheet-button { width: 100%; }
 
     .sheet {
       max-height: inherit;
@@ -1285,7 +1325,7 @@
       <span class="math-symbol" aria-hidden="true">+</span>
       <span id="equationB" class="second-number">47</span>
       <span class="math-symbol" aria-hidden="true">=</span>
-      <button id="answerButton" class="answer-button" type="button" aria-label="Question mark. Tap to type the answer, or hold to run Solver">?</button>
+      <button id="answerButton" class="answer-button" type="button" aria-label="Question mark. Tap to type the answer, or hold to start Tutorial">?</button>
       <button id="resetCurrent" class="reset-current" type="button" aria-label="Reset this problem" title="Reset this problem">↻</button>
     </section>
 
@@ -1311,11 +1351,23 @@
     </section>
   </main>
 
+  <dialog id="launchDialog" aria-labelledby="launchTitle" aria-describedby="launchDescription">
+    <div class="sheet launch-sheet">
+      <div class="launch-mark" aria-hidden="true">🌱</div>
+      <h2 id="launchTitle">Welcome to Number Garden</h2>
+      <p id="launchDescription">Count the glowing blocks yourself, or watch a guided example first.</p>
+      <div class="launch-actions">
+        <button id="launchStartButton" class="sheet-button primary" type="button" autofocus>Start</button>
+        <button id="launchTutorialButton" class="sheet-button" type="button">Tutorial</button>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="keypadDialog" aria-labelledby="keypadTitle">
     <form class="sheet" method="dialog" id="keypadForm">
       <div class="sheet-handle" aria-hidden="true"></div>
       <h2 id="keypadTitle">What is the answer?</h2>
-      <p>Tip: press and hold the question mark to start Solver.</p>
+      <p>Tip: press and hold the question mark to start Tutorial.</p>
       <div id="keypadDisplay" class="keypad-display" aria-live="polite">
         <span id="keypadEquation">58 + 47 =</span>
         <span id="typedValue"></span>
@@ -1349,7 +1401,7 @@
         <h2 id="settingsTitle" tabindex="-1" autofocus>Garden settings</h2>
       </div>
       <div id="settingsView" class="settings-view">
-        <p>Tap <strong>?</strong> to type an answer. Hold it for about a second to let Solver continue from your place.</p>
+        <p>Tap <strong>?</strong> to type an answer. Hold it for about a second to let Tutorial continue from your place.</p>
         <div class="setting-row">
           <label for="levelSelect">Practice level</label>
           <select id="levelSelect" class="level-select" aria-describedby="levelHelp">
@@ -1377,8 +1429,8 @@
           <button id="settingsSoundButton" class="sheet-button" type="button" aria-label="Turn sound off" aria-pressed="true">🔊 On</button>
         </div>
         <div class="setting-row">
-          <span>Step through the blocks automatically</span>
-          <button id="runSolverButton" class="sheet-button primary" type="button">Run Solver</button>
+          <span>Watch this problem solved step by step.</span>
+          <button id="runSolverButton" class="sheet-button primary" type="button">Start Tutorial</button>
         </div>
         <div class="setting-row">
           <span>Erase coins, milestones, and level progress</span>
@@ -1665,7 +1717,7 @@
     const CURRENT_LEVEL_ADVANCEMENT_TARGET = 4;
     const HIGHER_LEVEL_ADVANCEMENT_TARGET = 2;
     const HUNDREDS_UNLOCK_LEVEL = 6;
-    const PROFILE_SCHEMA_VERSION = 3;
+    const PROFILE_SCHEMA_VERSION = 4;
     const DIFFICULTY_MODES = Object.freeze(["standard", "easy"]);
     const LEVEL_DEFINITIONS = Object.freeze([
       { level: 1, label: "Single digits without regrouping" },
@@ -1698,6 +1750,8 @@
       DICE_CARD_POP: 150,
       DICE_CARD_STAGGER: 35,
       DICE_REDUCED_HIGHLIGHT: 140,
+      TUTORIAL_STAGE_PAUSE: 1000,
+      TUTORIAL_ANSWER_PAUSE: 2000,
       SOLVER_GAP: 70
     });
     const HARNESS_MOTION_TIMINGS = Object.freeze({
@@ -1710,6 +1764,8 @@
       DICE_CARD_POP: 32,
       DICE_CARD_STAGGER: 8,
       DICE_REDUCED_HIGHLIGHT: 26,
+      TUTORIAL_STAGE_PAUSE: 42,
+      TUTORIAL_ANSWER_PAUSE: 84,
       SOLVER_GAP: 6
     });
     const DICE_FACES = Object.freeze(["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]);
@@ -1726,9 +1782,10 @@
       fullscreen: $("#fullscreenButton"), fullscreenIconPath: $("#fullscreenIconPath"),
       equationA: $("#equationA"), equationB: $("#equationB"), answer: $("#answerButton"), reset: $("#resetCurrent"),
       promptRow: $("#promptRow"), prompt: $("#promptText"), next: $("#nextButton"), board: $("#board"),
+      launchDialog: $("#launchDialog"), launchStart: $("#launchStartButton"), launchTutorial: $("#launchTutorialButton"),
       tray: $("#suggestionTray"), suggestions: $("#suggestions"), keypad: $("#keypadDialog"), keypadForm: $("#keypadForm"),
       keypadEquation: $("#keypadEquation"), typed: $("#typedValue"), keypadDisplay: $("#keypadDisplay"),
-      check: $("#checkAnswer"), settingsDialog: $("#settingsDialog"), settingsTitle: $("#settingsTitle"),
+      cancelKeypad: $("#cancelKeypad"), check: $("#checkAnswer"), settingsDialog: $("#settingsDialog"), settingsTitle: $("#settingsTitle"),
       settingsView: $("#settingsView"), aboutView: $("#aboutView"), settingsBack: $("#settingsBackButton"),
       openAbout: $("#openAboutButton"), levelSelect: $("#levelSelect"),
       difficultyInputs: Array.from(document.querySelectorAll('input[name="difficultyMode"]')),
@@ -1752,6 +1809,9 @@
     let holdStarted = false;
     let holdCompleted = false;
     let solverRunning = false;
+    let tutorialControlActivation = null;
+    let launchTutorialActive = false;
+    let pendingTutorialStagePromptKey = null;
     let audioContext = null;
     let hundredsUnlockPending = false;
     let announcementRunning = false;
@@ -1779,6 +1839,7 @@
         emojiProgress: 0,
         sound: true,
         difficultyMode: "standard",
+        launchChoiceMade: false,
         currentLevel: 1,
         currentLevelSuccesses: 0,
         higherLevelSuccesses: 0,
@@ -1792,11 +1853,11 @@
       const emojiProgress = Number(value.emojiProgress);
       const updatedAt = Number(value.updatedAt);
       const schemaVersion = Number(value.schemaVersion);
-      if (![1, 2, PROFILE_SCHEMA_VERSION].includes(schemaVersion) || !Number.isInteger(score) || score < 0 ||
+      if (![1, 2, 3, PROFILE_SCHEMA_VERSION].includes(schemaVersion) || !Number.isInteger(score) || score < 0 ||
           !Number.isInteger(emojiProgress) || emojiProgress < 0 || typeof value.sound !== "boolean" ||
           !Number.isFinite(updatedAt) || updatedAt <= 0) return null;
       if (schemaVersion === 1) {
-        return { ...defaultProfile(), score, emojiProgress, sound: value.sound, updatedAt };
+        return { ...defaultProfile(), score, emojiProgress, sound: value.sound, launchChoiceMade: true, updatedAt };
       }
       const currentLevel = Number(value.currentLevel);
       const currentLevelSuccesses = Number(value.currentLevelSuccesses);
@@ -1806,8 +1867,10 @@
           !Number.isInteger(higherLevelSuccesses) || higherLevelSuccesses < 0) return null;
       const difficultyMode = schemaVersion === 2 ? "standard" : value.difficultyMode;
       if (!DIFFICULTY_MODES.includes(difficultyMode)) return null;
+      const launchChoiceMade = schemaVersion < PROFILE_SCHEMA_VERSION ? true : value.launchChoiceMade;
+      if (typeof launchChoiceMade !== "boolean") return null;
       return {
-        schemaVersion: PROFILE_SCHEMA_VERSION, score, emojiProgress, sound: value.sound, difficultyMode, currentLevel,
+        schemaVersion: PROFILE_SCHEMA_VERSION, score, emojiProgress, sound: value.sound, difficultyMode, launchChoiceMade, currentLevel,
         currentLevelSuccesses, higherLevelSuccesses, updatedAt
       };
     }
@@ -2121,6 +2184,9 @@
       problem = model;
       state = freshState(model);
       solverRunning = false;
+      tutorialControlActivation = null;
+      launchTutorialActive = Boolean(options.launchTutorial);
+      pendingTutorialStagePromptKey = null;
       rememberProblem(model);
       tray = options.keepTray && tray.length ? tray : makeTray(model);
       if (options.keepTray) tray[0] = model;
@@ -2187,6 +2253,7 @@
           emojiProgress: value.emojiProgress,
           sound: value.sound,
           difficultyMode: value.difficultyMode,
+          launchChoiceMade: value.launchChoiceMade,
           currentLevel: value.currentLevel,
           currentLevelSuccesses: value.currentLevelSuccesses,
           higherLevelSuccesses: value.higherLevelSuccesses,
@@ -2258,7 +2325,7 @@
 
     function recordMotion(type, detail = {}) {
       motionEvents.push(Object.freeze({ type, ...detail, at: Math.round(performance.now()) }));
-      if (motionEvents.length > 160) motionEvents.splice(0, motionEvents.length - 160);
+      if (motionEvents.length > 320) motionEvents.splice(0, motionEvents.length - 320);
       document.body.dataset.motionEvent = type;
     }
 
@@ -2549,7 +2616,7 @@
       setTimeout(() => layer.remove(), reduceMotion ? 950 : 3800);
     }
 
-    function isDialogOpen() { return elements.keypad.open || elements.settingsDialog.open; }
+    function isDialogOpen() { return elements.launchDialog.open || elements.keypad.open || elements.settingsDialog.open; }
 
     function isMotionDraining() {
       return Boolean(state && (state.animationState || state.dropQueue.length ||
@@ -2565,9 +2632,14 @@
       document.querySelectorAll(".motion-overlay").forEach(overlay => overlay.remove());
     }
 
+    function cleanupTutorialHandCues() {
+      document.querySelectorAll(".tutorial-hand-cue").forEach(cue => cue.remove());
+    }
+
     function settleActiveMotionImmediately() {
       if (!isMotionDraining() && activeAnimations.size === 0) {
         cleanupMotionOverlays();
+        cleanupTutorialHandCues();
         return;
       }
       motionSkipRequested = true;
@@ -2575,6 +2647,7 @@
         try { animation.finish(); } catch (_) { animation.cancel(); }
       });
       cleanupMotionOverlays();
+      cleanupTutorialHandCues();
     }
 
     function abandonActiveMotion() {
@@ -2584,8 +2657,10 @@
       });
       activeAnimations.clear();
       cleanupMotionOverlays();
+      cleanupTutorialHandCues();
       dropDrainPromise = null;
       motionSkipRequested = false;
+      pendingTutorialStagePromptKey = null;
     }
 
     async function animateTracked(element, keyframes, options) {
@@ -2639,6 +2714,104 @@
       });
       document.body.append(overlay);
       return overlay;
+    }
+
+    function tutorialHandCueDuration() {
+      return reduceMotion
+        ? Math.min(480, activeMotionTimings.BLOCK_FALL_LAND * 2)
+        : Math.min(840, activeMotionTimings.BLOCK_FALL_LAND * 2);
+    }
+
+    function positionTutorialHandCue(cue, target) {
+      const rect = rectSnapshot(target);
+      if (!rect) return false;
+      Object.assign(cue.style, {
+        left: rect.left + rect.width / 2 + "px",
+        top: rect.top + rect.height / 2 + "px"
+      });
+      return true;
+    }
+
+    function showTutorialHandCue(unit, place, index) {
+      const rect = rectSnapshot(unit);
+      cleanupTutorialHandCues();
+      if (!rect) return;
+      const cue = document.createElement("span");
+      cue.className = "tutorial-hand-cue" + (reduceMotion ? " static" : "");
+      cue.textContent = "👆";
+      cue.setAttribute("aria-hidden", "true");
+      cue.dataset.place = place;
+      cue.dataset.index = String(index);
+      positionTutorialHandCue(cue, unit);
+      document.body.append(cue);
+      recordMotion("tutorial-hand-cue", {
+        promptKey: state.promptKey || promptKeyForState(state),
+        place,
+        index,
+        reduced: reduceMotion
+      });
+      const duration = tutorialHandCueDuration();
+      if (reduceMotion) {
+        setTimeout(() => cue.remove(), duration);
+        return;
+      }
+      animateTracked(cue, [
+        { transform: "translate(-50%, 9px) scale(.94)", opacity: 0 },
+        { offset: .2, transform: "translate(-50%, 5px) scale(1)", opacity: 1 },
+        { offset: .55, transform: "translate(-50%, 0) scale(.9)", opacity: 1 },
+        { transform: "translate(-50%, 3px) scale(.96)", opacity: 0 }
+      ], { duration, easing: "ease-out", fill: "forwards" }).finally(() => cue.remove());
+    }
+
+    async function tapTutorialControl(target, controlId, session = motionSession) {
+      cleanupTutorialHandCues();
+      if (!target || !target.isConnected) return false;
+      const cue = document.createElement("span");
+      cue.className = "tutorial-hand-cue" + (reduceMotion ? " static" : "");
+      cue.textContent = "👆";
+      cue.setAttribute("aria-hidden", "true");
+      cue.dataset.controlId = controlId;
+      if (!positionTutorialHandCue(cue, target)) return false;
+      const targetDialog = target.closest("dialog");
+      (targetDialog && targetDialog.open ? targetDialog : document.body).append(cue);
+      recordMotion("tutorial-hand-cue", {
+        promptKey: state.promptKey || promptKeyForState(state),
+        controlId,
+        reduced: reduceMotion
+      });
+
+      const duration = tutorialHandCueDuration();
+      const fullCue = pause(duration);
+      const animation = reduceMotion ? Promise.resolve() : animateTracked(cue, [
+        { transform: "translate(-50%, 9px) scale(.94)", opacity: 0 },
+        { offset: .2, transform: "translate(-50%, 5px) scale(1)", opacity: 1 },
+        { offset: .55, transform: "translate(-50%, 0) scale(.9)", opacity: 1 },
+        { transform: "translate(-50%, 3px) scale(.96)", opacity: 0 }
+      ], { duration, easing: "ease-out", fill: "forwards" });
+
+      await pause(Math.round(duration * .55));
+      if (!state || session !== motionSession || !solverRunning || !target.isConnected) {
+        cue.remove();
+        return false;
+      }
+      recordMotion("tutorial-control-tap", {
+        promptKey: state.promptKey || promptKeyForState(state),
+        controlId
+      });
+      tutorialControlActivation = target;
+      try {
+        target.click();
+      } finally {
+        tutorialControlActivation = null;
+      }
+
+      // A modal moves into or out of the top layer at the press point. Keep the
+      // remainder of the cue visible on whichever side of that transition is active.
+      if (elements.keypad.open) elements.keypad.append(cue);
+      else if (cue.closest("dialog")) document.body.append(cue);
+      await Promise.all([animation, fullCue]);
+      cue.remove();
+      return Boolean(state && session === motionSession && solverRunning);
     }
 
     function resultUnit(place, index) {
@@ -2701,7 +2874,7 @@
       elements.answer.classList.remove("solver-hint", "static-hint");
       if (!reduceMotion) void elements.answer.offsetWidth;
       elements.answer.classList.add(className);
-      const message = "Need help? Hold the question mark for Solver.";
+      const message = "Need help? Hold the question mark for Tutorial.";
       if (shouldAnnounce) announce(message);
       if (reduceMotion) showToast(message);
       else solverHintTimer = setTimeout(showSolverHint, IDLE_HINT_TIMINGS[profile.difficultyMode].SOLVER_REPEAT);
@@ -3155,6 +3328,7 @@
         beetleReactionCount += 1;
         elements.promptMascot.dataset.reactionCount = String(beetleReactionCount);
         recordMotion("beetle-reaction", { promptKey: state.promptKey });
+        if (solverRunning && state.phase !== "completed") pendingTutorialStagePromptKey = state.promptKey;
         playBeetleReactionSound();
         elements.promptMascot.classList.remove("reacting");
         if (!reduceMotion) {
@@ -3218,12 +3392,14 @@
       const answerReady = state.phase === "awaiting-answer";
       elements.answer.classList.toggle("answer-ready", answerReady);
       elements.answer.classList.toggle("motion-reduced", answerReady && reduceMotion);
-      elements.answer.setAttribute("aria-label", state.phase === "completed" ? "Answer: " + problem.result : "Question mark. Tap to type the answer, or hold to run Solver");
-      elements.answer.disabled = state.phase === "completed" || motionLocked || solverRunning;
+      elements.answer.setAttribute("aria-label", state.phase === "completed" ? "Answer: " + problem.result : "Question mark. Tap to type the answer, or hold to start Tutorial");
+      const solverNeedsAnswerControl = solverRunning && state.phase === "awaiting-answer";
+      elements.answer.disabled = state.phase === "completed" || motionLocked || (solverRunning && !solverNeedsAnswerControl);
       const resetCompleted = state.phase === "completed";
       elements.reset.hidden = resetCompleted;
       elements.reset.disabled = resetCompleted || motionLocked || solverRunning;
       elements.settings.disabled = motionLocked || solverRunning;
+      elements.fullscreen.disabled = motionLocked || solverRunning;
       renderPrompt();
       elements.score.textContent = profile.score;
       elements.levelBadge.textContent = "L" + profile.currentLevel;
@@ -3234,9 +3410,12 @@
       elements.levelSelect.value = String(profile.currentLevel);
       elements.difficultyInputs.forEach(input => { input.checked = input.value === profile.difficultyMode; });
       const showNext = state.phase === "completed";
+      const launchTutorialComplete = showNext && launchTutorialActive;
       elements.promptRow.classList.toggle("has-next", showNext);
       elements.next.hidden = !showNext;
-      elements.next.disabled = !showNext || motionLocked;
+      elements.next.disabled = !showNext || motionLocked || solverRunning;
+      elements.next.textContent = launchTutorialComplete ? "Start Game" : "Next →";
+      elements.next.setAttribute("aria-label", launchTutorialComplete ? "Start the game with a new problem" : "Open the next problem");
       elements.next.className = "next-button" + (showNext ? " success-next" + (reduceMotion ? " motion-reduced" : "") : "");
       renderJourney();
       renderBoard();
@@ -3245,6 +3424,28 @@
 
     function pause(milliseconds = 0) {
       return new Promise(resolve => setTimeout(resolve, milliseconds));
+    }
+
+    async function pauseTutorialStage(reason, promptKey, session = motionSession) {
+      const duration = activeMotionTimings.TUTORIAL_STAGE_PAUSE;
+      recordMotion("tutorial-stage-pause", { promptKey, reason, duration });
+      await pause(duration);
+      return Boolean(state && session === motionSession && solverRunning);
+    }
+
+    async function pauseTutorialAnswer(session = motionSession) {
+      const duration = activeMotionTimings.TUTORIAL_ANSWER_PAUSE;
+      pendingTutorialStagePromptKey = null;
+      recordMotion("tutorial-answer-pause", { promptKey: "awaiting-answer", reason: "answer-ready", duration });
+      await pause(duration);
+      return Boolean(state && session === motionSession && solverRunning && state.phase === "awaiting-answer");
+    }
+
+    async function pausePendingTutorialStage(session = motionSession) {
+      if (!pendingTutorialStagePromptKey) return true;
+      const promptKey = pendingTutorialStagePromptKey;
+      pendingTutorialStagePromptKey = null;
+      return pauseTutorialStage("prompt-change", promptKey, session);
     }
 
     function onUnitTap(event) {
@@ -3282,7 +3483,10 @@
           : state.phase === "counting-hundreds" ? "hundreds" : null;
       if (!place || !canAcceptPlaceUnit(place, true)) return null;
       const progress = placeProgress(place);
-      return acceptPlaceUnit(place, sourceUnit(place, progress.accepted), true);
+      const unit = sourceUnit(place, progress.accepted);
+      if (!unit) return null;
+      showTutorialHandCue(unit, place, progress.accepted);
+      return acceptPlaceUnit(place, unit, true);
     }
 
     function ensureDropDrain() {
@@ -3351,7 +3555,7 @@
             ? "hundreds"
             : null;
         if (carryKind) {
-          state.animationState = "carry-formation";
+          state.animationState = "carry-pause";
           render();
           if (useStaticFlash) flashMotionTarget(resultUnit(item.place, item.index));
           await pause(0);
@@ -3392,6 +3596,18 @@
       if (problem.tensTotal === 0) finishTensPlace();
     }
 
+    function enterAwaitingAnswer() {
+      state.animationState = null;
+      state.phase = "awaiting-answer";
+      clearIdleHints();
+      render();
+      if (!solverRunning) {
+        showSolverHint(false);
+        cue(610, .08);
+      }
+      announce("Counting finished. The answer is still hidden. Tap the question mark and enter the answer.");
+    }
+
     function finishTensPlace() {
       if (state.phase === "completed") return;
       state.animationState = null;
@@ -3403,44 +3619,33 @@
         announce("Tens finished. Tap the gold carried hundred.");
         return;
       }
-      if (solverRunning) {
-        completeProblem("solver");
-        return;
-      }
-      state.phase = "awaiting-answer";
-      clearIdleHints();
-      render();
-      showSolverHint(false);
-      cue(610, .08);
-      announce("Counting finished. The answer is still hidden. Tap the question mark and enter the answer.");
+      enterAwaitingAnswer();
     }
 
     function finishHundredsPlace() {
       if (state.phase === "completed") return;
-      state.animationState = null;
-      if (solverRunning) {
-        completeProblem("solver");
-        return;
-      }
-      state.phase = "awaiting-answer";
-      clearIdleHints();
-      render();
-      showSolverHint(false);
-      cue(610, .08);
-      announce("Counting finished. The answer is still hidden. Tap the question mark and enter the answer.");
+      enterAwaitingAnswer();
     }
 
     async function performCarry(kind, session = motionSession) {
       const isOnes = kind === "ones";
       clearIdleHints();
       state.phase = isOnes ? "carrying-to-tens" : "carrying-to-hundreds";
-      state.animationState = "carry-formation";
+      state.animationState = "carry-pause";
       state.carryKind = kind;
+      state.carryPhase = null;
+      render();
+      announce(isOnes ? "10 ones make 1 ten." : "10 tens make 1 hundred.");
+      if (solverRunning) {
+        const continued = await pausePendingTutorialStage(session);
+        if (!continued || !state || session !== motionSession) return;
+      }
+
+      state.animationState = "carry-formation";
       state.carryPhase = "formation";
       render();
       recordMotion("carry-formation", { kind });
       playGroupingSound(kind);
-      announce(isOnes ? "10 ones make 1 ten." : "10 tens make 1 hundred.");
 
       if (reduceMotion || motionSkipRequested) {
         if (isOnes) state.visibleOnesCarry = true;
@@ -3556,7 +3761,9 @@
       state.visibleOnesCarry = Boolean(problem.carryToTens);
       state.visibleHundredsCarry = Boolean(problem.carryToHundreds);
       state.tempCount = problem.tensTotal;
-      solverRunning = false;
+      if (method !== "solver") solverRunning = false;
+      pendingTutorialStagePromptKey = null;
+      if (method !== "solver") cleanupTutorialHandCues();
       clearIdleHints();
       const isManual = method === "typed";
       let advanced = false;
@@ -3585,8 +3792,20 @@
         announce("Correct. " + problem.a + " plus " + problem.b + " equals " + problem.result + ". You earned 10 coins." + levelMessage + unlockMessage);
         showToast(advanced ? "+10 coins · Welcome to L" + profile.currentLevel + "!" : "+10 coins · New milestone earned!");
       } else {
-        announce("Solver complete. " + problem.a + " plus " + problem.b + " equals " + problem.result + ". No coins or level progress were awarded.");
+        announce("Tutorial complete. " + problem.a + " plus " + problem.b + " equals " + problem.result + ". No coins or level progress were awarded.");
       }
+    }
+
+    async function runTutorialAnswerSequence(session = motionSession) {
+      if (!await pauseTutorialAnswer(session)) return false;
+      if (!await tapTutorialControl(elements.answer, "answerButton", session)) return false;
+      if (!elements.keypad.open) return false;
+
+      for (const digit of String(problem.result)) {
+        const key = elements.keypad.querySelector('[data-key="' + digit + '"]');
+        if (!await tapTutorialControl(key, "keypad-" + digit, session)) return false;
+      }
+      return tapTutorialControl(elements.check, "checkAnswer", session);
     }
 
     async function runSolver() {
@@ -3600,18 +3819,26 @@
       state.solverUsed = true;
       solverRunning = true;
       clearIdleHints();
-      if (state.phase === "awaiting-answer") {
-        completeProblem("solver");
-        return;
-      }
-      announce("Solver started from the next unfinished block.");
+      announce("Tutorial started from the next unfinished block.");
       render();
+      const session = motionSession;
+      if (state.phase !== "awaiting-answer" &&
+          !await pauseTutorialStage("initial", state.promptKey || promptKeyForState(state), session)) return;
       while (state.phase !== "completed") {
+        if (state.phase === "awaiting-answer") {
+          if (!await runTutorialAnswerSequence(session)) return;
+          continue;
+        }
         if (state.phase === "counting-ones" || state.phase === "counting-tens" || state.phase === "counting-hundreds") {
+          if (!await pausePendingTutorialStage(session)) return;
           const drain = acceptNextPlaceUnitForSolver();
           if (drain) await drain;
         }
-        if (state.phase !== "completed") await pause(reduceMotion ? 0 : activeMotionTimings.SOLVER_GAP);
+        if (state.phase !== "completed") {
+          if (state.phase === "awaiting-answer") continue;
+          if (!await pausePendingTutorialStage(session)) return;
+          await pause(reduceMotion ? 0 : activeMotionTimings.SOLVER_GAP);
+        }
       }
       solverRunning = false;
       render();
@@ -3624,7 +3851,8 @@
     }
 
     function nextProblem() {
-      if (state.phase !== "completed" || diceRefreshState !== "idle") return;
+      if (state.phase !== "completed" || solverRunning || diceRefreshState !== "idle") return;
+      launchTutorialActive = false;
       startWeightedProblem();
     }
 
@@ -3637,8 +3865,8 @@
       cue(260, .06);
     }
 
-    function openKeypad() {
-      if (state.phase === "completed" || isMotionDraining() || solverRunning || diceRefreshState !== "idle") return;
+    function openKeypad(allowSolver = false) {
+      if (state.phase === "completed" || isMotionDraining() || (solverRunning && !allowSolver) || diceRefreshState !== "idle") return;
       clearIdleHints();
       typedAnswer = "";
       updateTypedValue();
@@ -3649,7 +3877,8 @@
 
     function updateTypedValue() { elements.typed.textContent = typedAnswer; }
 
-    function handleKeypadKey(key) {
+    function handleKeypadKey(key, event = null) {
+      if (solverRunning && (!event || tutorialControlActivation !== event.currentTarget)) return;
       noteActivity();
       elements.keypadDisplay.classList.remove("wrong");
       if (/^\d$/.test(key)) {
@@ -3660,11 +3889,12 @@
       cue(430, .025);
     }
 
-    function checkTypedAnswer() {
+    function checkTypedAnswer(event = null) {
+      if (solverRunning && (!event || tutorialControlActivation !== event.currentTarget)) return;
       noteActivity();
       if (Number(typedAnswer) === problem.result && typedAnswer !== "") {
         elements.keypad.close();
-        completeProblem("typed");
+        completeProblem(solverRunning ? "solver" : "typed");
         return;
       }
       typedAnswer = "";
@@ -3705,11 +3935,13 @@
 
     function handleAnswerClick(event) {
       event.preventDefault();
+      const tutorialActivation = solverRunning && tutorialControlActivation === event.currentTarget;
       if (holdCompleted) {
         holdCompleted = false;
-        return;
+        if (!tutorialActivation) return;
       }
-      openKeypad();
+      if (solverRunning && !tutorialActivation) return;
+      openKeypad(tutorialActivation);
     }
 
     function toggleSound() {
@@ -3789,9 +4021,31 @@
       elements.settingsTitle.focus();
     }
 
+    function showLaunchDialog() {
+      if (profile.launchChoiceMade || elements.launchDialog.open) return;
+      clearIdleHints();
+      elements.launchDialog.showModal();
+      requestAnimationFrame(() => elements.launchStart.focus());
+    }
+
+    function handleLaunchChoice(choice) {
+      if (!elements.launchDialog.open || (choice !== "start" && choice !== "tutorial")) return;
+      profile = { ...profile, launchChoiceMade: true };
+      saveProfile();
+      elements.launchDialog.close(choice);
+      if (choice === "tutorial") {
+        startProblem(deriveProblem(28, 47), { launchTutorial: true });
+        runSolver();
+        return;
+      }
+      announce("Welcome to Number Garden. Start by tapping the glowing block.");
+      noteActivity();
+    }
+
     function dismissDialogFromBackdrop(event) {
       const dialog = event.currentTarget;
       if (event.target !== dialog) return;
+      if (solverRunning && dialog === elements.keypad) return;
       const bounds = dialog.getBoundingClientRect();
       const clickedOutside = event.clientX < bounds.left || event.clientX > bounds.right ||
         event.clientY < bounds.top || event.clientY > bounds.bottom;
@@ -3824,6 +4078,7 @@
       resetProfile();
       elements.settingsDialog.close();
       startWeightedProblem();
+      showLaunchDialog();
       announce("Progress reset to level 1 with zero coins, milestones, and advancement counters. Sound and difficulty preferences kept.");
       showToast("Progress reset");
     }
@@ -3847,11 +4102,15 @@
       elements.answer.addEventListener("keydown", event => {
         if ((event.key === "Enter" || event.key === " ") && !event.repeat) {
           event.preventDefault();
+          if (solverRunning) return;
           openKeypad();
         }
       });
       elements.reset.addEventListener("click", resetCurrentProblem);
       elements.next.addEventListener("click", nextProblem);
+      elements.launchStart.addEventListener("click", () => handleLaunchChoice("start"));
+      elements.launchTutorial.addEventListener("click", () => handleLaunchChoice("tutorial"));
+      elements.launchDialog.addEventListener("cancel", event => event.preventDefault());
       elements.sound.addEventListener("click", toggleSound);
       elements.difficultyInputs.forEach(input => input.addEventListener("change", handleDifficultyChange));
       elements.levelSelect.addEventListener("change", handleLevelChange);
@@ -3859,15 +4118,28 @@
       elements.fullscreen.addEventListener("click", toggleFullscreen);
       document.addEventListener("fullscreenchange", () => syncFullscreenControl(true));
       elements.suggestions.addEventListener("pointerdown", noteActivity);
-      elements.keypad.querySelectorAll("[data-key]").forEach(button => button.addEventListener("click", () => handleKeypadKey(button.dataset.key)));
+      elements.keypad.querySelectorAll("[data-key]").forEach(button => button.addEventListener("click", event => handleKeypadKey(button.dataset.key, event)));
+      elements.cancelKeypad.addEventListener("click", event => {
+        if (!solverRunning) return;
+        event.preventDefault();
+        event.stopPropagation();
+      });
       elements.check.addEventListener("click", checkTypedAnswer);
       elements.keypad.addEventListener("click", dismissDialogFromBackdrop);
       elements.keypad.addEventListener("close", noteActivity);
-      elements.keypad.addEventListener("cancel", noteActivity);
+      elements.keypad.addEventListener("cancel", event => {
+        if (solverRunning) event.preventDefault();
+        else noteActivity();
+      });
       elements.keypad.addEventListener("keydown", event => {
-        if (/^\d$/.test(event.key)) { event.preventDefault(); handleKeypadKey(event.key); }
-        else if (event.key === "Backspace") { event.preventDefault(); handleKeypadKey("backspace"); }
-        else if (event.key === "Enter") { event.preventDefault(); checkTypedAnswer(); }
+        if (solverRunning) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        if (/^\d$/.test(event.key)) { event.preventDefault(); handleKeypadKey(event.key, event); }
+        else if (event.key === "Backspace") { event.preventDefault(); handleKeypadKey("backspace", event); }
+        else if (event.key === "Enter") { event.preventDefault(); checkTypedAnswer(event); }
       });
       elements.runSolver.addEventListener("click", runSolver);
       elements.resetProgress.addEventListener("click", handleResetProgress);
@@ -3894,6 +4166,7 @@
       await initializeProfile();
       const initial = validQueryProblem() || sampleCurriculumProblem(profile.currentLevel);
       startProblem(initial);
+      showLaunchDialog();
     }
 
     function getMotionSnapshot() {
@@ -3917,10 +4190,13 @@
         visibleOnesCarry: state.visibleOnesCarry,
         visibleHundredsCarry: state.visibleHundredsCarry,
         solverRunning,
+        launchTutorialActive,
+        launchChoiceMade: profile.launchChoiceMade,
         diceRefreshState,
         diceRefreshCount,
         diceFace,
         activeOverlayCount: document.querySelectorAll(".motion-overlay").length,
+        activeHandCueCount: document.querySelectorAll(".tutorial-hand-cue").length,
         beetleReactionCount,
         soundEffectCount,
         lastAnnouncement,

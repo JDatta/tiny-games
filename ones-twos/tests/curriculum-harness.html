@@ -64,15 +64,20 @@
       });
     }
 
-    function openGame(query = "") {
+    async function openGame(query = "", launchChoice = "start") {
       const old = document.querySelector("iframe");
       if (old) old.remove();
       const frame = document.createElement("iframe");
       frame.title = "Game under test";
       frame.src = "../index.html" + query;
       document.body.append(frame);
-      return waitFor(() => frame.contentWindow.NumberGarden && frame.contentDocument.querySelector(".row-label"), "game initialization")
-        .then(() => frame);
+      await waitFor(() => frame.contentWindow.NumberGarden && frame.contentDocument.querySelector(".row-label"), "game initialization");
+      const launchDialog = frame.contentDocument.querySelector("#launchDialog");
+      if (launchChoice && launchDialog.open) {
+        frame.contentDocument.querySelector(launchChoice === "tutorial" ? "#launchTutorialButton" : "#launchStartButton").click();
+        await waitFor(() => !launchDialog.open, "launch " + launchChoice + " choice");
+      }
+      return frame;
     }
 
     function enterAnswer(frame, answer, includeWrongAttempt = false) {
@@ -111,11 +116,37 @@
     async function run() {
       document.cookie = "numberGardenProgress=; Max-Age=0; Path=/; SameSite=Lax";
       await clearDatabase();
-      let frame = await openGame("?harness=1");
+      let frame = await openGame("?harness=1", null);
+      let launchDoc = frame.contentDocument;
+      const launchDialog = launchDoc.querySelector("#launchDialog");
+      assert(launchDialog.open && launchDialog.getAttribute("aria-labelledby") === "launchTitle" &&
+        launchDoc.querySelector("#launchTitle").textContent === "Welcome to Number Garden" &&
+        JSON.stringify(Array.from(launchDialog.querySelectorAll("button"), button => button.textContent)) === JSON.stringify(["Start", "Tutorial"]),
+        "fresh profiles require the accessible Start or Tutorial launch choice");
+      launchDialog.dispatchEvent(new Event("cancel", { cancelable: true }));
+      launchDialog.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 0, clientY: 0 }));
+      assert(launchDialog.open, "Escape and backdrop activation cannot dismiss the launch choice");
+      const initialEquation = launchDoc.querySelector("#equationA").textContent + "+" + launchDoc.querySelector("#equationB").textContent;
+      launchDoc.querySelector("#launchStartButton").click();
+      await waitFor(() => !launchDialog.open && profileCookie() && profileCookie().launchChoiceMade, "persisted Start choice");
+      assert(launchDoc.querySelector("#equationA").textContent + "+" + launchDoc.querySelector("#equationB").textContent === initialEquation,
+        "Start keeps the already-generated level-based problem");
+
+      frame = await openGame("?launchReload=1&harness=1");
+      assert(!frame.contentDocument.querySelector("#launchDialog").open,
+        "a persisted launch choice prevents the dialog on reload");
+      const legacyV3Profile = {
+        schemaVersion: 3, score: 0, emojiProgress: 0, sound: true, difficultyMode: "standard",
+        currentLevel: 1, currentLevelSuccesses: 0, higherLevelSuccesses: 0, updatedAt: Date.now() + 5000
+      };
+      document.cookie = "numberGardenProgress=" + encodeURIComponent(JSON.stringify(legacyV3Profile)) + "; Path=/; SameSite=Lax";
+      frame = await openGame("?legacyProfileReload=1&harness=1");
+      assert(!frame.contentDocument.querySelector("#launchDialog").open && profileCookie().schemaVersion === 4 && profileCookie().launchChoiceMade,
+        "an established v3 profile migrates without showing the new launch dialog");
       const api = frame.contentWindow.NumberGarden;
 
       assert(api.LEVEL_DEFINITIONS.length === 9, "nine level definitions are exposed");
-      assert(api.constants.PROFILE_SCHEMA_VERSION === 3, "profile schema v3 is exposed");
+      assert(api.constants.PROFILE_SCHEMA_VERSION === 4, "profile schema v4 is exposed");
       assert(Object.isFrozen(api.DIFFICULTY_MODES) && JSON.stringify(api.DIFFICULTY_MODES) === JSON.stringify(["standard", "easy"]),
         "the two supported difficulty modes are frozen and exposed");
       assert(Object.isFrozen(api.IDLE_HINT_TIMINGS) && Object.isFrozen(api.IDLE_HINT_TIMINGS.standard) &&
@@ -135,7 +166,9 @@
         api.MOTION_TIMINGS.CARRY_LANDING === 140 && api.MOTION_TIMINGS.BEETLE_REACTION === 360 &&
         api.MOTION_TIMINGS.DICE_TUMBLE === 380 && api.MOTION_TIMINGS.DICE_CARD_POP === 150 &&
         api.MOTION_TIMINGS.DICE_CARD_STAGGER === 35 && api.MOTION_TIMINGS.DICE_REDUCED_HIGHLIGHT === 140 &&
-        api.MOTION_TIMINGS.SOLVER_GAP === 70, "production teaching-motion timings are frozen and exposed");
+        api.MOTION_TIMINGS.TUTORIAL_STAGE_PAUSE === 1000 && api.MOTION_TIMINGS.TUTORIAL_ANSWER_PAUSE === 2000 &&
+        api.MOTION_TIMINGS.SOLVER_GAP === 70,
+        "production teaching-motion timings, including the two-second Tutorial answer pause, are frozen and exposed");
       assert(Object.isFrozen(api.ACTIVE_MOTION_TIMINGS) && api.ACTIVE_MOTION_TIMINGS.BLOCK_FALL_LAND < api.MOTION_TIMINGS.BLOCK_FALL_LAND,
         "harness mode compresses durations without skipping the lifecycle");
       const diceDoc = frame.contentDocument;
@@ -336,26 +369,31 @@
       assert(!transition.advanced && transition.profile.currentLevel === 9 && transition.profile.currentLevelSuccesses === 0, "L9 is capped");
 
       const migrated = api.validateProfile({ schemaVersion: 1, score: 70, emojiProgress: 7, sound: false, updatedAt: 123 });
-      assert(migrated.schemaVersion === 3 && migrated.score === 70 && migrated.emojiProgress === 7 && !migrated.sound && migrated.difficultyMode === "standard",
-        "v1 migration preserves rewards and sound");
+      assert(migrated.schemaVersion === 4 && migrated.score === 70 && migrated.emojiProgress === 7 && !migrated.sound &&
+        migrated.difficultyMode === "standard" && migrated.launchChoiceMade,
+        "v1 migration preserves rewards and sound without reopening the launch choice");
       assert(migrated.currentLevel === 1 && migrated.currentLevelSuccesses === 0 && migrated.higherLevelSuccesses === 0,
         "v1 migration initializes L1 counters");
       const migratedV2 = api.validateProfile({
         schemaVersion: 2, score: 90, emojiProgress: 9, sound: false, currentLevel: 7,
         currentLevelSuccesses: 3, higherLevelSuccesses: 1, updatedAt: 456
       });
-      assert(migratedV2 && migratedV2.schemaVersion === 3 && migratedV2.difficultyMode === "standard" &&
+      assert(migratedV2 && migratedV2.schemaVersion === 4 && migratedV2.difficultyMode === "standard" && migratedV2.launchChoiceMade &&
         migratedV2.score === 90 && migratedV2.emojiProgress === 9 && !migratedV2.sound && migratedV2.currentLevel === 7 &&
         migratedV2.currentLevelSuccesses === 3 && migratedV2.higherLevelSuccesses === 1 && migratedV2.updatedAt === 456,
-        "v2 migration defaults to Standard while preserving rewards, sound, level, counters, and timestamp");
+        "v2 migration defaults to Standard and skips launch while preserving progress");
       const validEasyV3 = api.validateProfile({
         schemaVersion: 3, score: 4, emojiProgress: 2, sound: true, difficultyMode: "easy", currentLevel: 4,
         currentLevelSuccesses: 2, higherLevelSuccesses: 1, updatedAt: 789
       });
-      assert(validEasyV3 && validEasyV3.difficultyMode === "easy" &&
+      assert(validEasyV3 && validEasyV3.schemaVersion === 4 && validEasyV3.difficultyMode === "easy" && validEasyV3.launchChoiceMade &&
         api.validateProfile({ ...validEasyV3, difficultyMode: "expert" }) === null &&
         api.validateProfile({ ...validEasyV3, difficultyMode: undefined }) === null,
-        "v3 accepts supported modes and rejects invalid or missing difficulty values");
+        "v3 migration preserves Easy, skips launch, and rejects invalid difficulty values");
+      const validV4 = api.validateProfile({ ...validEasyV3, schemaVersion: 4, launchChoiceMade: false });
+      assert(validV4 && !validV4.launchChoiceMade && api.defaultProfile().launchChoiceMade === false &&
+        api.validateProfile({ ...validEasyV3, schemaVersion: 4, launchChoiceMade: undefined }) === null,
+        "v4 persists the required launchChoiceMade boolean and new profiles default it to false");
 
       const modeDoc = frame.contentDocument;
       await countNextUnits(frame, 1);
@@ -365,6 +403,9 @@
         "Standard hides temporary result counts while retaining addend-cell digit labels");
       modeDoc.querySelector("#settingsButton").click();
       const difficultyFieldset = modeDoc.querySelector(".difficulty-setting");
+      assert(modeDoc.querySelector("#runSolverButton").textContent === "Start Tutorial" &&
+        modeDoc.querySelector("#runSolverButton").previousElementSibling.textContent === "Watch this problem solved step by step.",
+        "Settings presents the automatic teaching path as Tutorial");
       assert(difficultyFieldset.querySelector("legend").textContent === "Difficulty" &&
         difficultyFieldset.querySelectorAll('input[type="radio"][name="difficultyMode"]').length === 2 &&
         modeDoc.querySelector("#difficultyStandard").getAttribute("aria-describedby") === "difficultyStandardHelp" &&
@@ -460,6 +501,25 @@
         !resetProductionSource.classList.contains("counted") && resetProductionStyle.opacity === "1" &&
         resetProductionStyle.filter === "none",
         "resetting the problem clears the counted fade from addend blocks");
+      await countNextUnits(frame, 2);
+      await waitFor(() => productionMotionApi.snapshot().phase === "awaiting-answer", "production finished count");
+      productionMotionApi.clearEvents();
+      frame.contentDocument.querySelector("#settingsButton").click();
+      frame.contentDocument.querySelector("#runSolverButton").click();
+      await waitFor(() => productionMotionApi.events().some(event =>
+        event.type === "tutorial-hand-cue" && event.controlId === "answerButton"),
+        "production Tutorial answer hand", 4000);
+      const productionAnswerEvents = productionMotionApi.events();
+      const productionAnswerPause = productionAnswerEvents.find(event => event.type === "tutorial-answer-pause");
+      const productionAnswerHand = productionAnswerEvents.find(event =>
+        event.type === "tutorial-hand-cue" && event.controlId === "answerButton");
+      assert(productionAnswerPause && productionAnswerPause.duration === 2000 && productionAnswerHand &&
+        productionAnswerHand.at - productionAnswerPause.at >= 1995 &&
+        frame.contentDocument.querySelector("#answerButton").textContent === "?" &&
+        !frame.contentDocument.querySelector("#keypadDialog").open,
+        "production Tutorial keeps ? visible and the keypad closed for the full two-second answer pause");
+      await waitFor(() => productionMotionApi.snapshot().phase === "completed" && !productionMotionApi.snapshot().solverRunning,
+        "production Tutorial answer completion", 8000);
 
       frame = await openGame("?a=9&b=9&harness=1");
       let motionDoc = frame.contentDocument;
@@ -664,6 +724,33 @@
       motionDoc.querySelector("#settingsSoundButton").click();
       motionDoc.querySelector("#closeSettings").click();
 
+      reducedNext.click();
+      motionApi.clearEvents();
+      motionDoc.querySelector("#settingsButton").click();
+      motionDoc.querySelector("#runSolverButton").click();
+      await waitFor(() => motionDoc.querySelector(".tutorial-hand-cue"), "reduced-motion Tutorial hand cue");
+      const reducedHand = motionDoc.querySelector(".tutorial-hand-cue");
+      const reducedTutorialEvents = motionApi.events();
+      const reducedStagePause = reducedTutorialEvents.find(event => event.type === "tutorial-stage-pause" && event.reason === "initial");
+      const reducedHandEvent = reducedTutorialEvents.find(event => event.type === "tutorial-hand-cue");
+      assert(reducedHand.classList.contains("static") && getComputedStyle(reducedHand).animationName === "none" &&
+        reducedHandEvent && reducedHandEvent.reduced && reducedStagePause &&
+        reducedStagePause.duration === api.ACTIVE_MOTION_TIMINGS.TUTORIAL_STAGE_PAUSE &&
+        reducedHandEvent.at - reducedStagePause.at >= api.ACTIVE_MOTION_TIMINGS.TUTORIAL_STAGE_PAUSE - 5,
+        "reduced motion keeps the pedagogical stage pause and shows a non-moving automatic-tap hand");
+      await waitFor(() => motionApi.snapshot().phase === "completed" && !motionApi.snapshot().solverRunning,
+        "reduced-motion Tutorial completion", 10000);
+      const completedReducedTutorialEvents = motionApi.events();
+      const reducedAnswerPause = completedReducedTutorialEvents.find(event => event.type === "tutorial-answer-pause");
+      const reducedAnswerHand = completedReducedTutorialEvents.find(event =>
+        event.type === "tutorial-hand-cue" && event.controlId === "answerButton");
+      assert(reducedAnswerPause && reducedAnswerPause.duration === api.ACTIVE_MOTION_TIMINGS.TUTORIAL_ANSWER_PAUSE &&
+        reducedAnswerHand && reducedAnswerHand.reduced &&
+        reducedAnswerHand.at - reducedAnswerPause.at >= api.ACTIVE_MOTION_TIMINGS.TUTORIAL_ANSWER_PAUSE - 5,
+        "reduced motion retains the dedicated answer delay and uses a static answer-control hand cue");
+      assert(motionDoc.querySelector("#nextButton").textContent === "Next →",
+        "a Settings Tutorial retains the ordinary Next flow");
+
       frame = await openGame("?a=2&b=3&harness=1");
       motionDoc = frame.contentDocument;
       motionApi = frame.contentWindow.NumberGarden.motionDiagnostics;
@@ -681,16 +768,48 @@
       const solverScore = motionDoc.querySelector("#scoreValue").textContent;
       motionDoc.querySelector("#settingsButton").click();
       motionDoc.querySelector("#runSolverButton").click();
-      await waitFor(() => motionDoc.querySelector("#answerButton").textContent === "198", "99 plus 99 Solver completion", 20000);
+      await waitFor(() => motionApi.snapshot().phase === "completed" && !motionApi.snapshot().solverRunning,
+        "99 plus 99 Tutorial completion", 20000);
       motionEvents = motionApi.events();
       assert(motionEvents.filter(event => event.type === "drop-landed").length === 37 &&
         motionEvents.some(event => event.type === "carry-landed" && event.kind === "ones") &&
         motionEvents.some(event => event.type === "carry-landed" && event.kind === "hundreds"),
-        "Solver uses the full drop and both-carry teaching paths for 99 + 99");
+        "Tutorial uses the full drop and both-carry teaching paths for 99 + 99");
       assert(motionDoc.querySelector("#scoreValue").textContent === solverScore && motionApi.snapshot().activeOverlayCount === 0,
-        "99 + 99 Solver finishes cleanly without a reward");
+        "99 + 99 Tutorial finishes cleanly without a reward");
       assert(!motionDoc.querySelector("#nextButton").hidden && motionDoc.querySelector("#nextButton").classList.contains("success-next"),
-        "Solver completion highlights the Next action");
+        "Tutorial completion highlights the Next action");
+
+      frame = await openGame("?a=2&b=3&harness=1");
+      motionDoc = frame.contentDocument;
+      motionApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      await countNextUnits(frame, 5);
+      await waitFor(() => motionApi.snapshot().phase === "awaiting-answer", "finished count before long-press Tutorial");
+      motionApi.clearEvents();
+      const finishedCountScore = motionDoc.querySelector("#scoreValue").textContent;
+      const finishedAnswer = motionDoc.querySelector("#answerButton");
+      finishedAnswer.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 680));
+      finishedAnswer.dispatchEvent(new Event("pointerup", { bubbles: true }));
+      finishedAnswer.click();
+      await waitFor(() => motionApi.events().some(event => event.type === "tutorial-answer-pause"),
+        "already-finished count Tutorial answer delay");
+      assert(motionApi.snapshot().phase === "awaiting-answer" && !motionDoc.querySelector("#keypadDialog").open &&
+        !motionApi.events().some(event => event.type === "tutorial-stage-pause"),
+        "a long-press Tutorial started after counting uses the answer delay without an initial stage pause");
+      await waitFor(() => motionApi.snapshot().phase === "completed" && !motionApi.snapshot().solverRunning,
+        "already-finished count Tutorial completion", 10000);
+      const finishedCountTutorialEvents = motionApi.events();
+      const finishedCountPause = finishedCountTutorialEvents.find(event => event.type === "tutorial-answer-pause");
+      const finishedCountAnswerHand = finishedCountTutorialEvents.find(event =>
+        event.type === "tutorial-hand-cue" && event.controlId === "answerButton");
+      assert(JSON.stringify(finishedCountTutorialEvents.filter(event => event.type === "tutorial-control-tap").map(event => event.controlId)) ===
+        JSON.stringify(["answerButton", "keypad-5", "checkAnswer"]) && finishedCountAnswerHand &&
+        finishedCountAnswerHand.at - finishedCountPause.at >= api.ACTIVE_MOTION_TIMINGS.TUTORIAL_ANSWER_PAUSE - 5,
+        "an already-finished count still follows the diagnosed ?, result digit, and checker sequence");
+      assert(motionDoc.querySelector("#scoreValue").textContent === finishedCountScore &&
+        motionDoc.querySelector("#nextButton").textContent === "Next →",
+        "a long-press Tutorial awards nothing and retains the ordinary Next flow");
 
       frame = await openGame("?a=2&b=3&harness=1");
       let promptDoc = frame.contentDocument;
@@ -810,7 +929,7 @@
         "18 tens dims only the carried hundred and keeps one accessible count");
       carryDoc.querySelector("#settingsButton").click();
       carryDoc.querySelector("#runSolverButton").click();
-      await waitFor(() => carryDoc.querySelector("#answerButton").textContent === "184", "carry example Solver completion");
+      await waitFor(() => carryDoc.querySelector("#answerButton").textContent === "184", "carry example Tutorial completion");
       const completedLabels = carryDoc.querySelectorAll(".result-panel .digit-label");
       assert(Array.from(completedLabels).every(label => !label.querySelector(".carry-digit")),
         "completed place-value remainder labels use the normal digit style");
@@ -884,8 +1003,8 @@
       await waitFor(() => doc.querySelector("#liveRegion").textContent.includes("Hundreds column is now unlocked"), "Hundreds unlock announcement");
       assert(doc.querySelector("#liveRegion").textContent.includes("Hundreds column is now unlocked"), "Hundreds unlock is announced");
       const storedL6 = profileCookie();
-      assert(storedL6 && storedL6.schemaVersion === 3 && storedL6.currentLevel === 6 && storedL6.currentLevelSuccesses === 0 &&
-        storedL6.higherLevelSuccesses === 0 && storedL6.difficultyMode === "easy",
+      assert(storedL6 && storedL6.schemaVersion === 4 && storedL6.launchChoiceMade && storedL6.currentLevel === 6 &&
+        storedL6.currentLevelSuccesses === 0 && storedL6.higherLevelSuccesses === 0 && storedL6.difficultyMode === "easy",
         "manual level override persists L6 with reset counters and leaves difficulty unchanged");
 
       frame = await openGame("?a=60&b=50&harness=1");
@@ -1018,16 +1137,17 @@
       const solverLockedResetStyle = frame.contentWindow.getComputedStyle(solverLockedReset);
       assert(solverLockedReset.disabled && !solverLockedReset.hidden && solverLockedResetStyle.visibility === "visible" &&
         solverLockedResetStyle.display !== "none" && solverLockedResetStyle.opacity === "0.55",
-        "Solver keeps the temporarily disabled reset control visible while teaching motion runs");
-      await waitFor(() => visibleCarrySolverDoc.querySelector("#answerButton").textContent === "100",
-        "visible Hundreds Solver completion", 10000);
+        "Tutorial keeps the temporarily disabled reset control visible while teaching motion runs");
+      await waitFor(() => visibleCarrySolverApi.snapshot().phase === "completed" && !visibleCarrySolverApi.snapshot().solverRunning,
+        "visible Hundreds Tutorial completion", 10000);
       assert(visibleCarrySolverApi.events().filter(event => event.type === "drop-landed").length === 11 &&
         visibleCarrySolverApi.events().some(event => event.type === "drop-landed" && event.place === "hundreds") &&
+        visibleCarrySolverApi.events().some(event => event.type === "tutorial-hand-cue" && event.place === "hundreds" && event.index === 0) &&
         visibleCarrySolverApi.snapshot().hundredsLandedCursor === 1 &&
         !visibleCarrySolverDoc.querySelector(".carried-hundred-source"),
-        "Solver follows the same explicit carried-hundred counting step when Hundreds is visible");
+        "Tutorial cues and follows the explicit carried-hundred counting step when Hundreds is visible");
 
-      frame = await openGame("?reload=1");
+      frame = await openGame("?reload=1&harness=1");
       const reloadedDoc = frame.contentDocument;
       assert(reloadedDoc.querySelector("#levelBadge").textContent === "L6", "level persists across reload");
       assert(reloadedDoc.querySelector(".column-title.hundreds") && !reloadedDoc.querySelector("#board").classList.contains("unlocking"),
@@ -1039,21 +1159,122 @@
         "Settings sound toggle is accessible and persistent");
       reloadedDoc.defaultView.confirm = () => true;
       reloadedDoc.querySelector("#resetProgressButton").click();
-      await waitFor(() => reloadedDoc.querySelector("#levelBadge").textContent === "L1" && reloadedDoc.querySelector("#scoreValue").textContent === "0", "progress reset", 10000);
+      await waitFor(() => reloadedDoc.querySelector("#levelBadge").textContent === "L1" &&
+        reloadedDoc.querySelector("#scoreValue").textContent === "0" && reloadedDoc.querySelector("#launchDialog").open,
+        "progress reset and launch dialog", 10000);
       const reset = profileCookie();
       assert(reset.currentLevel === 1 && reset.currentLevelSuccesses === 0 && reset.higherLevelSuccesses === 0 && reset.score === 0 &&
-        reset.emojiProgress === 0 && !reset.sound && reset.difficultyMode === "easy",
-        "Reset Progress clears level counters and rewards while retaining sound and difficulty");
+        reset.emojiProgress === 0 && !reset.sound && reset.difficultyMode === "easy" && !reset.launchChoiceMade,
+        "Reset Progress clears progression and launch choice while retaining sound and difficulty");
+
+      const resetProblem = api.deriveProblem(
+        Number(reloadedDoc.querySelector("#equationA").textContent),
+        Number(reloadedDoc.querySelector("#equationB").textContent)
+      );
+      assert(api.problemMatchesLevel(resetProblem, 1) || api.problemMatchesLevel(resetProblem, 2),
+        "reset prepares a fresh normal L1-weighted problem behind the launch dialog");
+
+      reloadedDoc.querySelector("#toast").classList.remove("show");
+      reloadedDoc.querySelector("#toast").textContent = "";
+      const launchTutorialApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      launchTutorialApi.clearEvents();
+      reloadedDoc.querySelector("#launchTutorialButton").click();
+      assert(reloadedDoc.querySelector("#equationA").textContent === "28" && reloadedDoc.querySelector("#equationB").textContent === "47" &&
+        profileCookie().launchChoiceMade,
+        "the launch Tutorial persists the choice and replaces the normal problem with untagged 28 + 47");
+      await waitFor(() => launchTutorialApi.snapshot().phase === "awaiting-answer" &&
+        launchTutorialApi.events().some(event => event.type === "tutorial-answer-pause"),
+        "launch Tutorial answer pause", 20000);
+      const launchAnswerPause = launchTutorialApi.events().find(event => event.type === "tutorial-answer-pause");
+      assert(reloadedDoc.querySelector("#answerButton").textContent === "?" && !reloadedDoc.querySelector("#keypadDialog").open &&
+        !launchTutorialApi.events().some(event => event.type === "tutorial-control-tap") &&
+        launchAnswerPause.duration === api.ACTIVE_MOTION_TIMINGS.TUTORIAL_ANSWER_PAUSE,
+        "finished Tutorial counting remains at the real hidden-answer step during its dedicated pause");
+      await new Promise(resolve => setTimeout(resolve, Math.floor(api.ACTIVE_MOTION_TIMINGS.TUTORIAL_ANSWER_PAUSE / 2)));
+      assert(reloadedDoc.querySelector("#answerButton").textContent === "?" && !reloadedDoc.querySelector("#keypadDialog").open &&
+        !launchTutorialApi.events().some(event => event.type === "tutorial-control-tap"),
+        "the answer keypad stays closed throughout the compressed midpoint of the two-second production pause");
+
+      const launchKeypad = reloadedDoc.querySelector("#keypadDialog");
+      await waitFor(() => launchKeypad.open, "Tutorial opens the real keypad");
+      const blockedEscape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+      launchKeypad.querySelector('[data-key="9"]').click();
+      reloadedDoc.querySelector("#checkAnswer").click();
+      reloadedDoc.querySelector("#cancelKeypad").click();
+      launchKeypad.dispatchEvent(blockedEscape);
+      launchKeypad.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 0, clientY: 0 }));
+      const blockedCancel = new Event("cancel", { cancelable: true });
+      launchKeypad.dispatchEvent(blockedCancel);
+      assert(launchKeypad.open && reloadedDoc.querySelector("#typedValue").textContent === "" &&
+        blockedEscape.defaultPrevented && blockedCancel.defaultPrevented,
+        "Tutorial blocks competing keypad input, Escape, Cancel, and backdrop dismissal");
+
+      await waitFor(() => reloadedDoc.querySelector("#typedValue").textContent === "7", "Tutorial enters first result digit");
+      const sevenHand = launchKeypad.querySelector('.tutorial-hand-cue[data-control-id="keypad-7"]');
+      assert(sevenHand && launchKeypad.contains(sevenHand),
+        "the first keypad cue stays inside the open native dialog while 7 is entered");
+      await waitFor(() => reloadedDoc.querySelector("#typedValue").textContent === "75", "Tutorial enters complete result");
+      assert(launchKeypad.open, "the keypad display progresses to 75 before checking the answer");
+      await waitFor(() => launchTutorialApi.snapshot().phase === "completed", "Tutorial shared answer check");
+      assert(launchTutorialApi.snapshot().solverRunning && reloadedDoc.querySelector("#nextButton").disabled &&
+        reloadedDoc.querySelector('.tutorial-hand-cue[data-control-id="checkAnswer"]'),
+        "the final checker cue finishes before Tutorial unlocks the completion controls");
+      await waitFor(() => launchTutorialApi.snapshot().phase === "completed" && !launchTutorialApi.snapshot().solverRunning,
+        "launch Tutorial completion", 20000);
+      assert(!launchKeypad.open, "Tutorial closes the keypad through the normal correct-answer path");
+      const launchTutorialEvents = launchTutorialApi.events();
+      const tutorialHandEvents = launchTutorialEvents.filter(event => event.type === "tutorial-hand-cue");
+      const tutorialBlockHandEvents = tutorialHandEvents.filter(event => event.place);
+      const tutorialControlHandEvents = tutorialHandEvents.filter(event => event.controlId);
+      const tutorialControlTapEvents = launchTutorialEvents.filter(event => event.type === "tutorial-control-tap");
+      const tutorialPauseEvents = launchTutorialEvents.filter(event => event.type === "tutorial-stage-pause");
+      const carryingPromptReaction = launchTutorialEvents.find(event => event.type === "beetle-reaction" && event.promptKey === "carrying-ones");
+      const carryFormation = launchTutorialEvents.find(event => event.type === "carry-formation" && event.kind === "ones");
+      assert(tutorialBlockHandEvents.length === 22 && tutorialBlockHandEvents.every(event => event.promptKey &&
+        ["ones", "tens", "hundreds"].includes(event.place) && Number.isInteger(event.index)) &&
+        tutorialBlockHandEvents.some(event => event.place === "tens" && event.index === 6) &&
+        JSON.stringify(tutorialControlHandEvents.map(event => event.controlId)) ===
+          JSON.stringify(["answerButton", "keypad-7", "keypad-5", "checkAnswer"]),
+        "28 + 47 diagnoses every block and real answer-control hand cue with stable metadata");
+      assert(JSON.stringify(tutorialControlTapEvents.map(event => event.controlId)) ===
+        JSON.stringify(["answerButton", "keypad-7", "keypad-5", "checkAnswer"]) &&
+        tutorialControlTapEvents.every((event, index) => event.at >= tutorialControlHandEvents[index].at),
+        "Tutorial records the actual ?, 7, 5, and Check Answer activation order");
+      assert(tutorialPauseEvents.length === 4 && tutorialPauseEvents[0].reason === "initial" &&
+        tutorialPauseEvents.every(event => event.duration === api.ACTIVE_MOTION_TIMINGS.TUTORIAL_STAGE_PAUSE) &&
+        ["counting-ones", "carrying-ones", "counting-tens-with-carry"].every(promptKey =>
+          tutorialPauseEvents.some(event => event.promptKey === promptKey)) && carryingPromptReaction && carryFormation &&
+        carryFormation.at - carryingPromptReaction.at >= api.ACTIVE_MOTION_TIMINGS.TUTORIAL_STAGE_PAUSE - 5,
+        "launch Tutorial pauses at entry and message transitions, keeping the carry message visible before formation");
+      assert(launchTutorialEvents.filter(event => event.type === "tutorial-answer-pause").length === 1 &&
+        tutorialControlHandEvents[0].at - launchAnswerPause.at >= api.ACTIVE_MOTION_TIMINGS.TUTORIAL_ANSWER_PAUSE - 5 &&
+        !tutorialPauseEvents.some(event => event.promptKey === "awaiting-answer"),
+        "the dedicated answer pause replaces rather than stacks with the ordinary prompt-change pause");
+      assert(reloadedDoc.querySelector("#scoreValue").textContent === "0" && profileCookie().score === 0 &&
+        profileCookie().emojiProgress === 0 && profileCookie().currentLevel === 1 &&
+        reloadedDoc.querySelector("#nextButton").textContent === "Start Game" &&
+        reloadedDoc.querySelector("#nextButton").getAttribute("aria-label") === "Start the game with a new problem" &&
+        launchTutorialApi.snapshot().activeHandCueCount === 0,
+        "launch Tutorial awards no progress, removes its hand, and completes with Start Game");
+
+      reloadedDoc.querySelector("#nextButton").click();
+      assert(reloadedDoc.querySelector("#answerButton").textContent === "?" && reloadedDoc.querySelector("#nextButton").hidden &&
+        reloadedDoc.querySelector("#equationA").textContent + "+" + reloadedDoc.querySelector("#equationB").textContent !== "28+47" &&
+        !launchTutorialApi.snapshot().launchTutorialActive,
+        "Start Game creates a fresh normal problem and exits the launch-Tutorial flow");
 
       reloadedDoc.querySelector("#toast").classList.remove("show");
       reloadedDoc.querySelector("#toast").textContent = "";
       reloadedDoc.querySelector("#settingsButton").click();
       reloadedDoc.querySelector("#runSolverButton").click();
-      await waitFor(() => reloadedDoc.querySelector("#answerButton").textContent !== "?", "Solver completion", 20000);
+      await waitFor(() => launchTutorialApi.snapshot().phase === "completed" && !launchTutorialApi.snapshot().solverRunning,
+        "Settings Tutorial completion", 20000);
       assert(reloadedDoc.querySelector("#scoreValue").textContent === "0" && profileCookie().score === 0 && profileCookie().emojiProgress === 0,
-        "Solver changes neither rewards nor persistent progress");
+        "Tutorial changes neither rewards nor persistent progress");
       assert(!reloadedDoc.querySelector("#toast").classList.contains("show") && reloadedDoc.querySelector("#toast").textContent === "",
-        "Solver shows no reward toast");
+        "Tutorial shows no reward toast");
+      assert(reloadedDoc.querySelector("#nextButton").textContent === "Next →",
+        "a Settings Tutorial returns to the ordinary Next flow");
 
       reloadedDoc.querySelector("#nextButton").click();
       const answer = Number(reloadedDoc.querySelector("#equationA").textContent) + Number(reloadedDoc.querySelector("#equationB").textContent);
