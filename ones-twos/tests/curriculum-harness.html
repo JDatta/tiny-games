@@ -159,6 +159,10 @@
         diceDoc.querySelector(".unit.eligible").disabled &&
         Array.from(diceDoc.querySelectorAll(".suggestion:not(.current)")).every(button => button.disabled),
         "dice refresh locks counting and every competing problem control");
+      const diceLockedResetStyle = frame.contentWindow.getComputedStyle(diceDoc.querySelector("#resetCurrent"));
+      assert(diceLockedResetStyle.visibility === "visible" && diceLockedResetStyle.display !== "none" &&
+        diceLockedResetStyle.opacity === "0.55",
+        "dice refresh keeps the disabled reset control visibly mounted");
       assert(diceDoc.querySelector(".suggestion.current") === stableCurrentCard && stableCurrentCard.innerHTML === stableCurrentMarkup,
         "the current-problem card stays mounted and unchanged while the die tumbles");
       await waitFor(() => diceMotion.snapshot().diceRefreshState === "emphasizing", "staggered dice alternatives");
@@ -393,13 +397,69 @@
       frame = await openGame("?a=1&b=1");
       let productionMotionApi = frame.contentWindow.NumberGarden.motionDiagnostics;
       productionMotionApi.clearEvents();
+      const productionReset = frame.contentDocument.querySelector("#resetCurrent");
+      const productionResetRect = productionReset.getBoundingClientRect();
       frame.contentDocument.querySelector(".unit.eligible").click();
+      const lockedProductionResetStyle = frame.contentWindow.getComputedStyle(productionReset);
+      const lockedProductionResetRect = productionReset.getBoundingClientRect();
+      assert(productionReset.disabled && !productionReset.hidden && lockedProductionResetStyle.visibility === "visible" &&
+        lockedProductionResetStyle.display !== "none" && lockedProductionResetStyle.opacity === "0.55" &&
+        lockedProductionResetRect.left === productionResetRect.left && lockedProductionResetRect.top === productionResetRect.top &&
+        lockedProductionResetRect.width === productionResetRect.width && lockedProductionResetRect.height === productionResetRect.height,
+        "a falling block keeps the reset control visibly disabled in its stable position");
+      productionReset.click();
+      assert(productionMotionApi.snapshot().onesAcceptedCursor === 1 && productionMotionApi.snapshot().queueLength === 1,
+        "the visibly disabled reset control cannot interrupt a falling block");
+      const queuedProductionSource = frame.contentDocument.querySelector(
+        '[data-motion-role="source"][data-place="ones"][data-index="0"]'
+      );
+      const queuedProductionStyle = frame.contentWindow.getComputedStyle(queuedProductionSource);
+      const queuedProductionAppearance = {
+        opacity: queuedProductionStyle.opacity,
+        filter: queuedProductionStyle.filter,
+        boxShadow: queuedProductionStyle.boxShadow
+      };
+      assert(queuedProductionSource.classList.contains("queued") &&
+        !queuedProductionSource.classList.contains("counted") &&
+        queuedProductionAppearance.opacity === "0.52" && queuedProductionAppearance.filter !== "none",
+        "an accepted addend block uses the queued fade while its drop is in flight");
       await waitFor(() => productionMotionApi.snapshot().onesLandedCursor === 1, "real-duration production drop", 3000);
       const productionDropEvents = productionMotionApi.events();
       const productionDropStart = productionDropEvents.find(event => event.type === "drop-start");
       const productionDropLanded = productionDropEvents.find(event => event.type === "drop-landed");
       assert(productionDropStart && productionDropLanded && productionDropLanded.at - productionDropStart.at >= 480,
         "non-harness drops retain the full production teaching duration");
+      const restoredProductionResetStyle = frame.contentWindow.getComputedStyle(productionReset);
+      assert(!productionReset.disabled && !productionReset.hidden && restoredProductionResetStyle.opacity === "1",
+        "the reset control returns to its enabled appearance after the block lands");
+      const countedProductionSource = frame.contentDocument.querySelector(
+        '[data-motion-role="source"][data-place="ones"][data-index="0"]'
+      );
+      const countedProductionStyle = frame.contentWindow.getComputedStyle(countedProductionSource);
+      assert(countedProductionSource.classList.contains("counted") &&
+        !countedProductionSource.classList.contains("queued") &&
+        countedProductionStyle.opacity === queuedProductionAppearance.opacity &&
+        countedProductionStyle.filter === queuedProductionAppearance.filter &&
+        countedProductionStyle.boxShadow === queuedProductionAppearance.boxShadow,
+        "a landed addend block keeps exactly the queued fade under the distinct counted class");
+      const productionResultStyle = frame.contentWindow.getComputedStyle(frame.contentDocument.querySelector(
+        '[data-motion-role="result"][data-place="ones"][data-index="0"]'
+      ));
+      const nextProductionSourceStyle = frame.contentWindow.getComputedStyle(frame.contentDocument.querySelector(
+        '[data-motion-role="source"][data-place="ones"][data-index="1"]'
+      ));
+      assert(productionResultStyle.opacity === "1" && productionResultStyle.filter === "none" &&
+        nextProductionSourceStyle.opacity === "1" && nextProductionSourceStyle.filter === "none",
+        "the landed result and next uncounted addend block stay fully colored");
+      frame.contentDocument.querySelector("#resetCurrent").click();
+      const resetProductionSource = frame.contentDocument.querySelector(
+        '[data-motion-role="source"][data-place="ones"][data-index="0"]'
+      );
+      const resetProductionStyle = frame.contentWindow.getComputedStyle(resetProductionSource);
+      assert(resetProductionSource.classList.contains("eligible") &&
+        !resetProductionSource.classList.contains("counted") && resetProductionStyle.opacity === "1" &&
+        resetProductionStyle.filter === "none",
+        "resetting the problem clears the counted fade from addend blocks");
 
       frame = await openGame("?a=9&b=9&harness=1");
       let motionDoc = frame.contentDocument;
@@ -505,7 +565,19 @@
       assert(tensSource.getBoundingClientRect().top < tensTarget.getBoundingClientRect().top &&
         tensSource.getBoundingClientRect().width > 0 && tensTarget.getBoundingClientRect().width > 0,
         "tens sources and result slots expose stable, live downward geometry");
-      for (let index = 0; index < 10; index += 1) motionDoc.querySelector(".unit.eligible").click();
+      tensSource.click();
+      const queuedTensSource = motionDoc.querySelector(
+        '[data-motion-role="source"][data-place="tens"][data-index="0"]'
+      );
+      const queuedTensStyle = frame.contentWindow.getComputedStyle(queuedTensSource);
+      const queuedTensAppearance = {
+        opacity: queuedTensStyle.opacity,
+        filter: queuedTensStyle.filter,
+        boxShadow: queuedTensStyle.boxShadow
+      };
+      assert(queuedTensSource.classList.contains("queued"),
+        "an accepted addend bar keeps the queued lifecycle class during flight");
+      for (let index = 1; index < 10; index += 1) motionDoc.querySelector(".unit.eligible").click();
       motionSnapshot = motionApi.snapshot();
       assert(motionSnapshot.tensAcceptedCursor === 10 && motionSnapshot.tensLandedCursor === 0 && !motionDoc.querySelector(".unit.eligible"),
         "the Tens queue also closes at its group-of-ten boundary");
@@ -515,6 +587,16 @@
       }, "compact hundreds carry lifecycle", 8000);
       assert(motionDoc.querySelector('.unit.eligible[data-place="tens"][data-index="10"]'),
         "the Tens queue reopens after the carried hundred settles");
+      const countedTensSource = motionDoc.querySelector(
+        '[data-motion-role="source"][data-place="tens"][data-index="0"]'
+      );
+      const countedTensStyle = frame.contentWindow.getComputedStyle(countedTensSource);
+      assert(countedTensSource.classList.contains("counted") &&
+        !countedTensSource.classList.contains("queued") &&
+        countedTensStyle.opacity === queuedTensAppearance.opacity &&
+        countedTensStyle.filter === queuedTensAppearance.filter &&
+        countedTensStyle.boxShadow === queuedTensAppearance.boxShadow,
+        "a landed addend bar keeps exactly the queued styling under the counted class");
       motionEvents = motionApi.events();
       assert(motionEvents.some(event => event.type === "carry-compact-settle" && event.kind === "hundreds" && !event.destinationVisible) &&
         !motionEvents.some(event => event.type === "carry-travel" && event.kind === "hundreds"),
@@ -570,9 +652,12 @@
         "reduced motion replaces the finished-count question-mark flash with a strong static highlight");
       await enterAnswer(frame, 5);
       const reducedNext = motionDoc.querySelector("#nextButton");
+      const completedReset = motionDoc.querySelector("#resetCurrent");
       assert(!reducedNext.hidden && reducedNext.classList.contains("success-next") && reducedNext.classList.contains("motion-reduced") &&
         getComputedStyle(reducedNext).animationName === "none",
         "reduced motion replaces the successful Next animation with a strong static highlight");
+      assert(completedReset.hidden && getComputedStyle(completedReset).display === "none",
+        "completed problems still remove the reset control");
       assert(motionApi.snapshot().soundEffectCount === silentBaseline,
         "Sound off also gates completion effects while the Next highlight remains visual");
       motionDoc.querySelector("#settingsButton").click();
@@ -929,6 +1014,11 @@
       visibleCarrySolverApi.clearEvents();
       visibleCarrySolverDoc.querySelector("#settingsButton").click();
       visibleCarrySolverDoc.querySelector("#runSolverButton").click();
+      const solverLockedReset = visibleCarrySolverDoc.querySelector("#resetCurrent");
+      const solverLockedResetStyle = frame.contentWindow.getComputedStyle(solverLockedReset);
+      assert(solverLockedReset.disabled && !solverLockedReset.hidden && solverLockedResetStyle.visibility === "visible" &&
+        solverLockedResetStyle.display !== "none" && solverLockedResetStyle.opacity === "0.55",
+        "Solver keeps the temporarily disabled reset control visible while teaching motion runs");
       await waitFor(() => visibleCarrySolverDoc.querySelector("#answerButton").textContent === "100",
         "visible Hundreds Solver completion", 10000);
       assert(visibleCarrySolverApi.events().filter(event => event.type === "drop-landed").length === 11 &&

@@ -353,7 +353,12 @@
       cursor: pointer;
     }
 
-    .reset-current:disabled { visibility: hidden; }
+    .reset-current:disabled {
+      opacity: .55;
+      cursor: default;
+    }
+
+    .reset-current[hidden] { display: none; }
 
     .prompt-row {
       min-height: 52px;
@@ -655,6 +660,11 @@
     }
 
     .unit.counted { box-shadow: inset 0 0 0 1px rgba(255,255,255,.72); }
+    .unit.counted[data-motion-role="source"] {
+      opacity: .52;
+      filter: saturate(.72);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.88);
+    }
     .unit.queued {
       opacity: .52;
       filter: saturate(.72);
@@ -3210,7 +3220,9 @@
       elements.answer.classList.toggle("motion-reduced", answerReady && reduceMotion);
       elements.answer.setAttribute("aria-label", state.phase === "completed" ? "Answer: " + problem.result : "Question mark. Tap to type the answer, or hold to run Solver");
       elements.answer.disabled = state.phase === "completed" || motionLocked || solverRunning;
-      elements.reset.disabled = state.phase === "completed" || motionLocked || solverRunning;
+      const resetCompleted = state.phase === "completed";
+      elements.reset.hidden = resetCompleted;
+      elements.reset.disabled = resetCompleted || motionLocked || solverRunning;
       elements.settings.disabled = motionLocked || solverRunning;
       renderPrompt();
       elements.score.textContent = profile.score;
