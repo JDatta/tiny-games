@@ -21,6 +21,8 @@ Holding the `?` button runs Solver from the child’s current position. Solver d
 
 The “Try another sum” die refreshes only the three alternative cards; the current-problem card stays fixed. A refresh plays a short tumbling die with changing faces and an optional dry rattle/landing sound, then gives the new cards a staggered colored pop. While that sequence runs, counting and other problem-changing controls are locked and the tray exposes its busy state to assistive technology. Keyboard focus returns to the die when the new choices are ready.
 
+Number Garden has two difficulty modes. **Standard**, the default, asks learners to infer the running place totals from the landed blocks: temporary Ones, Tens, and Hundreds result labels stay hidden during counting, and idle help waits longer. **Easy** keeps the running result labels visible and offers the same hints sooner. Both modes retain the same blocks, carry sequence, spoken count announcements, arithmetic, animation speed, rewards, and completed place-value labels.
+
 ## Curriculum and sampling
 
 | Level | Generated problems |
@@ -54,7 +56,9 @@ A correct typed answer on the current sampled level increments the current-level
 
 The top bar always shows the learner’s current level immediately after the bee. Below L6, the board contains Labels, Tens, and Ones. L6 previews the Hundreds column before L7 first requires it. Crossing upward into L6 through organic advancement or Settings animates or statically highlights the new column, announces it, and optionally sounds it; ordinary reloads do not replay the unlock.
 
-Score, milestones, level, two advancement counters, and sound preference persist when browser storage permits. Settings provides L1–L9 override, sound, Solver, Reset Progress, and an in-dialog About view with the app's author, version, and license. A manual level selection starts a new weighted problem and clears both counters. Confirmed reset returns to L1 with zero coins, milestones, and counters while retaining sound. Supported browsers also receive a fullscreen control.
+Score, milestones, level, two advancement counters, sound preference, and difficulty mode persist when browser storage permits. Settings provides an accessible Standard/Easy selector with short mode descriptions alongside the L1–L9 override, sound, Solver, Reset Progress, and an in-dialog About view with the app's author, version, and license. A difficulty change applies immediately to the current problem without changing its counting state, curriculum progress, or sampled problem. A manual level selection starts a new weighted problem and clears both counters. Confirmed reset returns to L1 with zero coins, milestones, and counters while retaining sound and difficulty. Supported browsers also receive a fullscreen control.
+
+Idle help uses fixed mode-specific delays: Easy highlights the next block after 3 seconds, first suggests Solver after 20 seconds, and repeats the Solver hint after 5 seconds; Standard uses 9, 60, and 15 seconds respectively. Standard delays are exactly three times Easy delays. The next-block throb itself and reduced-motion presentation are unchanged.
 
 ## Scope and non-goals
 

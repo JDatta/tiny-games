@@ -39,7 +39,7 @@ The runtime separates pure problem arithmetic (`problem`), temporary interaction
 - Use `?a=<1-99>&b=<1-99>` for deterministic browser checks. Query-forced problems are untagged and must not change advancement counters. Pure generation, selection, progression, profile, definitions, and constants are exposed through `window.NumberGarden`.
 - Solver resumes at the next unfinished unit and follows the same carry transitions as manual play; it must not become a separate arithmetic path.
 - Only a typed correct answer awards exactly 10 coins, one milestone, and eligible level credit once. Solver may celebrate but must never change score, milestones, counters, or level and must not show a reward toast.
-- Profile schema v2 persists `currentLevel`, `currentLevelSuccesses`, and `higherLevelSuccesses` alongside the v1 fields. Preserve v1 score, milestones, and sound during migration. A confirmed progress reset returns to L1 with zero counters/rewards and keeps sound.
+- Profile schema v3 persists `difficultyMode` alongside the v2 curriculum fields. V1/v2 migrations default to Standard while preserving their existing data. A confirmed progress reset returns to L1 with zero counters/rewards and keeps sound and difficulty.
 - Below L6 the board renders Labels/Tens/Ones. L6+ renders Hundreds too. Crossing upward into L6 through advancement or Settings announces and highlights the unlock once for that session; reloads must not replay it.
 - Keep the bee and current-level badge visible on narrow/fullscreen layouts. Sound belongs in Settings.
 - Maintain touch targets, keyboard access, ARIA announcements, focus handling, and `prefers-reduced-motion` behavior whenever controls or animations change.

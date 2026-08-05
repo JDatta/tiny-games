@@ -1012,7 +1012,9 @@
     dialog::backdrop { background: rgba(22,37,61,.48); backdrop-filter: blur(2px); }
 
     .sheet {
+      max-height: inherit;
       padding: 10px 14px calc(14px + var(--safe-bottom));
+      overflow-y: auto;
     }
 
     .sheet-handle { width: 42px; height: 4px; margin: 0 auto 8px; border-radius: 4px; background: #d2d8e2; }
@@ -1127,6 +1129,33 @@
     }
     .setting-row span, .setting-row label { font-size: 13px; font-weight: 800; }
     .setting-row button { flex: 0 0 auto; }
+
+    .difficulty-setting {
+      margin: 7px 0;
+      padding: 8px 10px 10px;
+      border: 1px solid #d8e1eb;
+      border-radius: 14px;
+      background: #f9fbfe;
+    }
+    .difficulty-setting legend { padding: 0 4px; font-size: 13px; font-weight: 900; }
+    .difficulty-options { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .difficulty-option {
+      min-width: 0;
+      min-height: 70px;
+      padding: 8px;
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      border: 1px solid #c9d4e2;
+      border-radius: 12px;
+      background: white;
+      cursor: pointer;
+    }
+    .difficulty-option input { flex: 0 0 auto; margin: 3px 0 0; accent-color: #7256c9; }
+    .difficulty-option span { min-width: 0; display: grid; gap: 2px; }
+    .difficulty-option strong { color: #5036a4; font-size: 13px; }
+    .difficulty-option small { color: var(--muted); font-size: 11px; font-weight: 700; line-height: 1.25; }
+    .difficulty-option:has(input:checked) { border-color: #7256c9; background: #f4f0ff; box-shadow: 0 0 0 2px rgba(114,86,201,.12); }
 
     .level-select {
       min-width: 82px;
@@ -1320,6 +1349,19 @@
           </select>
         </div>
         <p id="levelHelp">Changing level starts a fresh problem and resets the two advancement counters.</p>
+        <fieldset class="difficulty-setting">
+          <legend>Difficulty</legend>
+          <div class="difficulty-options">
+            <label class="difficulty-option" for="difficultyStandard">
+              <input id="difficultyStandard" name="difficultyMode" type="radio" value="standard" aria-describedby="difficultyStandardHelp">
+              <span><strong>Standard</strong><small id="difficultyStandardHelp">Hides running result counts and waits longer before hints.</small></span>
+            </label>
+            <label class="difficulty-option" for="difficultyEasy">
+              <input id="difficultyEasy" name="difficultyMode" type="radio" value="easy" aria-describedby="difficultyEasyHelp">
+              <span><strong>Easy</strong><small id="difficultyEasyHelp">Shows running result counts and offers hints sooner.</small></span>
+            </label>
+          </div>
+        </fieldset>
         <div class="setting-row">
           <span>Sound effects</span>
           <button id="settingsSoundButton" class="sheet-button" type="button" aria-label="Turn sound off" aria-pressed="true">🔊 On</button>
@@ -1613,7 +1655,8 @@
     const CURRENT_LEVEL_ADVANCEMENT_TARGET = 4;
     const HIGHER_LEVEL_ADVANCEMENT_TARGET = 2;
     const HUNDREDS_UNLOCK_LEVEL = 6;
-    const PROFILE_SCHEMA_VERSION = 2;
+    const PROFILE_SCHEMA_VERSION = 3;
+    const DIFFICULTY_MODES = Object.freeze(["standard", "easy"]);
     const LEVEL_DEFINITIONS = Object.freeze([
       { level: 1, label: "Single digits without regrouping" },
       { level: 2, label: "One single digit and one two-digit number without regrouping" },
@@ -1631,9 +1674,10 @@
     const PROFILE_KEY = "profile";
     const COOKIE_NAME = "numberGardenProgress";
     const HOLD_DURATION = 650;
-    const NEXT_UNIT_THROB_DELAY = 3000;
-    const SOLVER_HINT_INITIAL_DELAY = 20000;
-    const SOLVER_HINT_REPEAT_DELAY = 5000;
+    const IDLE_HINT_TIMINGS = Object.freeze({
+      standard: Object.freeze({ NEXT_BLOCK: 9000, FIRST_SOLVER_HINT: 60000, SOLVER_REPEAT: 15000 }),
+      easy: Object.freeze({ NEXT_BLOCK: 3000, FIRST_SOLVER_HINT: 20000, SOLVER_REPEAT: 5000 })
+    });
     const MOTION_TIMINGS = Object.freeze({
       BLOCK_FALL_LAND: 520,
       CARRY_FORMATION: 300,
@@ -1677,6 +1721,7 @@
       check: $("#checkAnswer"), settingsDialog: $("#settingsDialog"), settingsTitle: $("#settingsTitle"),
       settingsView: $("#settingsView"), aboutView: $("#aboutView"), settingsBack: $("#settingsBackButton"),
       openAbout: $("#openAboutButton"), levelSelect: $("#levelSelect"),
+      difficultyInputs: Array.from(document.querySelectorAll('input[name="difficultyMode"]')),
       sound: $("#settingsSoundButton"), runSolver: $("#runSolverButton"),
       resetProgress: $("#resetProgressButton"), closeSettings: $("#closeSettings"), toast: $("#toast"), live: $("#liveRegion")
     };
@@ -1700,6 +1745,7 @@
     let audioContext = null;
     let hundredsUnlockPending = false;
     let announcementRunning = false;
+    let lastAnnouncement = "";
     const announcementQueue = [];
     let dropDrainPromise = null;
     let motionSession = 0;
@@ -1722,6 +1768,7 @@
         score: 0,
         emojiProgress: 0,
         sound: true,
+        difficultyMode: "standard",
         currentLevel: 1,
         currentLevelSuccesses: 0,
         higherLevelSuccesses: 0,
@@ -1735,7 +1782,7 @@
       const emojiProgress = Number(value.emojiProgress);
       const updatedAt = Number(value.updatedAt);
       const schemaVersion = Number(value.schemaVersion);
-      if (![1, PROFILE_SCHEMA_VERSION].includes(schemaVersion) || !Number.isInteger(score) || score < 0 ||
+      if (![1, 2, PROFILE_SCHEMA_VERSION].includes(schemaVersion) || !Number.isInteger(score) || score < 0 ||
           !Number.isInteger(emojiProgress) || emojiProgress < 0 || typeof value.sound !== "boolean" ||
           !Number.isFinite(updatedAt) || updatedAt <= 0) return null;
       if (schemaVersion === 1) {
@@ -1747,8 +1794,10 @@
       if (!Number.isInteger(currentLevel) || currentLevel < 1 || currentLevel > LEVEL_COUNT ||
           !Number.isInteger(currentLevelSuccesses) || currentLevelSuccesses < 0 ||
           !Number.isInteger(higherLevelSuccesses) || higherLevelSuccesses < 0) return null;
+      const difficultyMode = schemaVersion === 2 ? "standard" : value.difficultyMode;
+      if (!DIFFICULTY_MODES.includes(difficultyMode)) return null;
       return {
-        schemaVersion: PROFILE_SCHEMA_VERSION, score, emojiProgress, sound: value.sound, currentLevel,
+        schemaVersion: PROFILE_SCHEMA_VERSION, score, emojiProgress, sound: value.sound, difficultyMode, currentLevel,
         currentLevelSuccesses, higherLevelSuccesses, updatedAt
       };
     }
@@ -2127,6 +2176,7 @@
           score: value.score,
           emojiProgress: value.emojiProgress,
           sound: value.sound,
+          difficultyMode: value.difficultyMode,
           currentLevel: value.currentLevel,
           currentLevelSuccesses: value.currentLevelSuccesses,
           higherLevelSuccesses: value.higherLevelSuccesses,
@@ -2162,7 +2212,7 @@
     }
 
     function resetProfile() {
-      profile = { ...defaultProfile(), sound: profile.sound };
+      profile = { ...defaultProfile(), sound: profile.sound, difficultyMode: profile.difficultyMode };
       writeProfileCookie(profile);
       saveChain = saveChain.then(() => writeIndexedProfile(profile)).catch(() => {});
       return saveChain;
@@ -2170,6 +2220,7 @@
 
     function announce(message) {
       if (!message) return;
+      lastAnnouncement = message;
       announcementQueue.push(message);
       if (announcementRunning) return;
       announcementRunning = true;
@@ -2613,10 +2664,11 @@
     function noteActivity() {
       clearIdleHints();
       if (!idleHintsAllowed()) return;
+      const timings = IDLE_HINT_TIMINGS[profile.difficultyMode];
       if (document.querySelector(".unit.eligible")) {
-        nextUnitHintTimer = setTimeout(showNextUnitHint, NEXT_UNIT_THROB_DELAY);
+        nextUnitHintTimer = setTimeout(showNextUnitHint, timings.NEXT_BLOCK);
       }
-      solverHintTimer = setTimeout(showSolverHint, SOLVER_HINT_INITIAL_DELAY);
+      solverHintTimer = setTimeout(showSolverHint, timings.FIRST_SOLVER_HINT);
     }
 
     function showNextUnitHint() {
@@ -2642,7 +2694,7 @@
       const message = "Need help? Hold the question mark for Solver.";
       if (shouldAnnounce) announce(message);
       if (reduceMotion) showToast(message);
-      else solverHintTimer = setTimeout(showSolverHint, SOLVER_HINT_REPEAT_DELAY);
+      else solverHintTimer = setTimeout(showSolverHint, IDLE_HINT_TIMINGS[profile.difficultyMode].SOLVER_REPEAT);
     }
 
     function renderJourney() {
@@ -2829,7 +2881,7 @@
         carriedHundred.append(carryLabel, carryToken);
         panel.append(carriedHundred);
       }
-      if (countedHundreds) {
+      if (countedHundreds && (state.phase === "completed" || profile.difficultyMode === "easy")) {
         const label = document.createElement("span");
         label.className = "digit-label hundreds-count";
         label.textContent = countedHundreds;
@@ -2902,16 +2954,18 @@
         token.setAttribute("aria-hidden", "true");
         panel.append(token);
       }
-      const label = document.createElement("span");
-      label.className = "digit-label";
-      const displayedOnes = state.phase === "completed" ? problem.onesRemainder : state.onesCursor;
-      renderPlaceCountLabel(
-        label,
-        displayedOnes,
-        displayedOnes + (state.phase === "completed" ? " ones in the result" : " ones counted"),
-        state.phase !== "completed"
-      );
-      panel.append(label);
+      if (state.phase === "completed" || profile.difficultyMode === "easy") {
+        const label = document.createElement("span");
+        label.className = "digit-label";
+        const displayedOnes = state.phase === "completed" ? problem.onesRemainder : state.onesCursor;
+        renderPlaceCountLabel(
+          label,
+          displayedOnes,
+          displayedOnes + (state.phase === "completed" ? " ones in the result" : " ones counted"),
+          state.phase !== "completed"
+        );
+        panel.append(label);
+      }
       return panel;
     }
 
@@ -2949,16 +3003,18 @@
         token.setAttribute("aria-hidden", "true");
         panel.append(token);
       }
-      const label = document.createElement("span");
-      label.className = "digit-label";
-      const displayedTens = state.phase === "completed" ? problem.tensRemainder : state.tensCursor;
-      renderPlaceCountLabel(
-        label,
-        displayedTens,
-        displayedTens + (state.phase === "completed" ? " tens in the result" : " tens counted"),
-        state.phase !== "completed"
-      );
-      panel.append(label);
+      if (state.phase === "completed" || profile.difficultyMode === "easy") {
+        const label = document.createElement("span");
+        label.className = "digit-label";
+        const displayedTens = state.phase === "completed" ? problem.tensRemainder : state.tensCursor;
+        renderPlaceCountLabel(
+          label,
+          displayedTens,
+          displayedTens + (state.phase === "completed" ? " tens in the result" : " tens counted"),
+          state.phase !== "completed"
+        );
+        panel.append(label);
+      }
       if (problem.carryToTens && state.phase !== "completed") {
         const source = document.createElement("span");
         source.className = "carried-ten-source" + (state.visibleOnesCarry ? "" : " placeholder");
@@ -3164,6 +3220,7 @@
       elements.sound.setAttribute("aria-pressed", String(profile.sound));
       elements.sound.setAttribute("aria-label", profile.sound ? "Turn sound off" : "Turn sound on");
       elements.levelSelect.value = String(profile.currentLevel);
+      elements.difficultyInputs.forEach(input => { input.checked = input.value === profile.difficultyMode; });
       const showNext = state.phase === "completed";
       elements.promptRow.classList.toggle("has-next", showNext);
       elements.next.hidden = !showNext;
@@ -3652,6 +3709,18 @@
       announce("Sound " + (profile.sound ? "on." : "off."));
     }
 
+    function handleDifficultyChange(event) {
+      const difficultyMode = event.currentTarget.value;
+      if (!event.currentTarget.checked || !DIFFICULTY_MODES.includes(difficultyMode) || difficultyMode === profile.difficultyMode) return;
+      profile = { ...profile, difficultyMode };
+      saveProfile();
+      render();
+      noteActivity();
+      const isStandard = difficultyMode === "standard";
+      announce("Difficulty changed to " + (isStandard ? "Standard. Running result counts are hidden and hints will wait longer." : "Easy. Running result counts are shown and hints will arrive sooner."));
+      showToast("Difficulty: " + (isStandard ? "Standard" : "Easy"));
+    }
+
     function syncFullscreenControl(announceChange = false) {
       const isFullscreen = Boolean(document.fullscreenElement);
       const label = isFullscreen ? "Exit fullscreen" : "Enter fullscreen";
@@ -3737,13 +3806,13 @@
       showToast("Now practicing at L" + chosenLevel);
     }
 
-    async function handleResetProgress() {
+    function handleResetProgress() {
       noteActivity();
-      if (!confirm("Reset coins, garden milestones, level, and advancement counters? Your sound setting will stay the same.")) return;
-      await resetProfile();
+      if (!confirm("Reset coins, garden milestones, level, and advancement counters? Your sound and difficulty settings will stay the same.")) return;
+      resetProfile();
       elements.settingsDialog.close();
       startWeightedProblem();
-      announce("Progress reset to level 1 with zero coins, milestones, and advancement counters. Sound preference kept.");
+      announce("Progress reset to level 1 with zero coins, milestones, and advancement counters. Sound and difficulty preferences kept.");
       showToast("Progress reset");
     }
 
@@ -3772,6 +3841,7 @@
       elements.reset.addEventListener("click", resetCurrentProblem);
       elements.next.addEventListener("click", nextProblem);
       elements.sound.addEventListener("click", toggleSound);
+      elements.difficultyInputs.forEach(input => input.addEventListener("change", handleDifficultyChange));
       elements.levelSelect.addEventListener("change", handleLevelChange);
       elements.settings.addEventListener("click", openSettings);
       elements.fullscreen.addEventListener("click", toggleFullscreen);
@@ -3841,6 +3911,9 @@
         activeOverlayCount: document.querySelectorAll(".motion-overlay").length,
         beetleReactionCount,
         soundEffectCount,
+        lastAnnouncement,
+        difficultyMode: profile.difficultyMode,
+        idleHintTimings: IDLE_HINT_TIMINGS[profile.difficultyMode],
         reducedMotion: reduceMotion,
         controlsLocked: isMotionDraining() || solverRunning || diceRefreshState !== "idle"
       } : null;
@@ -3869,6 +3942,8 @@
       LEVEL_DEFINITIONS,
       PROMPT_POOLS,
       MOTION_TIMINGS,
+      DIFFICULTY_MODES,
+      IDLE_HINT_TIMINGS,
       ACTIVE_MOTION_TIMINGS: activeMotionTimings,
       motionDiagnostics,
       constants: Object.freeze({
@@ -3886,6 +3961,8 @@
         HIGHER_LEVEL_ADVANCEMENT_TARGET,
         HUNDREDS_UNLOCK_LEVEL,
         PROFILE_SCHEMA_VERSION,
+        DIFFICULTY_MODES,
+        IDLE_HINT_TIMINGS,
         MOTION_TIMINGS
       }),
       CATEGORY_NAMES,

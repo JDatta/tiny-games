@@ -50,6 +50,20 @@
       return part ? JSON.parse(decodeURIComponent(part.slice("numberGardenProgress=".length))) : null;
     }
 
+    function indexedProfile() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open("numberGarden", 1);
+        request.onerror = () => reject(request.error || new Error("Could not open profile database"));
+        request.onsuccess = () => {
+          const db = request.result;
+          const transaction = db.transaction("state", "readonly");
+          const read = transaction.objectStore("state").get("profile");
+          read.onsuccess = () => { db.close(); resolve(read.result || null); };
+          read.onerror = () => { db.close(); reject(read.error || new Error("Could not read IndexedDB profile")); };
+        };
+      });
+    }
+
     function openGame(query = "") {
       const old = document.querySelector("iframe");
       if (old) old.remove();
@@ -101,7 +115,21 @@
       const api = frame.contentWindow.NumberGarden;
 
       assert(api.LEVEL_DEFINITIONS.length === 9, "nine level definitions are exposed");
-      assert(api.constants.PROFILE_SCHEMA_VERSION === 2, "profile schema v2 is exposed");
+      assert(api.constants.PROFILE_SCHEMA_VERSION === 3, "profile schema v3 is exposed");
+      assert(Object.isFrozen(api.DIFFICULTY_MODES) && JSON.stringify(api.DIFFICULTY_MODES) === JSON.stringify(["standard", "easy"]),
+        "the two supported difficulty modes are frozen and exposed");
+      assert(Object.isFrozen(api.IDLE_HINT_TIMINGS) && Object.isFrozen(api.IDLE_HINT_TIMINGS.standard) &&
+        Object.isFrozen(api.IDLE_HINT_TIMINGS.easy) && api.IDLE_HINT_TIMINGS.easy.NEXT_BLOCK === 3000 &&
+        api.IDLE_HINT_TIMINGS.easy.FIRST_SOLVER_HINT === 20000 && api.IDLE_HINT_TIMINGS.easy.SOLVER_REPEAT === 5000 &&
+        api.IDLE_HINT_TIMINGS.standard.NEXT_BLOCK === 9000 && api.IDLE_HINT_TIMINGS.standard.FIRST_SOLVER_HINT === 60000 &&
+        api.IDLE_HINT_TIMINGS.standard.SOLVER_REPEAT === 15000,
+        "the frozen Easy and Standard idle-hint timing table is exposed");
+      assert(["NEXT_BLOCK", "FIRST_SOLVER_HINT", "SOLVER_REPEAT"].every(key =>
+        api.IDLE_HINT_TIMINGS.standard[key] === api.IDLE_HINT_TIMINGS.easy[key] * 3),
+        "every Standard idle wait is exactly three times its Easy wait");
+      assert(api.defaultProfile().difficultyMode === "standard" && api.motionDiagnostics.snapshot().difficultyMode === "standard" &&
+        frame.contentDocument.querySelector("#difficultyStandard").checked,
+        "new profiles and the Settings control default to Standard");
       assert(Object.isFrozen(api.MOTION_TIMINGS) && api.MOTION_TIMINGS.BLOCK_FALL_LAND === 520 &&
         api.MOTION_TIMINGS.CARRY_FORMATION === 300 && api.MOTION_TIMINGS.CARRY_TRAVEL === 560 &&
         api.MOTION_TIMINGS.CARRY_LANDING === 140 && api.MOTION_TIMINGS.BEETLE_REACTION === 360 &&
@@ -304,10 +332,63 @@
       assert(!transition.advanced && transition.profile.currentLevel === 9 && transition.profile.currentLevelSuccesses === 0, "L9 is capped");
 
       const migrated = api.validateProfile({ schemaVersion: 1, score: 70, emojiProgress: 7, sound: false, updatedAt: 123 });
-      assert(migrated.schemaVersion === 2 && migrated.score === 70 && migrated.emojiProgress === 7 && !migrated.sound,
+      assert(migrated.schemaVersion === 3 && migrated.score === 70 && migrated.emojiProgress === 7 && !migrated.sound && migrated.difficultyMode === "standard",
         "v1 migration preserves rewards and sound");
       assert(migrated.currentLevel === 1 && migrated.currentLevelSuccesses === 0 && migrated.higherLevelSuccesses === 0,
         "v1 migration initializes L1 counters");
+      const migratedV2 = api.validateProfile({
+        schemaVersion: 2, score: 90, emojiProgress: 9, sound: false, currentLevel: 7,
+        currentLevelSuccesses: 3, higherLevelSuccesses: 1, updatedAt: 456
+      });
+      assert(migratedV2 && migratedV2.schemaVersion === 3 && migratedV2.difficultyMode === "standard" &&
+        migratedV2.score === 90 && migratedV2.emojiProgress === 9 && !migratedV2.sound && migratedV2.currentLevel === 7 &&
+        migratedV2.currentLevelSuccesses === 3 && migratedV2.higherLevelSuccesses === 1 && migratedV2.updatedAt === 456,
+        "v2 migration defaults to Standard while preserving rewards, sound, level, counters, and timestamp");
+      const validEasyV3 = api.validateProfile({
+        schemaVersion: 3, score: 4, emojiProgress: 2, sound: true, difficultyMode: "easy", currentLevel: 4,
+        currentLevelSuccesses: 2, higherLevelSuccesses: 1, updatedAt: 789
+      });
+      assert(validEasyV3 && validEasyV3.difficultyMode === "easy" &&
+        api.validateProfile({ ...validEasyV3, difficultyMode: "expert" }) === null &&
+        api.validateProfile({ ...validEasyV3, difficultyMode: undefined }) === null,
+        "v3 accepts supported modes and rejects invalid or missing difficulty values");
+
+      const modeDoc = frame.contentDocument;
+      await countNextUnits(frame, 1);
+      const modeBefore = api.motionDiagnostics.snapshot();
+      const modeEquation = modeDoc.querySelector("#equationA").textContent + "+" + modeDoc.querySelector("#equationB").textContent;
+      assert(!modeDoc.querySelector(".result-panel .digit-label") && modeDoc.querySelectorAll(".place-panel:not(.result-panel) .digit-label").length > 0,
+        "Standard hides temporary result counts while retaining addend-cell digit labels");
+      modeDoc.querySelector("#settingsButton").click();
+      const difficultyFieldset = modeDoc.querySelector(".difficulty-setting");
+      assert(difficultyFieldset.querySelector("legend").textContent === "Difficulty" &&
+        difficultyFieldset.querySelectorAll('input[type="radio"][name="difficultyMode"]').length === 2 &&
+        modeDoc.querySelector("#difficultyStandard").getAttribute("aria-describedby") === "difficultyStandardHelp" &&
+        modeDoc.querySelector("#difficultyEasy").getAttribute("aria-describedby") === "difficultyEasyHelp",
+        "Settings exposes an accessible described two-option difficulty control");
+      modeDoc.querySelector("#difficultyEasy").click();
+      await waitFor(() => profileCookie() && profileCookie().difficultyMode === "easy", "Easy cookie persistence");
+      const storedEasyProfile = await indexedProfile();
+      assert(storedEasyProfile && storedEasyProfile.difficultyMode === "easy", "Easy is written to IndexedDB");
+      const modeAfter = api.motionDiagnostics.snapshot();
+      assert(modeDoc.querySelector("#difficultyEasy").checked && modeAfter.difficultyMode === "easy" &&
+        modeAfter.onesLandedCursor === modeBefore.onesLandedCursor && modeAfter.tensLandedCursor === modeBefore.tensLandedCursor &&
+        modeDoc.querySelector("#equationA").textContent + "+" + modeDoc.querySelector("#equationB").textContent === modeEquation &&
+        modeDoc.querySelector(".result-panel .digit-label"),
+        "switching to Easy updates the current board without resetting its problem or landed progress");
+      assert(modeAfter.lastAnnouncement.includes("Difficulty changed to Easy"),
+        "difficulty changes are queued for accessible announcement");
+      modeDoc.querySelector("#closeSettings").click();
+
+      frame = await openGame("?difficultyCookieReload=1&harness=1");
+      assert(frame.contentWindow.NumberGarden.motionDiagnostics.snapshot().difficultyMode === "easy" &&
+        frame.contentDocument.querySelector("#difficultyEasy").checked,
+        "Easy persists through a cookie-backed reload");
+      document.cookie = "numberGardenProgress=; Max-Age=0; Path=/; SameSite=Lax";
+      const indexedOnlyProfile = api.validateProfile(await indexedProfile());
+      assert(indexedOnlyProfile && indexedOnlyProfile.difficultyMode === "easy",
+        "after clearing the cookie, the valid IndexedDB recovery profile still preserves Easy");
+      document.cookie = "numberGardenProgress=" + encodeURIComponent(JSON.stringify(indexedOnlyProfile)) + "; Path=/; SameSite=Lax";
 
       frame = await openGame("?a=1&b=1");
       let productionMotionApi = frame.contentWindow.NumberGarden.motionDiagnostics;
@@ -606,18 +687,34 @@
       await countNextUnits(frame, 9);
       let placeLabel = carryDoc.querySelector(".result-panel.ones .digit-label");
       assert(placeLabel.textContent === "9" && !placeLabel.querySelector(".carry-digit"),
-        "single-digit place counts use the normal digit style");
+        "Easy single-digit place counts use the normal digit style");
       await countNextUnits(frame, 1);
       placeLabel = carryDoc.querySelector(".result-panel.ones .digit-label");
       assert(placeLabel.textContent === "10" && placeLabel.querySelector(".carry-digit").textContent === "1",
-        "ten ones dims the carried leading digit");
+        "Easy keeps the carried leading-digit style at ten ones");
+      const carryModeBefore = frame.contentWindow.NumberGarden.motionDiagnostics.snapshot();
+      const carryEquation = carryDoc.querySelector("#equationA").textContent + "+" + carryDoc.querySelector("#equationB").textContent;
+      carryDoc.querySelector("#settingsButton").click();
+      carryDoc.querySelector("#difficultyStandard").click();
+      assert(!carryDoc.querySelector(".result-panel .digit-label") &&
+        carryDoc.querySelectorAll(".place-panel:not(.result-panel) .digit-label").length === 4,
+        "Standard hides only result-cell labels during an active ones carry");
+      assert(frame.contentWindow.NumberGarden.motionDiagnostics.snapshot().onesLandedCursor === carryModeBefore.onesLandedCursor &&
+        carryDoc.querySelector("#equationA").textContent + "+" + carryDoc.querySelector("#equationB").textContent === carryEquation,
+        "a mid-problem switch to Standard preserves the current problem and counting cursor");
+      carryDoc.querySelector("#closeSettings").click();
       await countNextUnits(frame, 4);
+      assert(!carryDoc.querySelector(".result-panel .digit-label"),
+        "Standard continues hiding progressive counts beyond a group-of-ten boundary");
+      carryDoc.querySelector("#settingsButton").click();
+      carryDoc.querySelector("#difficultyEasy").click();
+      carryDoc.querySelector("#closeSettings").click();
       placeLabel = carryDoc.querySelector(".result-panel.ones .digit-label");
       const carriedDigit = placeLabel.querySelector(".carry-digit");
       const remainderDigit = placeLabel.querySelector(".place-count span:last-child");
       assert(placeLabel.textContent === "14" && placeLabel.querySelector(".carry-digit").textContent === "1" &&
         placeLabel.getAttribute("aria-label") === "14 ones counted",
-        "14 ones dims only the carried one and keeps one accessible count");
+        "Easy immediately restores the accessible progressive count and carry-digit styling");
       assert(getComputedStyle(carriedDigit).color === "rgb(174, 182, 194)" &&
         getComputedStyle(remainderDigit).color === "rgb(72, 86, 108)",
         "carried and remainder digits use faint and normal gray respectively");
@@ -632,6 +729,13 @@
       const completedLabels = carryDoc.querySelectorAll(".result-panel .digit-label");
       assert(Array.from(completedLabels).every(label => !label.querySelector(".carry-digit")),
         "completed place-value remainder labels use the normal digit style");
+      carryDoc.querySelector("#settingsButton").click();
+      carryDoc.querySelector("#difficultyStandard").click();
+      assert(carryDoc.querySelectorAll(".result-panel .digit-label").length === completedLabels.length &&
+        Array.from(carryDoc.querySelectorAll(".result-panel .digit-label")).every(label => !label.querySelector(".carry-digit")),
+        "Standard retains normal final place-value labels after completion");
+      carryDoc.querySelector("#difficultyEasy").click();
+      carryDoc.querySelector("#closeSettings").click();
 
       frame = await openGame("?harness=1");
 
@@ -695,12 +799,20 @@
       await waitFor(() => doc.querySelector("#liveRegion").textContent.includes("Hundreds column is now unlocked"), "Hundreds unlock announcement");
       assert(doc.querySelector("#liveRegion").textContent.includes("Hundreds column is now unlocked"), "Hundreds unlock is announced");
       const storedL6 = profileCookie();
-      assert(storedL6 && storedL6.schemaVersion === 2 && storedL6.currentLevel === 6 && storedL6.currentLevelSuccesses === 0 && storedL6.higherLevelSuccesses === 0,
-        "manual level override persists L6 with reset counters");
+      assert(storedL6 && storedL6.schemaVersion === 3 && storedL6.currentLevel === 6 && storedL6.currentLevelSuccesses === 0 &&
+        storedL6.higherLevelSuccesses === 0 && storedL6.difficultyMode === "easy",
+        "manual level override persists L6 with reset counters and leaves difficulty unchanged");
 
       frame = await openGame("?a=60&b=50&harness=1");
       const fullCarryDoc = frame.contentDocument;
       const fullCarryApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      const fullCarryEquation = fullCarryDoc.querySelector("#equationA").textContent + "+" + fullCarryDoc.querySelector("#equationB").textContent;
+      fullCarryDoc.querySelector("#settingsButton").click();
+      fullCarryDoc.querySelector("#difficultyStandard").click();
+      fullCarryDoc.querySelector("#closeSettings").click();
+      assert(fullCarryApi.snapshot().difficultyMode === "standard" &&
+        fullCarryDoc.querySelector("#equationA").textContent + "+" + fullCarryDoc.querySelector("#equationB").textContent === fullCarryEquation,
+        "Standard can be enabled for a visible-Hundreds carry without replacing the forced problem");
       fullCarryApi.clearEvents();
       const hundredCarryStyles = { formation: null, travel: null };
       const carryStyleSnapshot = element => {
@@ -726,6 +838,9 @@
       assert(parkedHundredSource && !parkedHundredSource.classList.contains("eligible") &&
         fullCarryDoc.querySelector('.unit.eligible[data-place="tens"][data-index="10"]'),
         "the carried 100 stays parked while the remaining Tens are counted first");
+      assert(!fullCarryDoc.querySelector(".result-panel .digit-label") &&
+        fullCarryDoc.querySelectorAll(".place-panel:not(.result-panel) .digit-label").length === 4,
+        "Standard hides progressive Ones, Tens, and Hundreds labels while keeping all visible addend labels");
       await countNextUnits(frame, 1);
       await waitFor(() => fullCarryApi.snapshot().phase === "counting-hundreds",
         "visible Hundreds carry ready to count", 4000);
@@ -783,11 +898,20 @@
         "carried hundred count completion", 4000);
       hundredCountSnapshot = fullCarryApi.snapshot();
       const countedHundred = fullCarryDoc.querySelector('[data-motion-role="result"][data-place="hundreds"].filled');
-      const hundredCountLabel = fullCarryDoc.querySelector(".result-panel.hundreds .digit-label.hundreds-count");
+      let hundredCountLabel = fullCarryDoc.querySelector(".result-panel.hundreds .digit-label.hundreds-count");
       assert(countedHundred && goldCarryStyle(carryStyleSnapshot(countedHundred)) &&
-        hundredCountLabel && hundredCountLabel.textContent === "1" &&
+        !hundredCountLabel &&
         fullCarryApi.events().some(event => event.type === "drop-landed" && event.place === "hundreds" && event.index === 0),
-        "the tapped carry lands as a gold 100 and reveals a Hundreds count of 1");
+        "in Standard the tapped carry still lands as a gold 100 without revealing a progressive Hundreds label");
+      const standardHundredSnapshot = fullCarryApi.snapshot();
+      fullCarryDoc.querySelector("#settingsButton").click();
+      fullCarryDoc.querySelector("#difficultyEasy").click();
+      hundredCountLabel = fullCarryDoc.querySelector(".result-panel.hundreds .digit-label.hundreds-count");
+      assert(hundredCountLabel && hundredCountLabel.textContent === "1" &&
+        fullCarryApi.snapshot().hundredsLandedCursor === standardHundredSnapshot.hundredsLandedCursor &&
+        fullCarryApi.snapshot().phase === standardHundredSnapshot.phase,
+        "switching to Easy reveals the Hundreds count immediately without changing settled progress");
+      fullCarryDoc.querySelector("#closeSettings").click();
       const settledHundredBadge = fullCarryDoc.querySelector(".carried-hundred-source");
       const settledHundredBadgeStyle = frame.contentWindow.getComputedStyle(settledHundredBadge);
       assert(settledHundredBadge && settledHundredBadge.textContent === "carry" &&
@@ -827,14 +951,15 @@
       reloadedDoc.querySelector("#resetProgressButton").click();
       await waitFor(() => reloadedDoc.querySelector("#levelBadge").textContent === "L1" && reloadedDoc.querySelector("#scoreValue").textContent === "0", "progress reset", 10000);
       const reset = profileCookie();
-      assert(reset.currentLevel === 1 && reset.currentLevelSuccesses === 0 && reset.higherLevelSuccesses === 0 && reset.score === 0 && reset.emojiProgress === 0 && !reset.sound,
-        "Reset Progress clears level counters and rewards while retaining sound");
+      assert(reset.currentLevel === 1 && reset.currentLevelSuccesses === 0 && reset.higherLevelSuccesses === 0 && reset.score === 0 &&
+        reset.emojiProgress === 0 && !reset.sound && reset.difficultyMode === "easy",
+        "Reset Progress clears level counters and rewards while retaining sound and difficulty");
 
       reloadedDoc.querySelector("#toast").classList.remove("show");
       reloadedDoc.querySelector("#toast").textContent = "";
       reloadedDoc.querySelector("#settingsButton").click();
       reloadedDoc.querySelector("#runSolverButton").click();
-      await waitFor(() => reloadedDoc.querySelector("#answerButton").textContent !== "?", "Solver completion", 8000);
+      await waitFor(() => reloadedDoc.querySelector("#answerButton").textContent !== "?", "Solver completion", 20000);
       assert(reloadedDoc.querySelector("#scoreValue").textContent === "0" && profileCookie().score === 0 && profileCookie().emojiProgress === 0,
         "Solver changes neither rewards nor persistent progress");
       assert(!reloadedDoc.querySelector("#toast").classList.contains("show") && reloadedDoc.querySelector("#toast").textContent === "",
