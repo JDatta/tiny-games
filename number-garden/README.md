@@ -1,11 +1,11 @@
-# Ones Twos
+# Number Garden
 
-Ones Twos contains **Number Garden**, a mobile-first addition game that grows through nine persistent learning levels. Children count ones, trade groups of ten, count tens, and—after the L6 unlock—work with hundreds.
+Number Garden is a mobile-first addition game that grows through nine persistent learning levels. Children count ones, trade groups of ten, count tens, and—after the L6 unlock—work with hundreds.
 
 Run it locally:
 
 ```sh
-cd ones-twos
+cd number-garden
 python3 server.py
 ```
 

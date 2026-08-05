@@ -4,7 +4,7 @@ Tiny Games is a collection of small, focused browser games. Each game lives in i
 
 ## Games
 
-- [ones-twos](ones-twos/) — a mobile-first place-value addition game for children.
+- [number-garden](number-garden/) — a mobile-first place-value addition game for children.
 
 Open a game’s README for instructions and project-specific documentation.
 

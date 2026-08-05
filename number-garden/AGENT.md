@@ -1,10 +1,10 @@
-# Ones Twos Project Guide
+# Number Garden Project Guide
 
 ## Project descriptions
 
 ### Product
 
-Ones Twos contains **Number Garden**, a mobile-first learning game that teaches addition through visible ones, tens, hundreds, and regrouping. Nine persistent curriculum levels grow from single-digit sums to two-column carries. A learner counts the next highlighted unit in sequence and watches groups of ten carry into the next place. Organic problems may use addends from 1 through 99 and results through 198.
+Number Garden is a mobile-first learning game that teaches addition through visible ones, tens, hundreds, and regrouping. Nine persistent curriculum levels grow from single-digit sums to two-column carries. A learner counts the next highlighted unit in sequence and watches groups of ten carry into the next place. Organic problems may use addends from 1 through 99 and results through 198.
 
 ### Implementation
 
