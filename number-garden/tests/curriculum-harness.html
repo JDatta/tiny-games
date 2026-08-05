@@ -64,6 +64,11 @@
       });
     }
 
+    function analyticsEntries(frame, command, name) {
+      return Array.from(frame.contentWindow.dataLayer || []).filter(entry =>
+        entry && entry[0] === command && (name === undefined || entry[1] === name));
+    }
+
     async function openGame(query = "", launchChoice = "start") {
       const old = document.querySelector("iframe");
       if (old) old.remove();
@@ -123,6 +128,12 @@
         launchDoc.querySelector("#launchTitle").textContent === "Welcome to Number Garden" &&
         JSON.stringify(Array.from(launchDialog.querySelectorAll("button"), button => button.textContent)) === JSON.stringify(["Start", "Tutorial"]),
         "fresh profiles require the accessible Start or Tutorial launch choice");
+      const googleTags = Array.from(launchDoc.querySelectorAll('script[src^="https://www.googletagmanager.com/gtag/js"]'));
+      assert(googleTags.length === 1 && new URL(googleTags[0].src).searchParams.get("id") === "G-C3PJ0VBNH0" &&
+        analyticsEntries(frame, "config", "G-C3PJ0VBNH0").length === 1,
+        "the page installs exactly one Google tag with the configured measurement ID");
+      assert(analyticsEntries(frame, "event", "game_start").length === 0,
+        "a page visit alone does not emit the gameplay start event");
       launchDialog.dispatchEvent(new Event("cancel", { cancelable: true }));
       launchDialog.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 0, clientY: 0 }));
       assert(launchDialog.open, "Escape and backdrop activation cannot dismiss the launch choice");
@@ -131,10 +142,21 @@
       await waitFor(() => !launchDialog.open && profileCookie() && profileCookie().launchChoiceMade, "persisted Start choice");
       assert(launchDoc.querySelector("#equationA").textContent + "+" + launchDoc.querySelector("#equationB").textContent === initialEquation,
         "Start keeps the already-generated level-based problem");
+      let gameStartEvents = analyticsEntries(frame, "event", "game_start");
+      assert(gameStartEvents.length === 1 && gameStartEvents[0][2].game_version === "0.1a_29e687",
+        "the launch Start choice emits one versioned gameplay start event");
+      launchDoc.querySelector(".unit.eligible").click();
+      assert(analyticsEntries(frame, "event", "game_start").length === 1,
+        "manual interaction after Start does not duplicate the gameplay start event");
 
       frame = await openGame("?launchReload=1&harness=1");
       assert(!frame.contentDocument.querySelector("#launchDialog").open,
         "a persisted launch choice prevents the dialog on reload");
+      assert(analyticsEntries(frame, "event", "game_start").length === 0,
+        "a returning-player reload waits for genuine engagement before tracking a start");
+      frame.contentDocument.querySelector(".unit.eligible").click();
+      assert(analyticsEntries(frame, "event", "game_start").length === 1,
+        "a returning player's first accepted block emits the gameplay start event");
       const legacyV3Profile = {
         schemaVersion: 3, score: 0, emojiProgress: 0, sound: true, difficultyMode: "standard",
         currentLevel: 1, currentLevelSuccesses: 0, higherLevelSuccesses: 0, updatedAt: Date.now() + 5000
@@ -147,6 +169,9 @@
 
       assert(api.LEVEL_DEFINITIONS.length === 9, "nine level definitions are exposed");
       assert(api.constants.PROFILE_SCHEMA_VERSION === 4, "profile schema v4 is exposed");
+      assert(api.constants.GAME_VERSION === "0.1a_29e687" &&
+        frame.contentDocument.querySelector("[data-version]").textContent === api.constants.GAME_VERSION,
+        "analytics and the About view share the exposed game version");
       assert(Object.isFrozen(api.DIFFICULTY_MODES) && JSON.stringify(api.DIFFICULTY_MODES) === JSON.stringify(["standard", "easy"]),
         "the two supported difficulty modes are frozen and exposed");
       assert(Object.isFrozen(api.IDLE_HINT_TIMINGS) && Object.isFrozen(api.IDLE_HINT_TIMINGS.standard) &&
@@ -171,6 +196,18 @@
         "production teaching-motion timings, including the two-second Tutorial answer pause, are frozen and exposed");
       assert(Object.isFrozen(api.ACTIVE_MOTION_TIMINGS) && api.ACTIVE_MOTION_TIMINGS.BLOCK_FALL_LAND < api.MOTION_TIMINGS.BLOCK_FALL_LAND,
         "harness mode compresses durations without skipping the lifecycle");
+      assert(analyticsEntries(frame, "event", "game_start").length === 0,
+        "an established player does not start analytics merely by loading the game");
+      frame.contentDocument.querySelector("#answerButton").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      await waitFor(() => frame.contentDocument.querySelector("#keypadDialog").open, "analytics fallback keypad open");
+      frame.contentDocument.querySelector('[data-key="0"]').click();
+      frame.contentDocument.querySelector("#checkAnswer").click();
+      gameStartEvents = analyticsEntries(frame, "event", "game_start");
+      assert(gameStartEvents.length === 1 && gameStartEvents[0][2].game_version === api.constants.GAME_VERSION &&
+        analyticsEntries(frame, "event", "game_complete").length === 0,
+        "the first non-empty answer submission starts engagement while a wrong answer does not complete it");
+      frame.contentDocument.querySelector("#cancelKeypad").click();
+      await waitFor(() => !frame.contentDocument.querySelector("#keypadDialog").open, "analytics fallback keypad close");
       const diceDoc = frame.contentDocument;
       const diceMotion = api.motionDiagnostics;
       diceMotion.clearEvents();
@@ -1222,6 +1259,9 @@
       await waitFor(() => launchTutorialApi.snapshot().phase === "completed" && !launchTutorialApi.snapshot().solverRunning,
         "launch Tutorial completion", 20000);
       assert(!launchKeypad.open, "Tutorial closes the keypad through the normal correct-answer path");
+      assert(analyticsEntries(frame, "event", "game_start").length === 0 &&
+        analyticsEntries(frame, "event", "game_complete").length === 0,
+        "the launch Tutorial and its automated answer emit no gameplay engagement events");
       const launchTutorialEvents = launchTutorialApi.events();
       const tutorialHandEvents = launchTutorialEvents.filter(event => event.type === "tutorial-hand-cue");
       const tutorialBlockHandEvents = tutorialHandEvents.filter(event => event.place);
@@ -1262,6 +1302,9 @@
         reloadedDoc.querySelector("#equationA").textContent + "+" + reloadedDoc.querySelector("#equationB").textContent !== "28+47" &&
         !launchTutorialApi.snapshot().launchTutorialActive,
         "Start Game creates a fresh normal problem and exits the launch-Tutorial flow");
+      gameStartEvents = analyticsEntries(frame, "event", "game_start");
+      assert(gameStartEvents.length === 1 && gameStartEvents[0][2].game_version === api.constants.GAME_VERSION,
+        "Start Game after the launch Tutorial begins tracked manual play exactly once");
 
       reloadedDoc.querySelector("#toast").classList.remove("show");
       reloadedDoc.querySelector("#toast").textContent = "";
@@ -1271,6 +1314,9 @@
         "Settings Tutorial completion", 20000);
       assert(reloadedDoc.querySelector("#scoreValue").textContent === "0" && profileCookie().score === 0 && profileCookie().emojiProgress === 0,
         "Tutorial changes neither rewards nor persistent progress");
+      assert(analyticsEntries(frame, "event", "game_start").length === 1 &&
+        analyticsEntries(frame, "event", "game_complete").length === 0,
+        "a Settings Tutorial neither duplicates the start nor emits a completion event");
       assert(!reloadedDoc.querySelector("#toast").classList.contains("show") && reloadedDoc.querySelector("#toast").textContent === "",
         "Tutorial shows no reward toast");
       assert(reloadedDoc.querySelector("#nextButton").textContent === "Next →",
@@ -1281,6 +1327,11 @@
       await enterAnswer(frame, answer, true);
       assert(reloadedDoc.querySelector("#scoreValue").textContent === "10" && profileCookie().score === 10 && profileCookie().emojiProgress === 1,
         "manual completion after a wrong attempt awards exactly one reward");
+      const gameCompleteEvents = analyticsEntries(frame, "event", "game_complete");
+      assert(analyticsEntries(frame, "event", "game_start").length === 1 && gameCompleteEvents.length === 1 &&
+        gameCompleteEvents[0][2].score === 10 && gameCompleteEvents[0][2].questions_answered === 1 &&
+        gameCompleteEvents[0][2].game_version === api.constants.GAME_VERSION,
+        "manual success emits one completion with updated cumulative score, answer count, and version");
 
       document.body.dataset.status = "passed";
       document.title = "PASS: Number Garden curriculum checks";

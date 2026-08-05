@@ -1,6 +1,15 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-C3PJ0VBNH0"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-C3PJ0VBNH0');
+  </script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#dff4ff">
@@ -1442,7 +1451,7 @@
       <div id="aboutView" class="about-view" hidden>
         <dl class="about-details">
           <div><dt>Author</dt><dd>Joydip Datta</dd></div>
-          <div><dt>Version</dt><dd data-version>0.1a_29e687</dd></div>
+          <div><dt>Version</dt><dd data-version></dd></div>
           <div><dt>License</dt><dd>All rights reserved.</dd></div>
         </dl>
       </div>
@@ -1717,6 +1726,7 @@
     const CURRENT_LEVEL_ADVANCEMENT_TARGET = 4;
     const HIGHER_LEVEL_ADVANCEMENT_TARGET = 2;
     const HUNDREDS_UNLOCK_LEVEL = 6;
+    const GAME_VERSION = "0.1a_29e687";
     const PROFILE_SCHEMA_VERSION = 4;
     const DIFFICULTY_MODES = Object.freeze(["standard", "easy"]);
     const LEVEL_DEFINITIONS = Object.freeze([
@@ -1792,6 +1802,7 @@
       sound: $("#settingsSoundButton"), runSolver: $("#runSolverButton"),
       resetProgress: $("#resetProgressButton"), closeSettings: $("#closeSettings"), toast: $("#toast"), live: $("#liveRegion")
     };
+    elements.versionDisplays = Array.from(document.querySelectorAll("[data-version]"));
     elements.promptMascot = $(".prompt-mascot");
 
     let profile = defaultProfile();
@@ -1808,6 +1819,7 @@
     let holdTimer = 0;
     let holdStarted = false;
     let holdCompleted = false;
+    let gameStartTracked = false;
     let solverRunning = false;
     let tutorialControlActivation = null;
     let launchTutorialActive = false;
@@ -1831,6 +1843,23 @@
     const motionEvents = [];
     const curriculumPairCache = new Map();
     const lastPromptTemplateByKey = Object.create(null);
+
+    function trackGameStarted() {
+      if (gameStartTracked || typeof window.gtag !== "function") return;
+      gameStartTracked = true;
+      window.gtag("event", "game_start", {
+        game_version: GAME_VERSION
+      });
+    }
+
+    function trackGameCompleted(score, questionsAnswered) {
+      if (typeof window.gtag !== "function") return;
+      window.gtag("event", "game_complete", {
+        score,
+        questions_answered: questionsAnswered,
+        game_version: GAME_VERSION
+      });
+    }
 
     function defaultProfile() {
       return {
@@ -3452,7 +3481,8 @@
       const unit = event.currentTarget;
       if (!unit || solverRunning || diceRefreshState !== "idle" || isDialogOpen() || state.phase === "completed") return;
       noteActivity();
-      acceptPlaceUnit(unit.dataset.place, unit, false);
+      const drain = acceptPlaceUnit(unit.dataset.place, unit, false);
+      if (drain) trackGameStarted();
     }
 
     function acceptPlaceUnit(place, unit, allowSolver) {
@@ -3778,6 +3808,7 @@
         hundredsUnlockPending = unlockedHundreds;
         profile.score += 10;
         profile.emojiProgress += 1;
+        trackGameCompleted(profile.score, profile.emojiProgress);
         saveProfile();
         tray = makeTray(problem);
       }
@@ -3852,6 +3883,7 @@
 
     function nextProblem() {
       if (state.phase !== "completed" || solverRunning || diceRefreshState !== "idle") return;
+      if (launchTutorialActive) trackGameStarted();
       launchTutorialActive = false;
       startWeightedProblem();
     }
@@ -3892,6 +3924,7 @@
     function checkTypedAnswer(event = null) {
       if (solverRunning && (!event || tutorialControlActivation !== event.currentTarget)) return;
       noteActivity();
+      if (!solverRunning && typedAnswer !== "") trackGameStarted();
       if (Number(typedAnswer) === problem.result && typedAnswer !== "") {
         elements.keypad.close();
         completeProblem(solverRunning ? "solver" : "typed");
@@ -4038,6 +4071,7 @@
         runSolver();
         return;
       }
+      trackGameStarted();
       announce("Welcome to Number Garden. Start by tapping the glowing block.");
       noteActivity();
     }
@@ -4162,6 +4196,7 @@
 
     async function init() {
       initializeFullscreenControl();
+      elements.versionDisplays.forEach(display => { display.textContent = GAME_VERSION; });
       bindEvents();
       await initializeProfile();
       const initial = validQueryProblem() || sampleCurriculumProblem(profile.currentLevel);
@@ -4248,6 +4283,7 @@
         CURRENT_LEVEL_ADVANCEMENT_TARGET,
         HIGHER_LEVEL_ADVANCEMENT_TARGET,
         HUNDREDS_UNLOCK_LEVEL,
+        GAME_VERSION,
         PROFILE_SCHEMA_VERSION,
         DIFFICULTY_MODES,
         IDLE_HINT_TIMINGS,

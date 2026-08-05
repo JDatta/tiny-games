@@ -62,4 +62,4 @@ Idle help uses fixed mode-specific delays: Easy highlights the next block after 
 
 ## Scope and non-goals
 
-The product is a single-player curriculum-guided practice activity, not an assessment platform or competitive game. It has no login, backend, analytics, advertising, multiplayer features, cloud sync, or reporting. Subtraction, zero/negative addends, and more than two addends remain outside scope.
+The product is a single-player curriculum-guided practice activity, not an assessment platform or competitive game. It has aggregate Google Analytics page-view and manual gameplay engagement events, but no login, backend, advertising, multiplayer features, cloud sync, learner-level reporting, or assessment reporting. Subtraction, zero/negative addends, and more than two addends remain outside scope.

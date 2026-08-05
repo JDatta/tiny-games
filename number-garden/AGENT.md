@@ -8,7 +8,7 @@ Number Garden is a mobile-first learning game that teaches addition through visi
 
 ### Implementation
 
-Number Garden is a client-only application implemented as one standalone HTML document with embedded CSS and JavaScript. It has no framework, package manager, build step, backend, remote asset, or required network connection. It must continue to work both when `index.html` is opened directly and when the included Python static server serves it at `http://localhost:8080`.
+Number Garden is a client-only application implemented as one standalone HTML document with embedded CSS and JavaScript. It has no framework, package manager, build step, backend, or required network connection. The only remote resource is the optional Google Analytics tag; gameplay must remain fully functional if it cannot load. The app must continue to work both when `index.html` is opened directly and when the included Python static server serves it at `http://localhost:8080`.
 
 The runtime separates pure problem arithmetic (`problem`), temporary interaction progress (`state`), and durable browser data (`profile`). Rendering is derived from those values; the DOM and CSS classes are never the source of mathematical truth.
 
@@ -29,6 +29,7 @@ The runtime separates pure problem arithmetic (`problem`), temporary interaction
 ## Gotchas
 
 - Keep `index.html` self-contained. Do not introduce a required build process, framework, server API, CDN, font, or remote image.
+- Keep the single Google tag ID `G-C3PJ0VBNH0` intact. Analytics tracks one manual start per page load and successful typed completions; automated Tutorial activity must not emit gameplay engagement events.
 - Preserve direct `file://` operation as well as `python3 server.py`. Browser storage is best-effort, so the game must remain playable when IndexedDB or cookies are unavailable.
 - Keep arithmetic in pure helpers such as `deriveProblem()`, transient interaction data in `state`, durable preferences and rewards in `profile`, and DOM construction in render helpers.
 - A new or changed phase must be handled consistently by prompts, enabled-unit selection, input locks, manual advancement, Solver, accessibility announcements, and rendering.
