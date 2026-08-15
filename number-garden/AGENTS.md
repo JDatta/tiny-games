@@ -16,14 +16,27 @@ The runtime separates pure problem arithmetic (`problem`), temporary interaction
 
 | Path | Purpose |
 | --- | --- |
-| `AGENT.md` | Project orientation and change guidance for coding agents. |
+| `AGENTS.md` | Project orientation, repository map, and change guidance for coding agents. |
+| `.gitignore` | Excludes generated web output, Capacitor native projects, and installed Node dependencies. |
+| `README.md` | User-facing overview, local startup instructions, gameplay summary, diagnostic query parameters, and test-harness URL. |
 | `index.html` | Shipped application, including markup, styles, arithmetic, state management, rendering, persistence, sound, and animation. |
+| `dist/index.html` | Generated copy of `index.html` used as Capacitor's web asset; produced by `npm run build` and not edited directly. |
 | `server.py` | Optional zero-dependency development server; maps `/` to `index.html` and preserves query parameters. |
-| `@poc-game.html` | Historical proof of concept for the original idea. Treat it as reference material, not the current implementation. |
+| `package.json` | Optional Node/Capacitor metadata, dependency declarations, and the web-asset build script. |
+| `package-lock.json` | Locked npm dependency graph for reproducible Capacitor installs. |
+| `capacitor.config.json` | Capacitor app identity and `dist` web-directory configuration for native packaging. |
+| `../codemagic.yaml` | Repository-root Codemagic workflow that installs dependencies, builds the web asset, generates the iOS project, and runs an unsigned simulator build. |
+| `node_modules/` | Generated, ignored npm dependency installation; recreate it with `npm ci`. |
+| `demos/poc-game.html` | Historical proof of concept for the original idea. Treat it as reference material, not the current implementation. |
+| `demos/record-tutorial.sh` | Tutorial recording driver that launches headless Chrome, captures frames, and assembles an MP4 with FFmpeg. |
+| `demos/.capture_tutorial.py` | Chrome DevTools Protocol helper used by the recording script to capture the accelerated tutorial frame sequence. |
+| `demos/tutorial-frames/frame-*.png` | Generated 480×900 PNG frames from the tutorial recording run. |
 | `mocks/mock.png` | Visual inspiration for the mobile layout and garden theme; it is not an authoritative description of arithmetic or state. |
-| `plans/init-game.md` | Original implementation brief and acceptance criteria. Useful for product intent, but the shipped code and current docs describe present behavior. |
 | `docs/PRODUCT.md` | Product goals, audience, learning flow, supported problem categories, accessibility principles, and scope boundaries. |
 | `docs/ARCHITECTURE.md` | Runtime structure, state flow, persistence boundaries, diagnostics, and architectural change guidance. |
+| `docs/exec-plans/completed/init-game.md` | Original implementation brief and acceptance criteria. Useful for product intent, but the shipped code and current docs describe present behavior. |
+| `docs/exec-plans/completed/codemagic-linux-bootstrap-plan.md` | Completed plan for adding the npm, Capacitor, and Codemagic iOS bootstrap from Linux. |
+| `docs/exec-plans/pending/code-magic-next-steps.md` | Pending manual steps for Codemagic setup, signing, TestFlight, device testing, and the eventual `ios/` tracking decision. |
 | `tests/curriculum-harness.html` | Deterministic browser harness for curriculum predicates/generation, sampler boundaries, progression, migration, reward paths, Settings, persistence, and the Hundreds unlock. |
 
 ## Gotchas
