@@ -1,0 +1,1301 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Number Garden curriculum checks</title>
+</head>
+<body data-status="running">
+  <h1>Number Garden curriculum checks</h1>
+  <pre id="results">Running…</pre>
+  <script>
+    "use strict";
+
+    const results = document.querySelector("#results");
+    const checks = [];
+
+    function assert(condition, message) {
+      if (!condition) throw new Error(message);
+      checks.push("PASS: " + message);
+    }
+
+    function sequence(...values) {
+      return () => values.length ? values.shift() : 0;
+    }
+
+    function promptMatches(api, key, text, values = {}) {
+      return api.PROMPT_POOLS[key].some(template => api.formatPrompt(template, values) === text);
+    }
+
+    function waitFor(predicate, message, timeout = 5000) {
+      const started = performance.now();
+      return new Promise((resolve, reject) => {
+        function check() {
+          if (predicate()) return resolve();
+          if (performance.now() - started >= timeout) return reject(new Error("Timed out: " + message));
+          setTimeout(check, 20);
+        }
+        check();
+      });
+    }
+
+    function clearDatabase() {
+      return new Promise(resolve => {
+        const request = indexedDB.deleteDatabase("numberGarden");
+        request.onsuccess = request.onerror = request.onblocked = () => resolve();
+      });
+    }
+
+    function profileCookie() {
+      const part = document.cookie.split(";").map(item => item.trim()).find(item => item.startsWith("numberGardenProgress="));
+      return part ? JSON.parse(decodeURIComponent(part.slice("numberGardenProgress=".length))) : null;
+    }
+
+    function indexedProfile() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open("numberGarden", 1);
+        request.onerror = () => reject(request.error || new Error("Could not open profile database"));
+        request.onsuccess = () => {
+          const db = request.result;
+          const transaction = db.transaction("state", "readonly");
+          const read = transaction.objectStore("state").get("profile");
+          read.onsuccess = () => { db.close(); resolve(read.result || null); };
+          read.onerror = () => { db.close(); reject(read.error || new Error("Could not read IndexedDB profile")); };
+        };
+      });
+    }
+
+    async function openGame(query = "", launchChoice = "start") {
+      const old = document.querySelector("iframe");
+      if (old) old.remove();
+      const frame = document.createElement("iframe");
+      frame.title = "Game under test";
+      frame.src = "../index.html" + query;
+      document.body.append(frame);
+      await waitFor(() => frame.contentWindow.NumberGarden && frame.contentDocument.querySelector(".row-label"), "game initialization");
+      const launchDialog = frame.contentDocument.querySelector("#launchDialog");
+      if (launchChoice && launchDialog.open) {
+        frame.contentDocument.querySelector(launchChoice === "tutorial" ? "#launchTutorialButton" : "#launchStartButton").click();
+        await waitFor(() => !launchDialog.open, "launch " + launchChoice + " choice");
+      }
+      return frame;
+    }
+
+    function enterAnswer(frame, answer, includeWrongAttempt = false) {
+      const doc = frame.contentDocument;
+      doc.querySelector("#answerButton").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      return waitFor(() => doc.querySelector("#keypadDialog").open, "keypad open").then(() => {
+        if (includeWrongAttempt) {
+          doc.querySelector('[data-key="0"]').click();
+          doc.querySelector("#checkAnswer").click();
+        }
+        String(answer).split("").forEach(digit => doc.querySelector('[data-key="' + digit + '"]').click());
+        doc.querySelector("#checkAnswer").click();
+        return waitFor(() => doc.querySelector("#answerButton").textContent === String(answer), "manual completion");
+      });
+    }
+
+    async function countNextUnits(frame, count) {
+      const doc = frame.contentDocument;
+      const diagnostics = frame.contentWindow.NumberGarden.motionDiagnostics;
+      for (let index = 0; index < count; index += 1) {
+        await waitFor(() => doc.querySelector(".unit.eligible"), "eligible unit " + (index + 1));
+        const unit = doc.querySelector(".unit.eligible");
+        const place = unit.dataset.place;
+        const before = diagnostics.snapshot();
+        const landedBefore = place === "ones" ? before.onesLandedCursor
+          : place === "tens" ? before.tensLandedCursor : before.hundredsLandedCursor;
+        unit.click();
+        await waitFor(() => {
+          const snapshot = diagnostics.snapshot();
+          return (place === "ones" ? snapshot.onesLandedCursor
+            : place === "tens" ? snapshot.tensLandedCursor : snapshot.hundredsLandedCursor) > landedBefore;
+        }, "landed unit " + (index + 1));
+      }
+    }
+
+    async function run() {
+      document.cookie = "numberGardenProgress=; Max-Age=0; Path=/; SameSite=Lax";
+      await clearDatabase();
+      let frame = await openGame("?harness=1", null);
+      let launchDoc = frame.contentDocument;
+      const launchDialog = launchDoc.querySelector("#launchDialog");
+      assert(launchDialog.open && launchDialog.getAttribute("aria-labelledby") === "launchTitle" &&
+        launchDoc.querySelector("#launchTitle").textContent === "Welcome to Number Garden" &&
+        JSON.stringify(Array.from(launchDialog.querySelectorAll("button"), button => button.textContent)) === JSON.stringify(["Start", "Tutorial"]),
+        "fresh profiles require the accessible Start or Tutorial launch choice");
+      launchDialog.dispatchEvent(new Event("cancel", { cancelable: true }));
+      launchDialog.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 0, clientY: 0 }));
+      assert(launchDialog.open, "Escape and backdrop activation cannot dismiss the launch choice");
+      const initialEquation = launchDoc.querySelector("#equationA").textContent + "+" + launchDoc.querySelector("#equationB").textContent;
+      launchDoc.querySelector("#launchStartButton").click();
+      await waitFor(() => !launchDialog.open && profileCookie() && profileCookie().launchChoiceMade, "persisted Start choice");
+      assert(launchDoc.querySelector("#equationA").textContent + "+" + launchDoc.querySelector("#equationB").textContent === initialEquation,
+        "Start keeps the already-generated level-based problem");
+
+      frame = await openGame("?launchReload=1&harness=1");
+      assert(!frame.contentDocument.querySelector("#launchDialog").open,
+        "a persisted launch choice prevents the dialog on reload");
+      const legacyV3Profile = {
+        schemaVersion: 3, score: 0, emojiProgress: 0, sound: true, difficultyMode: "standard",
+        currentLevel: 1, currentLevelSuccesses: 0, higherLevelSuccesses: 0, updatedAt: Date.now() + 5000
+      };
+      document.cookie = "numberGardenProgress=" + encodeURIComponent(JSON.stringify(legacyV3Profile)) + "; Path=/; SameSite=Lax";
+      frame = await openGame("?legacyProfileReload=1&harness=1");
+      assert(!frame.contentDocument.querySelector("#launchDialog").open && profileCookie().schemaVersion === 4 && profileCookie().launchChoiceMade,
+        "an established v3 profile migrates without showing the new launch dialog");
+      const api = frame.contentWindow.NumberGarden;
+
+      assert(api.LEVEL_DEFINITIONS.length === 9, "nine level definitions are exposed");
+      assert(api.constants.PROFILE_SCHEMA_VERSION === 4, "profile schema v4 is exposed");
+      assert(Object.isFrozen(api.DIFFICULTY_MODES) && JSON.stringify(api.DIFFICULTY_MODES) === JSON.stringify(["standard", "easy"]),
+        "the two supported difficulty modes are frozen and exposed");
+      assert(Object.isFrozen(api.IDLE_HINT_TIMINGS) && Object.isFrozen(api.IDLE_HINT_TIMINGS.standard) &&
+        Object.isFrozen(api.IDLE_HINT_TIMINGS.easy) && api.IDLE_HINT_TIMINGS.easy.NEXT_BLOCK === 3000 &&
+        api.IDLE_HINT_TIMINGS.easy.FIRST_SOLVER_HINT === 20000 && api.IDLE_HINT_TIMINGS.easy.SOLVER_REPEAT === 5000 &&
+        api.IDLE_HINT_TIMINGS.standard.NEXT_BLOCK === 9000 && api.IDLE_HINT_TIMINGS.standard.FIRST_SOLVER_HINT === 60000 &&
+        api.IDLE_HINT_TIMINGS.standard.SOLVER_REPEAT === 15000,
+        "the frozen Easy and Standard idle-hint timing table is exposed");
+      assert(["NEXT_BLOCK", "FIRST_SOLVER_HINT", "SOLVER_REPEAT"].every(key =>
+        api.IDLE_HINT_TIMINGS.standard[key] === api.IDLE_HINT_TIMINGS.easy[key] * 3),
+        "every Standard idle wait is exactly three times its Easy wait");
+      assert(api.defaultProfile().difficultyMode === "standard" && api.motionDiagnostics.snapshot().difficultyMode === "standard" &&
+        frame.contentDocument.querySelector("#difficultyStandard").checked,
+        "new profiles and the Settings control default to Standard");
+      assert(Object.isFrozen(api.MOTION_TIMINGS) && api.MOTION_TIMINGS.BLOCK_FALL_LAND === 520 &&
+        api.MOTION_TIMINGS.CARRY_FORMATION === 300 && api.MOTION_TIMINGS.CARRY_TRAVEL === 560 &&
+        api.MOTION_TIMINGS.CARRY_LANDING === 140 && api.MOTION_TIMINGS.BEETLE_REACTION === 360 &&
+        api.MOTION_TIMINGS.DICE_TUMBLE === 380 && api.MOTION_TIMINGS.DICE_CARD_POP === 150 &&
+        api.MOTION_TIMINGS.DICE_CARD_STAGGER === 35 && api.MOTION_TIMINGS.DICE_REDUCED_HIGHLIGHT === 140 &&
+        api.MOTION_TIMINGS.TUTORIAL_STAGE_PAUSE === 1000 && api.MOTION_TIMINGS.TUTORIAL_ANSWER_PAUSE === 2000 &&
+        api.MOTION_TIMINGS.SOLVER_GAP === 70,
+        "production teaching-motion timings, including the two-second Tutorial answer pause, are frozen and exposed");
+      assert(Object.isFrozen(api.ACTIVE_MOTION_TIMINGS) && api.ACTIVE_MOTION_TIMINGS.BLOCK_FALL_LAND < api.MOTION_TIMINGS.BLOCK_FALL_LAND,
+        "harness mode compresses durations without skipping the lifecycle");
+      const diceDoc = frame.contentDocument;
+      const diceMotion = api.motionDiagnostics;
+      diceMotion.clearEvents();
+      const stableCurrentCard = diceDoc.querySelector(".suggestion.current");
+      const stableCurrentMarkup = stableCurrentCard.innerHTML;
+      const rollingDice = diceDoc.querySelector(".dice");
+      const diceSoundBaseline = diceMotion.snapshot().soundEffectCount;
+      rollingDice.focus();
+      rollingDice.click();
+      rollingDice.click();
+      let diceSnapshot = diceMotion.snapshot();
+      assert(diceSnapshot.diceRefreshState === "tumbling" && diceSnapshot.controlsLocked &&
+        diceDoc.querySelector("#suggestionTray").getAttribute("aria-busy") === "true" &&
+        rollingDice.classList.contains("rolling") && rollingDice.getAttribute("aria-disabled") === "true" &&
+        rollingDice.getAttribute("aria-label").includes("Rolling the die"),
+        "dice refresh enters a busy rolling state with an accessible in-progress label");
+      assert(diceDoc.querySelector("#resetCurrent").disabled && diceDoc.querySelector("#answerButton").disabled &&
+        diceDoc.querySelector("#settingsButton").disabled && diceDoc.querySelector("#nextButton").disabled &&
+        diceDoc.querySelector(".unit.eligible").disabled &&
+        Array.from(diceDoc.querySelectorAll(".suggestion:not(.current)")).every(button => button.disabled),
+        "dice refresh locks counting and every competing problem control");
+      const diceLockedResetStyle = frame.contentWindow.getComputedStyle(diceDoc.querySelector("#resetCurrent"));
+      assert(diceLockedResetStyle.visibility === "visible" && diceLockedResetStyle.display !== "none" &&
+        diceLockedResetStyle.opacity === "0.55",
+        "dice refresh keeps the disabled reset control visibly mounted");
+      assert(diceDoc.querySelector(".suggestion.current") === stableCurrentCard && stableCurrentCard.innerHTML === stableCurrentMarkup,
+        "the current-problem card stays mounted and unchanged while the die tumbles");
+      await waitFor(() => diceMotion.snapshot().diceRefreshState === "emphasizing", "staggered dice alternatives");
+      const poppingAlternatives = Array.from(diceDoc.querySelectorAll(".suggestion:not(.current)"));
+      assert(poppingAlternatives.length === 3 && poppingAlternatives.every(button =>
+        button.classList.contains("refresh-pop") && button.dataset.refreshEmphasis === "pop" &&
+        getComputedStyle(button).animationName === "suggestion-refresh-pop"),
+        "all three refreshed alternatives receive the staggered pop and colored glow treatment");
+      assert(diceDoc.querySelector(".suggestion.current") === stableCurrentCard &&
+        !stableCurrentCard.classList.contains("refresh-pop") && !stableCurrentCard.dataset.refreshEmphasis,
+        "the current card receives no refreshed-card emphasis");
+      await waitFor(() => diceMotion.snapshot().diceRefreshState === "idle", "dice refresh completion");
+      diceSnapshot = diceMotion.snapshot();
+      const diceEvents = diceMotion.events();
+      assert(diceSnapshot.diceRefreshCount === 1 &&
+        diceEvents.filter(event => event.type === "dice-refresh-start").length === 1 &&
+        diceEvents.some(event => event.type === "dice-tumble-start") &&
+        diceEvents.some(event => event.type === "dice-landed") &&
+        diceEvents.filter(event => event.type === "dice-card-emphasis").length === 3 &&
+        diceEvents.some(event => event.type === "dice-refresh-complete"),
+        "rapid repeat activation is ignored and the complete dice-refresh lifecycle is diagnosed");
+      assert(diceDoc.activeElement === rollingDice && !diceDoc.querySelector("#suggestionTray").hasAttribute("aria-busy") &&
+        !rollingDice.hasAttribute("aria-disabled") && rollingDice.getAttribute("aria-label") === "Refresh the three alternative sums" &&
+        !diceSnapshot.controlsLocked && !diceDoc.querySelector("#settingsButton").disabled && !diceDoc.querySelector(".unit.eligible").disabled,
+        "completion restores dice focus, accessible labels, and competing controls");
+      assert(diceSnapshot.soundEffectCount > diceSoundBaseline,
+        "a sound-on dice roll produces the synthesized rattle and landing effect");
+
+      diceDoc.querySelector("#settingsButton").click();
+      diceDoc.querySelector("#settingsSoundButton").click();
+      diceDoc.querySelector("#closeSettings").click();
+      const silentDiceMotion = frame.contentWindow.NumberGarden.motionDiagnostics;
+      const silentDiceBaseline = silentDiceMotion.snapshot().soundEffectCount;
+      diceDoc.querySelector(".dice").click();
+      await waitFor(() => silentDiceMotion.snapshot().diceRefreshState === "idle", "silent dice refresh");
+      assert(silentDiceMotion.snapshot().soundEffectCount === silentDiceBaseline,
+        "a sound-off dice roll remains silent");
+      diceDoc.querySelector("#settingsButton").click();
+      diceDoc.querySelector("#settingsSoundButton").click();
+      diceDoc.querySelector("#closeSettings").click();
+      assert(api.nextQueueBoundary(0, 18, true, false) === 10 && api.nextQueueBoundary(10, 18, true, true) === 18 &&
+        api.canQueuePlaceUnit(9, 0, 18, true, false) && !api.canQueuePlaceUnit(10, 0, 18, true, false),
+        "queue-boundary helpers close at an unfinished trade and reopen afterward");
+      const promptKeys = [
+        "counting-ones", "counting-tens", "counting-tens-with-carry", "skip-zero-ones", "carrying-ones",
+        "carrying-hundreds", "awaiting-answer", "completed", "place-value-fallback"
+      ];
+      assert(JSON.stringify(Object.keys(api.PROMPT_POOLS).sort()) === JSON.stringify(promptKeys.slice().sort()),
+        "all nine beetle prompt pools are exposed");
+      promptKeys.forEach(key => {
+        const pool = api.PROMPT_POOLS[key];
+        assert(Object.isFrozen(pool) && pool.length === 24, key + " has 24 frozen prompt variants");
+        assert(new Set(pool).size === pool.length && pool.every(message => typeof message === "string" && message.trim() === message && message.length > 0),
+          key + " contains unique non-empty prompt text");
+        assert(pool.every(message => message.length <= 90), key + " prompts stay compact for the mobile layout");
+        assert(pool.every(message => Array.from(message.matchAll(/\{([^}]+)\}/g), match => match[1]).every(token => ["a", "b", "result"].includes(token))),
+          key + " uses only supported prompt placeholders");
+      });
+      assert(Object.isFrozen(api.PROMPT_POOLS), "the beetle prompt pool collection is frozen");
+      assert(api.PROMPT_POOLS.completed.every(message => message.includes("{a}") && message.includes("{b}") && message.includes("{result}")),
+        "every completion prompt includes the full equation");
+      assert(promptKeys.filter(key => key !== "completed").every(key => api.PROMPT_POOLS[key].every(message => !message.includes("{"))),
+        "only completion prompts contain dynamic placeholders");
+      assert(api.selectPromptTemplate(["first", "second"], "first", sequence(0)) === "second",
+        "prompt selection avoids the immediately previous template");
+      assert(api.selectPromptTemplate(["only"], "only", sequence(.8)) === "only",
+        "single-entry prompt selection remains safe");
+      assert(api.formatPrompt("Nice! {a} + {b} = {result}.", { a: 68, b: 56, result: 124 }) === "Nice! 68 + 56 = 124.",
+        "prompt formatting substitutes equation values");
+      const stateKeys = [
+        [{ phase: "completed" }, "completed"],
+        [{ phase: "awaiting-answer" }, "awaiting-answer"],
+        [{ phase: "carrying-to-tens", animationState: null }, "carrying-ones"],
+        [{ phase: "counting-ones", animationState: "ones" }, "carrying-ones"],
+        [{ phase: "carrying-to-hundreds", animationState: null }, "carrying-hundreds"],
+        [{ phase: "counting-tens", animationState: "hundreds" }, "carrying-hundreds"],
+        [{ phase: "counting-hundreds" }, "carrying-hundreds"],
+        [{ phase: "counting-tens", skipMessage: true, tensCursor: 0 }, "skip-zero-ones"],
+        [{ phase: "counting-ones" }, "counting-ones"],
+        [{ phase: "counting-tens", visibleOnesCarry: true }, "counting-tens-with-carry"],
+        [{ phase: "counting-tens", visibleOnesCarry: false }, "counting-tens"],
+        [{ phase: "unknown" }, "place-value-fallback"]
+      ];
+      assert(stateKeys.every(([candidate, expected]) => api.promptKeyForState(candidate) === expected),
+        "game states map to the correct beetle prompt pools");
+      assert(api.deriveProblem(1, 99).result === 100, "deriveProblem accepts a single-digit boundary");
+      assert(api.deriveProblem(99, 99).result === 198, "deriveProblem supports the maximum result");
+      let rangeRejected = false;
+      try { api.deriveProblem(0, 10); } catch (error) { rangeRejected = error.name === "RangeError"; }
+      assert(rangeRejected, "deriveProblem rejects operands outside 1–99");
+
+      const examples = [
+        [1, 4, 5], [2, 9, 10], [3, 1, 9], [4, 8, 82], [5, 10, 10],
+        [6, 49, 49], [7, 50, 50], [8, 50, 50], [9, 99, 99]
+      ];
+      examples.forEach(([level, a, b]) => {
+        assert(api.problemMatchesLevel(api.deriveProblem(a, b), level), "representative operands match L" + level);
+      });
+      assert(!api.problemMatchesLevel(api.deriveProblem(9, 91), 4), "L4 excludes a three-digit result");
+      assert(api.problemMatchesLevel(api.deriveProblem(50, 50), 8, "tens-only"), "L8 tags its tens-only pattern");
+      assert(api.problemMatchesLevel(api.deriveProblem(55, 55), 8, "both-carries"), "L8 tags its both-carries pattern");
+
+      for (let level = 1; level <= 9; level += 1) {
+        let allValid = true;
+        for (let index = 0; index < 40; index += 1) {
+          const model = api.generateProblemForLevel(level);
+          allValid &&= model.curriculumLevel === level && api.problemMatchesLevel(model, level, model.curriculumPattern);
+        }
+        assert(allValid, "40 generated L" + level + " problems are valid and tagged");
+      }
+      const l8Tens = api.generateProblemForLevel(8, new Set(), sequence(.499, 0, 0));
+      const l8Both = api.generateProblemForLevel(8, new Set(), sequence(.5, 0, 0));
+      assert(l8Tens.curriculumPattern === "tens-only", "L8 roll below 50% selects tens-only carry");
+      assert(l8Both.curriculumPattern === "both-carries", "L8 roll at 50% selects both-column carries");
+      const l2Left = api.generateProblemForLevel(2, new Set(), sequence(0, .49));
+      const l2Right = api.generateProblemForLevel(2, new Set(), sequence(0, .5));
+      assert(l2Left.a < 10 && l2Right.b < 10, "L2 randomizes which side has the single-digit addend");
+      const l4Left = api.generateProblemForLevel(4, new Set(), sequence(0, .49));
+      const l4Right = api.generateProblemForLevel(4, new Set(), sequence(0, .5));
+      assert(l4Left.a < 10 && l4Right.b < 10, "L4 randomizes which side has the single-digit addend");
+
+      assert(api.selectCurriculumLevel(1, sequence(.7499)) === 1, "L1 roll below 75% selects L1");
+      assert(api.selectCurriculumLevel(1, sequence(.75)) === 2, "L1 roll at 75% selects L2");
+      assert(api.selectCurriculumLevel(5, sequence(.4999)) === 5, "standard roll below 50% selects current level");
+      assert(api.selectCurriculumLevel(5, sequence(.5)) === 6, "standard roll at 50% selects the higher level");
+      assert(api.selectCurriculumLevel(5, sequence(.75, 0)) === 1, "standard roll at 75% enters lower-level review");
+      for (let lower = 1; lower < 5; lower += 1) {
+        const lowerRoll = (lower - .5) / 4;
+        assert(api.selectCurriculumLevel(5, sequence(.9, lowerRoll)) === lower, "uniform review can select L" + lower);
+      }
+      assert(api.selectCurriculumLevel(9, sequence(.5999)) === 9, "L9 roll below 60% selects L9");
+      for (let review = 1; review <= 8; review += 1) {
+        const reviewRoll = (review - .5) / 8;
+        assert(api.selectCurriculumLevel(9, sequence(.6, reviewRoll)) === review, "L9 review can select L" + review);
+      }
+
+      function freshAt(level) {
+        return { ...api.defaultProfile(), currentLevel: level, currentLevelSuccesses: 0, higherLevelSuccesses: 0 };
+      }
+      let progress = freshAt(3);
+      for (let count = 1; count <= 3; count += 1) {
+        const transition = api.applyProgressForSuccess(progress, 3);
+        progress = transition.profile;
+        assert(!transition.advanced && progress.currentLevel === 3, "current-level success " + count + " does not advance early");
+      }
+      let transition = api.applyProgressForSuccess(progress, 3);
+      assert(transition.advanced && transition.profile.currentLevel === 4, "fourth current-level success advances exactly one level");
+      assert(transition.profile.currentLevelSuccesses === 0 && transition.profile.higherLevelSuccesses === 0, "advancement resets both counters");
+
+      progress = freshAt(3);
+      transition = api.applyProgressForSuccess(progress, 7);
+      assert(!transition.advanced && transition.profile.higherLevelSuccesses === 1, "first higher-level success does not advance early");
+      transition = api.applyProgressForSuccess(transition.profile, 9);
+      assert(transition.advanced && transition.profile.currentLevel === 4, "second higher-level success advances only one level");
+
+      progress = freshAt(5);
+      progress = api.applyProgressForSuccess(progress, 5).profile;
+      progress = api.applyProgressForSuccess(progress, 8).profile;
+      assert(progress.currentLevelSuccesses === 1 && progress.higherLevelSuccesses === 1, "advancement counters remain independent");
+      const lowerTransition = api.applyProgressForSuccess(progress, 4);
+      assert(lowerTransition.credit === "none" && lowerTransition.profile.currentLevelSuccesses === 1 && lowerTransition.profile.higherLevelSuccesses === 1,
+        "lower-level success earns no advancement credit");
+      const diagnosticTransition = api.applyProgressForSuccess(progress, undefined);
+      assert(diagnosticTransition.credit === "none", "untagged diagnostic success earns no advancement credit");
+      progress = freshAt(1);
+      progress = api.applyProgressForSuccess(progress, 9).profile;
+      transition = api.applyProgressForSuccess(progress, 9);
+      assert(transition.profile.currentLevel === 2, "higher-level credit never skips a level");
+      progress = freshAt(9);
+      transition = api.applyProgressForSuccess(progress, 9);
+      assert(!transition.advanced && transition.profile.currentLevel === 9 && transition.profile.currentLevelSuccesses === 0, "L9 is capped");
+
+      const migrated = api.validateProfile({ schemaVersion: 1, score: 70, emojiProgress: 7, sound: false, updatedAt: 123 });
+      assert(migrated.schemaVersion === 4 && migrated.score === 70 && migrated.emojiProgress === 7 && !migrated.sound &&
+        migrated.difficultyMode === "standard" && migrated.launchChoiceMade,
+        "v1 migration preserves rewards and sound without reopening the launch choice");
+      assert(migrated.currentLevel === 1 && migrated.currentLevelSuccesses === 0 && migrated.higherLevelSuccesses === 0,
+        "v1 migration initializes L1 counters");
+      const migratedV2 = api.validateProfile({
+        schemaVersion: 2, score: 90, emojiProgress: 9, sound: false, currentLevel: 7,
+        currentLevelSuccesses: 3, higherLevelSuccesses: 1, updatedAt: 456
+      });
+      assert(migratedV2 && migratedV2.schemaVersion === 4 && migratedV2.difficultyMode === "standard" && migratedV2.launchChoiceMade &&
+        migratedV2.score === 90 && migratedV2.emojiProgress === 9 && !migratedV2.sound && migratedV2.currentLevel === 7 &&
+        migratedV2.currentLevelSuccesses === 3 && migratedV2.higherLevelSuccesses === 1 && migratedV2.updatedAt === 456,
+        "v2 migration defaults to Standard and skips launch while preserving progress");
+      const validEasyV3 = api.validateProfile({
+        schemaVersion: 3, score: 4, emojiProgress: 2, sound: true, difficultyMode: "easy", currentLevel: 4,
+        currentLevelSuccesses: 2, higherLevelSuccesses: 1, updatedAt: 789
+      });
+      assert(validEasyV3 && validEasyV3.schemaVersion === 4 && validEasyV3.difficultyMode === "easy" && validEasyV3.launchChoiceMade &&
+        api.validateProfile({ ...validEasyV3, difficultyMode: "expert" }) === null &&
+        api.validateProfile({ ...validEasyV3, difficultyMode: undefined }) === null,
+        "v3 migration preserves Easy, skips launch, and rejects invalid difficulty values");
+      const validV4 = api.validateProfile({ ...validEasyV3, schemaVersion: 4, launchChoiceMade: false });
+      assert(validV4 && !validV4.launchChoiceMade && api.defaultProfile().launchChoiceMade === false &&
+        api.validateProfile({ ...validEasyV3, schemaVersion: 4, launchChoiceMade: undefined }) === null,
+        "v4 persists the required launchChoiceMade boolean and new profiles default it to false");
+
+      const modeDoc = frame.contentDocument;
+      await countNextUnits(frame, 1);
+      const modeBefore = api.motionDiagnostics.snapshot();
+      const modeEquation = modeDoc.querySelector("#equationA").textContent + "+" + modeDoc.querySelector("#equationB").textContent;
+      assert(!modeDoc.querySelector(".result-panel .digit-label") && modeDoc.querySelectorAll(".place-panel:not(.result-panel) .digit-label").length > 0,
+        "Standard hides temporary result counts while retaining addend-cell digit labels");
+      modeDoc.querySelector("#settingsButton").click();
+      const difficultyFieldset = modeDoc.querySelector(".difficulty-setting");
+      assert(modeDoc.querySelector("#runSolverButton").textContent === "Start Tutorial" &&
+        modeDoc.querySelector("#runSolverButton").previousElementSibling.textContent === "Watch this problem solved step by step.",
+        "Settings presents the automatic teaching path as Tutorial");
+      assert(difficultyFieldset.querySelector("legend").textContent === "Difficulty" &&
+        difficultyFieldset.querySelectorAll('input[type="radio"][name="difficultyMode"]').length === 2 &&
+        modeDoc.querySelector("#difficultyStandard").getAttribute("aria-describedby") === "difficultyStandardHelp" &&
+        modeDoc.querySelector("#difficultyEasy").getAttribute("aria-describedby") === "difficultyEasyHelp",
+        "Settings exposes an accessible described two-option difficulty control");
+      modeDoc.querySelector("#difficultyEasy").click();
+      await waitFor(() => profileCookie() && profileCookie().difficultyMode === "easy", "Easy cookie persistence");
+      const storedEasyProfile = await indexedProfile();
+      assert(storedEasyProfile && storedEasyProfile.difficultyMode === "easy", "Easy is written to IndexedDB");
+      const modeAfter = api.motionDiagnostics.snapshot();
+      assert(modeDoc.querySelector("#difficultyEasy").checked && modeAfter.difficultyMode === "easy" &&
+        modeAfter.onesLandedCursor === modeBefore.onesLandedCursor && modeAfter.tensLandedCursor === modeBefore.tensLandedCursor &&
+        modeDoc.querySelector("#equationA").textContent + "+" + modeDoc.querySelector("#equationB").textContent === modeEquation &&
+        modeDoc.querySelector(".result-panel .digit-label"),
+        "switching to Easy updates the current board without resetting its problem or landed progress");
+      assert(modeAfter.lastAnnouncement.includes("Difficulty changed to Easy"),
+        "difficulty changes are queued for accessible announcement");
+      modeDoc.querySelector("#closeSettings").click();
+
+      frame = await openGame("?difficultyCookieReload=1&harness=1");
+      assert(frame.contentWindow.NumberGarden.motionDiagnostics.snapshot().difficultyMode === "easy" &&
+        frame.contentDocument.querySelector("#difficultyEasy").checked,
+        "Easy persists through a cookie-backed reload");
+      document.cookie = "numberGardenProgress=; Max-Age=0; Path=/; SameSite=Lax";
+      const indexedOnlyProfile = api.validateProfile(await indexedProfile());
+      assert(indexedOnlyProfile && indexedOnlyProfile.difficultyMode === "easy",
+        "after clearing the cookie, the valid IndexedDB recovery profile still preserves Easy");
+      document.cookie = "numberGardenProgress=" + encodeURIComponent(JSON.stringify(indexedOnlyProfile)) + "; Path=/; SameSite=Lax";
+
+      frame = await openGame("?a=1&b=1");
+      let productionMotionApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      productionMotionApi.clearEvents();
+      const productionReset = frame.contentDocument.querySelector("#resetCurrent");
+      const productionResetRect = productionReset.getBoundingClientRect();
+      frame.contentDocument.querySelector(".unit.eligible").click();
+      const lockedProductionResetStyle = frame.contentWindow.getComputedStyle(productionReset);
+      const lockedProductionResetRect = productionReset.getBoundingClientRect();
+      assert(productionReset.disabled && !productionReset.hidden && lockedProductionResetStyle.visibility === "visible" &&
+        lockedProductionResetStyle.display !== "none" && lockedProductionResetStyle.opacity === "0.55" &&
+        lockedProductionResetRect.left === productionResetRect.left && lockedProductionResetRect.top === productionResetRect.top &&
+        lockedProductionResetRect.width === productionResetRect.width && lockedProductionResetRect.height === productionResetRect.height,
+        "a falling block keeps the reset control visibly disabled in its stable position");
+      productionReset.click();
+      assert(productionMotionApi.snapshot().onesAcceptedCursor === 1 && productionMotionApi.snapshot().queueLength === 1,
+        "the visibly disabled reset control cannot interrupt a falling block");
+      const queuedProductionSource = frame.contentDocument.querySelector(
+        '[data-motion-role="source"][data-place="ones"][data-index="0"]'
+      );
+      const queuedProductionStyle = frame.contentWindow.getComputedStyle(queuedProductionSource);
+      const queuedProductionAppearance = {
+        opacity: queuedProductionStyle.opacity,
+        filter: queuedProductionStyle.filter,
+        boxShadow: queuedProductionStyle.boxShadow
+      };
+      assert(queuedProductionSource.classList.contains("queued") &&
+        !queuedProductionSource.classList.contains("counted") &&
+        queuedProductionAppearance.opacity === "0.52" && queuedProductionAppearance.filter !== "none",
+        "an accepted addend block uses the queued fade while its drop is in flight");
+      await waitFor(() => productionMotionApi.snapshot().onesLandedCursor === 1, "real-duration production drop", 3000);
+      const productionDropEvents = productionMotionApi.events();
+      const productionDropStart = productionDropEvents.find(event => event.type === "drop-start");
+      const productionDropLanded = productionDropEvents.find(event => event.type === "drop-landed");
+      assert(productionDropStart && productionDropLanded && productionDropLanded.at - productionDropStart.at >= 480,
+        "non-harness drops retain the full production teaching duration");
+      const restoredProductionResetStyle = frame.contentWindow.getComputedStyle(productionReset);
+      assert(!productionReset.disabled && !productionReset.hidden && restoredProductionResetStyle.opacity === "1",
+        "the reset control returns to its enabled appearance after the block lands");
+      const countedProductionSource = frame.contentDocument.querySelector(
+        '[data-motion-role="source"][data-place="ones"][data-index="0"]'
+      );
+      const countedProductionStyle = frame.contentWindow.getComputedStyle(countedProductionSource);
+      assert(countedProductionSource.classList.contains("counted") &&
+        !countedProductionSource.classList.contains("queued") &&
+        countedProductionStyle.opacity === queuedProductionAppearance.opacity &&
+        countedProductionStyle.filter === queuedProductionAppearance.filter &&
+        countedProductionStyle.boxShadow === queuedProductionAppearance.boxShadow,
+        "a landed addend block keeps exactly the queued fade under the distinct counted class");
+      const productionResultStyle = frame.contentWindow.getComputedStyle(frame.contentDocument.querySelector(
+        '[data-motion-role="result"][data-place="ones"][data-index="0"]'
+      ));
+      const nextProductionSourceStyle = frame.contentWindow.getComputedStyle(frame.contentDocument.querySelector(
+        '[data-motion-role="source"][data-place="ones"][data-index="1"]'
+      ));
+      assert(productionResultStyle.opacity === "1" && productionResultStyle.filter === "none" &&
+        nextProductionSourceStyle.opacity === "1" && nextProductionSourceStyle.filter === "none",
+        "the landed result and next uncounted addend block stay fully colored");
+      frame.contentDocument.querySelector("#resetCurrent").click();
+      const resetProductionSource = frame.contentDocument.querySelector(
+        '[data-motion-role="source"][data-place="ones"][data-index="0"]'
+      );
+      const resetProductionStyle = frame.contentWindow.getComputedStyle(resetProductionSource);
+      assert(resetProductionSource.classList.contains("eligible") &&
+        !resetProductionSource.classList.contains("counted") && resetProductionStyle.opacity === "1" &&
+        resetProductionStyle.filter === "none",
+        "resetting the problem clears the counted fade from addend blocks");
+      await countNextUnits(frame, 2);
+      await waitFor(() => productionMotionApi.snapshot().phase === "awaiting-answer", "production finished count");
+      productionMotionApi.clearEvents();
+      frame.contentDocument.querySelector("#settingsButton").click();
+      frame.contentDocument.querySelector("#runSolverButton").click();
+      await waitFor(() => productionMotionApi.events().some(event =>
+        event.type === "tutorial-hand-cue" && event.controlId === "answerButton"),
+        "production Tutorial answer hand", 4000);
+      const productionAnswerEvents = productionMotionApi.events();
+      const productionAnswerPause = productionAnswerEvents.find(event => event.type === "tutorial-answer-pause");
+      const productionAnswerHand = productionAnswerEvents.find(event =>
+        event.type === "tutorial-hand-cue" && event.controlId === "answerButton");
+      assert(productionAnswerPause && productionAnswerPause.duration === 2000 && productionAnswerHand &&
+        productionAnswerHand.at - productionAnswerPause.at >= 1995 &&
+        frame.contentDocument.querySelector("#answerButton").textContent === "?" &&
+        !frame.contentDocument.querySelector("#keypadDialog").open,
+        "production Tutorial keeps ? visible and the keypad closed for the full two-second answer pause");
+      await waitFor(() => productionMotionApi.snapshot().phase === "completed" && !productionMotionApi.snapshot().solverRunning,
+        "production Tutorial answer completion", 8000);
+
+      frame = await openGame("?a=9&b=9&harness=1");
+      let motionDoc = frame.contentDocument;
+      let motionApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      motionApi.clearEvents();
+      const onesSource = motionDoc.querySelector('[data-motion-role="source"][data-place="ones"][data-index="0"]');
+      const onesTarget = motionDoc.querySelector('[data-motion-role="result"][data-place="ones"][data-index="0"]');
+      const onesSourceRect = onesSource.getBoundingClientRect();
+      const onesTargetRect = onesTarget.getBoundingClientRect();
+      assert(onesSource.tagName === "BUTTON" && onesSource.getAttribute("aria-label") &&
+        onesSourceRect.width > 0 && onesTargetRect.width > 0 && onesSourceRect.top < onesTargetRect.top,
+        "keyboard-capable ones sources and result slots expose stable, live downward geometry");
+      assert(onesTarget.classList.contains("empty-unit") && motionApi.snapshot().beetleReactionCount === 0,
+        "the first result target is hidden and the beetle does not animate on initial render");
+      onesSource.click();
+      let motionSnapshot = motionApi.snapshot();
+      assert(motionSnapshot.onesAcceptedCursor === 1 && motionSnapshot.onesLandedCursor === 0 && motionSnapshot.queueLength === 1,
+        "a tap acknowledges the source before its result lands");
+      assert(motionDoc.querySelector('[data-motion-role="result"][data-place="ones"][data-index="0"]').classList.contains("empty-unit"),
+        "an accepted result remains hidden during flight");
+      assert(motionSnapshot.activeOverlayCount === 1 && motionDoc.querySelectorAll(".motion-overlay").length === 1,
+        "the first queued drop creates exactly one noninteractive overlay");
+      assert(motionDoc.querySelector("#resetCurrent").disabled && motionDoc.querySelector("#answerButton").disabled &&
+        motionDoc.querySelector("#settingsButton").disabled && motionDoc.querySelector(".dice").disabled,
+        "reset, answer, Settings, and alternatives lock while queued motion drains");
+      for (let index = 1; index < 10; index += 1) {
+        const next = motionDoc.querySelector(".unit.eligible");
+        if (!next) throw new Error("rapid ones queue closed before the first trade boundary");
+        next.click();
+      }
+      motionSnapshot = motionApi.snapshot();
+      assert(motionSnapshot.onesAcceptedCursor === 10 && motionSnapshot.onesLandedCursor === 0 &&
+        !motionDoc.querySelector(".unit.eligible") && motionSnapshot.activeOverlayCount === 1,
+        "rapid taps queue through ten, close the boundary, and keep one active overlay");
+      await waitFor(() => {
+        const snapshot = motionApi.snapshot();
+        return snapshot.visibleOnesCarry && snapshot.phase === "counting-ones";
+      }, "ones carry lifecycle completion", 8000);
+      motionSnapshot = motionApi.snapshot();
+      assert(motionSnapshot.onesAcceptedCursor === 10 && motionSnapshot.onesLandedCursor === 10 &&
+        motionDoc.querySelector('.unit.eligible[data-place="ones"][data-index="10"]'),
+        "the ones queue reopens only after the carried ten lands");
+      assert(motionDoc.querySelector('[data-carry-destination="tens"].owner-carry'),
+        "the permanent carried ten appears at the measured Tens destination");
+      let motionEvents = motionApi.events();
+      const dropStarts = motionEvents.filter(event => event.type === "drop-start" && event.place === "ones");
+      const dropLandings = motionEvents.filter(event => event.type === "drop-landed" && event.place === "ones");
+      assert(dropStarts.length === 10 && dropLandings.length === 10 && dropLandings.every((event, index) => event.index === index),
+        "rapid ones drops replay and land sequentially in accepted order");
+      assert(dropStarts.slice(1).every((event, index) => motionEvents.indexOf(event) > motionEvents.indexOf(dropLandings[index])),
+        "the next drop overlay starts only after the prior overlay lands");
+      const carryFormationIndex = motionEvents.findIndex(event => event.type === "carry-formation" && event.kind === "ones");
+      const carryTravelIndex = motionEvents.findIndex(event => event.type === "carry-travel" && event.kind === "ones");
+      const carryLandingIndex = motionEvents.findIndex(event => event.type === "carry-landing" && event.kind === "ones");
+      const carryLandedIndex = motionEvents.findIndex(event => event.type === "carry-landed" && event.kind === "ones");
+      assert(carryFormationIndex >= 0 && carryFormationIndex < carryTravelIndex && carryTravelIndex < carryLandingIndex && carryLandingIndex < carryLandedIndex,
+        "ones carry records formation, measured travel, bounce, and permanent landing in order");
+      assert(motionSnapshot.beetleReactionCount === 2 &&
+        motionEvents.filter(event => event.type === "beetle-reaction").length === 2,
+        "the beetle reacts once per changed carry message and ignores unrelated queue renders");
+      assert(motionSnapshot.soundEffectCount > 0, "Sound on produces synchronized drop, carry, and beetle effects");
+      for (let index = 10; index < 18; index += 1) motionDoc.querySelector(".unit.eligible").click();
+      await waitFor(() => motionApi.snapshot().phase === "counting-tens", "remaining ones queue drain", 8000);
+      const carriedTenSource = motionDoc.querySelector('[data-motion-role="source"][data-place="tens"].owner-carry');
+      const carriedTenRect = carriedTenSource.getBoundingClientRect();
+      const emptyTenResult = motionDoc.querySelector('[data-motion-role="result"][data-place="tens"][data-index="0"]');
+      assert(carriedTenSource.classList.contains("eligible") && emptyTenResult.classList.contains("empty-unit"),
+        "the carried ten waits in its badge while the Tens result remains empty");
+      carriedTenSource.click();
+      motionSnapshot = motionApi.snapshot();
+      const emptiedTenBadge = motionDoc.querySelector(".carried-ten-source");
+      const emptiedTenSource = emptiedTenBadge.querySelector('.empty-unit[data-motion-role="source"][data-place="tens"]');
+      const movingTen = motionDoc.querySelector(".motion-overlay.owner-carry");
+      const movingTenStyle = movingTen && frame.contentWindow.getComputedStyle(movingTen);
+      const emptiedTenRect = emptiedTenSource.getBoundingClientRect();
+      assert(motionSnapshot.tensAcceptedCursor === 1 && motionSnapshot.tensLandedCursor === 0 &&
+        emptiedTenBadge.textContent === "carry" && emptiedTenSource &&
+        emptiedTenRect.width === carriedTenRect.width && emptiedTenRect.height === carriedTenRect.height,
+        "tapping the carried ten immediately leaves an equal-sized outlined bar slot in the yellow badge");
+      assert(motionSnapshot.activeOverlayCount === 1 && motionDoc.querySelectorAll(".motion-overlay.owner-carry").length === 1 &&
+        movingTenStyle.borderTopColor === "rgb(155, 91, 0)" && movingTenStyle.backgroundImage.includes("repeating-linear-gradient"),
+        "the accepted carried ten becomes exactly one gold moving overlay");
+      assert(motionDoc.querySelector('[data-motion-role="result"][data-place="tens"][data-index="0"]').classList.contains("empty-unit"),
+        "the Tens result target remains empty while the carried ten travels");
+      await waitFor(() => motionApi.snapshot().tensLandedCursor === 1 && motionApi.snapshot().phase === "awaiting-answer",
+        "carried ten count completion", 4000);
+      const settledTenBadge = motionDoc.querySelector(".carried-ten-source");
+      const settledTenBadgeStyle = frame.contentWindow.getComputedStyle(settledTenBadge);
+      assert(settledTenBadge && settledTenBadge.textContent === "carry" && settledTenBadge.querySelector(".empty-unit") &&
+        !settledTenBadge.querySelector(".owner-carry") && settledTenBadgeStyle.borderTopColor === "rgb(231, 173, 25)" &&
+        settledTenBadgeStyle.backgroundColor === "rgb(255, 245, 189)",
+        "the empty yellow carried-ten badge and carry label remain through awaiting-answer");
+      await enterAnswer(frame, 18);
+      assert(!motionDoc.querySelector(".carried-ten-source"),
+        "correct-answer completion removes the empty carried-ten badge");
+
+      frame = await openGame("?a=90&b=90&harness=1");
+      motionDoc = frame.contentDocument;
+      motionApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      motionApi.clearEvents();
+      const tensSource = motionDoc.querySelector('[data-motion-role="source"][data-place="tens"][data-index="0"]');
+      const tensTarget = motionDoc.querySelector('[data-motion-role="result"][data-place="tens"][data-index="0"]');
+      assert(tensSource.getBoundingClientRect().top < tensTarget.getBoundingClientRect().top &&
+        tensSource.getBoundingClientRect().width > 0 && tensTarget.getBoundingClientRect().width > 0,
+        "tens sources and result slots expose stable, live downward geometry");
+      tensSource.click();
+      const queuedTensSource = motionDoc.querySelector(
+        '[data-motion-role="source"][data-place="tens"][data-index="0"]'
+      );
+      const queuedTensStyle = frame.contentWindow.getComputedStyle(queuedTensSource);
+      const queuedTensAppearance = {
+        opacity: queuedTensStyle.opacity,
+        filter: queuedTensStyle.filter,
+        boxShadow: queuedTensStyle.boxShadow
+      };
+      assert(queuedTensSource.classList.contains("queued"),
+        "an accepted addend bar keeps the queued lifecycle class during flight");
+      for (let index = 1; index < 10; index += 1) motionDoc.querySelector(".unit.eligible").click();
+      motionSnapshot = motionApi.snapshot();
+      assert(motionSnapshot.tensAcceptedCursor === 10 && motionSnapshot.tensLandedCursor === 0 && !motionDoc.querySelector(".unit.eligible"),
+        "the Tens queue also closes at its group-of-ten boundary");
+      await waitFor(() => {
+        const snapshot = motionApi.snapshot();
+        return snapshot.visibleHundredsCarry && snapshot.phase === "counting-tens";
+      }, "compact hundreds carry lifecycle", 8000);
+      assert(motionDoc.querySelector('.unit.eligible[data-place="tens"][data-index="10"]'),
+        "the Tens queue reopens after the carried hundred settles");
+      const countedTensSource = motionDoc.querySelector(
+        '[data-motion-role="source"][data-place="tens"][data-index="0"]'
+      );
+      const countedTensStyle = frame.contentWindow.getComputedStyle(countedTensSource);
+      assert(countedTensSource.classList.contains("counted") &&
+        !countedTensSource.classList.contains("queued") &&
+        countedTensStyle.opacity === queuedTensAppearance.opacity &&
+        countedTensStyle.filter === queuedTensAppearance.filter &&
+        countedTensStyle.boxShadow === queuedTensAppearance.boxShadow,
+        "a landed addend bar keeps exactly the queued styling under the counted class");
+      motionEvents = motionApi.events();
+      assert(motionEvents.some(event => event.type === "carry-compact-settle" && event.kind === "hundreds" && !event.destinationVisible) &&
+        !motionEvents.some(event => event.type === "carry-travel" && event.kind === "hundreds"),
+        "a diagnostic hidden-Hundreds carry settles in its source cell without off-screen travel");
+
+      frame = await openGame("?a=2&b=3&harness=1&reducedMotion=1");
+      motionDoc = frame.contentDocument;
+      motionApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      motionApi.clearEvents();
+      const reducedCurrentCard = motionDoc.querySelector(".suggestion.current");
+      const reducedCurrentMarkup = reducedCurrentCard.innerHTML;
+      const reducedDice = motionDoc.querySelector(".dice");
+      const reducedDiceSoundBaseline = motionApi.snapshot().soundEffectCount;
+      const reducedDiceStarted = performance.now();
+      reducedDice.focus();
+      reducedDice.click();
+      const staticAlternatives = Array.from(motionDoc.querySelectorAll(".suggestion:not(.current)"));
+      assert(motionApi.snapshot().diceRefreshState === "static-highlight" && !reducedDice.classList.contains("rolling") &&
+        staticAlternatives.length === 3 && staticAlternatives.every(button =>
+          button.classList.contains("refresh-static") && button.dataset.refreshEmphasis === "static"),
+        "reduced motion refreshes immediately with a static highlight and no die tumble");
+      assert(motionDoc.querySelector(".suggestion.current") === reducedCurrentCard && reducedCurrentCard.innerHTML === reducedCurrentMarkup &&
+        !reducedCurrentCard.classList.contains("refresh-static"),
+        "reduced motion also leaves the current card stable and unhighlighted");
+      await waitFor(() => motionApi.snapshot().diceRefreshState === "idle", "reduced-motion dice refresh");
+      const reducedDiceEvents = motionApi.events();
+      assert(performance.now() - reducedDiceStarted < 500 &&
+        !reducedDiceEvents.some(event => event.type === "dice-tumble-start" || event.type === "dice-face") &&
+        reducedDiceEvents.filter(event => event.type === "dice-card-emphasis" && event.reduced).length === 3 &&
+        Array.from(motionDoc.querySelectorAll(".suggestion:not(.current)"))
+          .every(button => button.dataset.refreshEmphasis === "static"),
+        "reduced-motion dice refresh completes promptly without tumble or stagger movement");
+      assert(motionApi.snapshot().soundEffectCount > reducedDiceSoundBaseline && motionDoc.activeElement === reducedDice &&
+        !motionDoc.querySelector("#suggestionTray").hasAttribute("aria-busy"),
+        "reduced motion keeps optional dice audio and restores focus and busy state");
+      motionDoc.querySelector("#settingsButton").click();
+      motionDoc.querySelector("#settingsSoundButton").click();
+      motionDoc.querySelector("#closeSettings").click();
+      const silentBaseline = motionApi.snapshot().soundEffectCount;
+      motionApi.clearEvents();
+      motionDoc.querySelector(".unit.eligible").click();
+      await waitFor(() => motionApi.snapshot().onesLandedCursor === 1, "reduced-motion immediate commit");
+      motionSnapshot = motionApi.snapshot();
+      assert(motionSnapshot.reducedMotion && motionSnapshot.activeOverlayCount === 0 &&
+        motionApi.events().some(event => event.type === "drop-static") && !motionApi.events().some(event => event.type === "drop-start"),
+        "reduced motion commits immediately with a static target flash and no travel overlay");
+      assert(motionSnapshot.soundEffectCount === silentBaseline,
+        "Sound off gates reduced-motion learning effects");
+      await countNextUnits(frame, 4);
+      const reducedAnswer = motionDoc.querySelector("#answerButton");
+      assert(reducedAnswer.textContent === "?" && reducedAnswer.classList.contains("answer-ready") &&
+        reducedAnswer.classList.contains("motion-reduced") && getComputedStyle(reducedAnswer).animationName === "none",
+        "reduced motion replaces the finished-count question-mark flash with a strong static highlight");
+      await enterAnswer(frame, 5);
+      const reducedNext = motionDoc.querySelector("#nextButton");
+      const completedReset = motionDoc.querySelector("#resetCurrent");
+      assert(!reducedNext.hidden && reducedNext.classList.contains("success-next") && reducedNext.classList.contains("motion-reduced") &&
+        getComputedStyle(reducedNext).animationName === "none",
+        "reduced motion replaces the successful Next animation with a strong static highlight");
+      assert(completedReset.hidden && getComputedStyle(completedReset).display === "none",
+        "completed problems still remove the reset control");
+      assert(motionApi.snapshot().soundEffectCount === silentBaseline,
+        "Sound off also gates completion effects while the Next highlight remains visual");
+      motionDoc.querySelector("#settingsButton").click();
+      motionDoc.querySelector("#settingsSoundButton").click();
+      motionDoc.querySelector("#closeSettings").click();
+
+      reducedNext.click();
+      motionApi.clearEvents();
+      motionDoc.querySelector("#settingsButton").click();
+      motionDoc.querySelector("#runSolverButton").click();
+      await waitFor(() => motionDoc.querySelector(".tutorial-hand-cue"), "reduced-motion Tutorial hand cue");
+      const reducedHand = motionDoc.querySelector(".tutorial-hand-cue");
+      const reducedTutorialEvents = motionApi.events();
+      const reducedStagePause = reducedTutorialEvents.find(event => event.type === "tutorial-stage-pause" && event.reason === "initial");
+      const reducedHandEvent = reducedTutorialEvents.find(event => event.type === "tutorial-hand-cue");
+      assert(reducedHand.classList.contains("static") && getComputedStyle(reducedHand).animationName === "none" &&
+        reducedHandEvent && reducedHandEvent.reduced && reducedStagePause &&
+        reducedStagePause.duration === api.ACTIVE_MOTION_TIMINGS.TUTORIAL_STAGE_PAUSE &&
+        reducedHandEvent.at - reducedStagePause.at >= api.ACTIVE_MOTION_TIMINGS.TUTORIAL_STAGE_PAUSE - 5,
+        "reduced motion keeps the pedagogical stage pause and shows a non-moving automatic-tap hand");
+      await waitFor(() => motionApi.snapshot().phase === "completed" && !motionApi.snapshot().solverRunning,
+        "reduced-motion Tutorial completion", 10000);
+      const completedReducedTutorialEvents = motionApi.events();
+      const reducedAnswerPause = completedReducedTutorialEvents.find(event => event.type === "tutorial-answer-pause");
+      const reducedAnswerHand = completedReducedTutorialEvents.find(event =>
+        event.type === "tutorial-hand-cue" && event.controlId === "answerButton");
+      assert(reducedAnswerPause && reducedAnswerPause.duration === api.ACTIVE_MOTION_TIMINGS.TUTORIAL_ANSWER_PAUSE &&
+        reducedAnswerHand && reducedAnswerHand.reduced &&
+        reducedAnswerHand.at - reducedAnswerPause.at >= api.ACTIVE_MOTION_TIMINGS.TUTORIAL_ANSWER_PAUSE - 5,
+        "reduced motion retains the dedicated answer delay and uses a static answer-control hand cue");
+      assert(motionDoc.querySelector("#nextButton").textContent === "Next →",
+        "a Settings Tutorial retains the ordinary Next flow");
+
+      frame = await openGame("?a=2&b=3&harness=1");
+      motionDoc = frame.contentDocument;
+      motionApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      motionDoc.querySelector(".unit.eligible").click();
+      frame.contentWindow.dispatchEvent(new Event("resize"));
+      await waitFor(() => motionApi.snapshot().onesLandedCursor === 1 && !motionApi.snapshot().controlsLocked,
+        "resize motion settlement");
+      assert(motionApi.snapshot().activeOverlayCount === 0,
+        "resize interruption removes overlays and safely commits the active drop");
+
+      frame = await openGame("?a=99&b=99&harness=1");
+      motionDoc = frame.contentDocument;
+      motionApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      motionApi.clearEvents();
+      const solverScore = motionDoc.querySelector("#scoreValue").textContent;
+      motionDoc.querySelector("#settingsButton").click();
+      motionDoc.querySelector("#runSolverButton").click();
+      await waitFor(() => motionApi.snapshot().phase === "completed" && !motionApi.snapshot().solverRunning,
+        "99 plus 99 Tutorial completion", 20000);
+      motionEvents = motionApi.events();
+      assert(motionEvents.filter(event => event.type === "drop-landed").length === 37 &&
+        motionEvents.some(event => event.type === "carry-landed" && event.kind === "ones") &&
+        motionEvents.some(event => event.type === "carry-landed" && event.kind === "hundreds"),
+        "Tutorial uses the full drop and both-carry teaching paths for 99 + 99");
+      assert(motionDoc.querySelector("#scoreValue").textContent === solverScore && motionApi.snapshot().activeOverlayCount === 0,
+        "99 + 99 Tutorial finishes cleanly without a reward");
+      assert(!motionDoc.querySelector("#nextButton").hidden && motionDoc.querySelector("#nextButton").classList.contains("success-next"),
+        "Tutorial completion highlights the Next action");
+
+      frame = await openGame("?a=2&b=3&harness=1");
+      motionDoc = frame.contentDocument;
+      motionApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      await countNextUnits(frame, 5);
+      await waitFor(() => motionApi.snapshot().phase === "awaiting-answer", "finished count before long-press Tutorial");
+      motionApi.clearEvents();
+      const finishedCountScore = motionDoc.querySelector("#scoreValue").textContent;
+      const finishedAnswer = motionDoc.querySelector("#answerButton");
+      finishedAnswer.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 680));
+      finishedAnswer.dispatchEvent(new Event("pointerup", { bubbles: true }));
+      finishedAnswer.click();
+      await waitFor(() => motionApi.events().some(event => event.type === "tutorial-answer-pause"),
+        "already-finished count Tutorial answer delay");
+      assert(motionApi.snapshot().phase === "awaiting-answer" && !motionDoc.querySelector("#keypadDialog").open &&
+        !motionApi.events().some(event => event.type === "tutorial-stage-pause"),
+        "a long-press Tutorial started after counting uses the answer delay without an initial stage pause");
+      await waitFor(() => motionApi.snapshot().phase === "completed" && !motionApi.snapshot().solverRunning,
+        "already-finished count Tutorial completion", 10000);
+      const finishedCountTutorialEvents = motionApi.events();
+      const finishedCountPause = finishedCountTutorialEvents.find(event => event.type === "tutorial-answer-pause");
+      const finishedCountAnswerHand = finishedCountTutorialEvents.find(event =>
+        event.type === "tutorial-hand-cue" && event.controlId === "answerButton");
+      assert(JSON.stringify(finishedCountTutorialEvents.filter(event => event.type === "tutorial-control-tap").map(event => event.controlId)) ===
+        JSON.stringify(["answerButton", "keypad-5", "checkAnswer"]) && finishedCountAnswerHand &&
+        finishedCountAnswerHand.at - finishedCountPause.at >= api.ACTIVE_MOTION_TIMINGS.TUTORIAL_ANSWER_PAUSE - 5,
+        "an already-finished count still follows the diagnosed ?, result digit, and checker sequence");
+      assert(motionDoc.querySelector("#scoreValue").textContent === finishedCountScore &&
+        motionDoc.querySelector("#nextButton").textContent === "Next →",
+        "a long-press Tutorial awards nothing and retains the ordinary Next flow");
+
+      frame = await openGame("?a=2&b=3&harness=1");
+      let promptDoc = frame.contentDocument;
+      const initialOnesPrompt = promptDoc.querySelector("#promptText").textContent;
+      assert(promptMatches(api, "counting-ones", initialOnesPrompt), "a new problem starts with a counting-ones variant");
+      const promptRow = promptDoc.querySelector("#promptRow");
+      const initialNext = promptDoc.querySelector("#nextButton");
+      assert(initialNext.hidden && initialNext.disabled && !promptRow.classList.contains("has-next") &&
+        Math.abs(promptRow.getBoundingClientRect().width - promptDoc.querySelector(".speech").getBoundingClientRect().width) < 1,
+        "counting hides the redundant Count control and lets the beetle bubble fill the prompt row");
+      const firstOne = promptDoc.querySelector(".unit.eligible");
+      firstOne.click();
+      await waitFor(() => frame.contentWindow.NumberGarden.motionDiagnostics.snapshot().onesLandedCursor === 1,
+        "first one landed for prompt stability");
+      assert(promptDoc.querySelector("#promptText").textContent === initialOnesPrompt,
+        "the beetle prompt stays stable during repeated renders of one learning step");
+      promptDoc.querySelector("#resetCurrent").click();
+      const resetOnesPrompt = promptDoc.querySelector("#promptText").textContent;
+      assert(promptMatches(api, "counting-ones", resetOnesPrompt) && resetOnesPrompt !== initialOnesPrompt,
+        "resetting a problem selects a different counting-ones variant");
+      await countNextUnits(frame, 5);
+      await waitFor(() => frame.contentWindow.NumberGarden.motionDiagnostics.snapshot().phase === "awaiting-answer", "answer step after counting ones");
+      assert(promptMatches(api, "awaiting-answer", promptDoc.querySelector("#promptText").textContent),
+        "finished counting shows an awaiting-answer variant");
+      const readyAnswer = promptDoc.querySelector("#answerButton");
+      assert(initialNext.hidden && initialNext.disabled && !promptRow.classList.contains("has-next") &&
+        promptRow.querySelectorAll("button:not([hidden])").length === 0 && readyAnswer.textContent === "?" && readyAnswer.classList.contains("answer-ready") &&
+        getComputedStyle(readyAnswer).animationName === "answer-ready-pulse" &&
+        getComputedStyle(readyAnswer).animationDuration === "0.65s" &&
+        getComputedStyle(readyAnswer).animationIterationCount === "infinite",
+        "finished counting keeps ? as the only answer control and continuously flashes it in sync with action feedback");
+      await enterAnswer(frame, 5);
+      assert(!promptDoc.querySelector("#answerButton").classList.contains("answer-ready"),
+        "answer completion stops the question-mark flash");
+      assert(promptMatches(api, "completed", promptDoc.querySelector("#promptText").textContent, { a: 2, b: 3, result: 5 }),
+        "manual completion shows a correctly formatted completion variant");
+      const completedNext = promptDoc.querySelector("#nextButton");
+      assert(!completedNext.hidden && !completedNext.disabled && promptRow.classList.contains("has-next") &&
+        completedNext.classList.contains("success-next") &&
+        getComputedStyle(completedNext).animationName === "success-next-pulse" &&
+        getComputedStyle(completedNext).animationIterationCount === "infinite",
+        "successful manual completion continuously highlights and animates Next");
+
+      frame = await openGame("?a=12&b=23&harness=1");
+      promptDoc = frame.contentDocument;
+      await countNextUnits(frame, 5);
+      assert(promptMatches(api, "counting-tens", promptDoc.querySelector("#promptText").textContent),
+        "a no-carry problem shows a counting-tens variant after ones");
+
+      frame = await openGame("?a=10&b=20&harness=1");
+      promptDoc = frame.contentDocument;
+      assert(promptMatches(api, "skip-zero-ones", promptDoc.querySelector("#promptText").textContent),
+        "a zero-ones problem shows a skip-zero-ones variant");
+
+      frame = await openGame("?a=7&b=5&harness=1");
+      promptDoc = frame.contentDocument;
+      await countNextUnits(frame, 9);
+      const tenthOne = promptDoc.querySelector(".unit.eligible");
+      tenthOne.click();
+      await waitFor(() => promptMatches(api, "carrying-ones", promptDoc.querySelector("#promptText").textContent), "ones carry prompt");
+      assert(promptMatches(api, "carrying-ones", promptDoc.querySelector("#promptText").textContent),
+        "a ones carry shows a carrying-ones variant");
+      await waitFor(() => promptDoc.querySelector(".unit.eligible"), "ones carry animation completed", 2000);
+      await countNextUnits(frame, 2);
+      assert(promptMatches(api, "counting-tens-with-carry", promptDoc.querySelector("#promptText").textContent),
+        "tens counting after an ones carry shows the carried-ten instructions");
+
+      frame = await openGame("?a=50&b=50&harness=1");
+      promptDoc = frame.contentDocument;
+      await countNextUnits(frame, 9);
+      const tenthTen = promptDoc.querySelector(".unit.eligible");
+      tenthTen.click();
+      await waitFor(() => promptMatches(api, "carrying-hundreds", promptDoc.querySelector("#promptText").textContent), "hundreds carry prompt");
+      assert(promptMatches(api, "carrying-hundreds", promptDoc.querySelector("#promptText").textContent),
+        "a tens carry shows a carrying-hundreds variant");
+
+      frame = await openGame("?a=97&b=87&harness=1");
+      const carryDoc = frame.contentDocument;
+      await countNextUnits(frame, 9);
+      let placeLabel = carryDoc.querySelector(".result-panel.ones .digit-label");
+      assert(placeLabel.textContent === "9" && !placeLabel.querySelector(".carry-digit"),
+        "Easy single-digit place counts use the normal digit style");
+      await countNextUnits(frame, 1);
+      placeLabel = carryDoc.querySelector(".result-panel.ones .digit-label");
+      assert(placeLabel.textContent === "10" && placeLabel.querySelector(".carry-digit").textContent === "1",
+        "Easy keeps the carried leading-digit style at ten ones");
+      const carryModeBefore = frame.contentWindow.NumberGarden.motionDiagnostics.snapshot();
+      const carryEquation = carryDoc.querySelector("#equationA").textContent + "+" + carryDoc.querySelector("#equationB").textContent;
+      carryDoc.querySelector("#settingsButton").click();
+      carryDoc.querySelector("#difficultyStandard").click();
+      assert(!carryDoc.querySelector(".result-panel .digit-label") &&
+        carryDoc.querySelectorAll(".place-panel:not(.result-panel) .digit-label").length === 4,
+        "Standard hides only result-cell labels during an active ones carry");
+      assert(frame.contentWindow.NumberGarden.motionDiagnostics.snapshot().onesLandedCursor === carryModeBefore.onesLandedCursor &&
+        carryDoc.querySelector("#equationA").textContent + "+" + carryDoc.querySelector("#equationB").textContent === carryEquation,
+        "a mid-problem switch to Standard preserves the current problem and counting cursor");
+      carryDoc.querySelector("#closeSettings").click();
+      await countNextUnits(frame, 4);
+      assert(!carryDoc.querySelector(".result-panel .digit-label"),
+        "Standard continues hiding progressive counts beyond a group-of-ten boundary");
+      carryDoc.querySelector("#settingsButton").click();
+      carryDoc.querySelector("#difficultyEasy").click();
+      carryDoc.querySelector("#closeSettings").click();
+      placeLabel = carryDoc.querySelector(".result-panel.ones .digit-label");
+      const carriedDigit = placeLabel.querySelector(".carry-digit");
+      const remainderDigit = placeLabel.querySelector(".place-count span:last-child");
+      assert(placeLabel.textContent === "14" && placeLabel.querySelector(".carry-digit").textContent === "1" &&
+        placeLabel.getAttribute("aria-label") === "14 ones counted",
+        "Easy immediately restores the accessible progressive count and carry-digit styling");
+      assert(getComputedStyle(carriedDigit).color === "rgb(174, 182, 194)" &&
+        getComputedStyle(remainderDigit).color === "rgb(72, 86, 108)",
+        "carried and remainder digits use faint and normal gray respectively");
+      await countNextUnits(frame, 18);
+      placeLabel = carryDoc.querySelector(".result-panel.tens .digit-label");
+      assert(placeLabel.textContent === "18" && placeLabel.querySelector(".carry-digit").textContent === "1" &&
+        placeLabel.getAttribute("aria-label") === "18 tens counted",
+        "18 tens dims only the carried hundred and keeps one accessible count");
+      carryDoc.querySelector("#settingsButton").click();
+      carryDoc.querySelector("#runSolverButton").click();
+      await waitFor(() => carryDoc.querySelector("#answerButton").textContent === "184", "carry example Tutorial completion");
+      const completedLabels = carryDoc.querySelectorAll(".result-panel .digit-label");
+      assert(Array.from(completedLabels).every(label => !label.querySelector(".carry-digit")),
+        "completed place-value remainder labels use the normal digit style");
+      carryDoc.querySelector("#settingsButton").click();
+      carryDoc.querySelector("#difficultyStandard").click();
+      assert(carryDoc.querySelectorAll(".result-panel .digit-label").length === completedLabels.length &&
+        Array.from(carryDoc.querySelectorAll(".result-panel .digit-label")).every(label => !label.querySelector(".carry-digit")),
+        "Standard retains normal final place-value labels after completion");
+      carryDoc.querySelector("#difficultyEasy").click();
+      carryDoc.querySelector("#closeSettings").click();
+
+      frame = await openGame("?harness=1");
+
+      const doc = frame.contentDocument;
+      assert(doc.querySelector(".bee").nextElementSibling.id === "levelBadge", "level badge is immediately right of the bee");
+      assert(!doc.querySelector("#soundButton") && doc.querySelector("#settingsSoundButton"), "sound control lives in Settings");
+      assert(doc.querySelector("#board").classList.contains("compact") && !doc.querySelector(".column-title.hundreds"),
+        "L1 board collapses to Labels, Tens, and Ones");
+
+      doc.querySelector("#settingsButton").click();
+      assert(doc.activeElement === doc.querySelector("#settingsTitle"),
+        "Settings opens with its title focused instead of expanding the practice-level select");
+      const settingsDialog = doc.querySelector("#settingsDialog");
+      doc.querySelector("#settingsTitle").click();
+      assert(settingsDialog.open, "clicking inside Settings keeps it open");
+      settingsDialog.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 0, clientY: 0 }));
+      assert(!settingsDialog.open && settingsDialog.returnValue === "cancel",
+        "clicking outside Settings dismisses it like Cancel");
+
+      doc.querySelector("#settingsButton").click();
+      doc.querySelector("#openAboutButton").click();
+      assert(settingsDialog.open && doc.querySelector("#settingsView").hidden && !doc.querySelector("#aboutView").hidden &&
+        doc.querySelector("#settingsTitle").textContent === "About" && doc.activeElement === doc.querySelector("#settingsTitle"),
+        "About replaces Settings inside the same dialog and focuses its title");
+      const aboutValues = Array.from(doc.querySelectorAll(".about-details dd"), item => item.textContent);
+      assert(JSON.stringify(aboutValues) === JSON.stringify(["Joydip Datta", "0.1a_29e687", "All rights reserved."]),
+        "About shows the author, commit-stamped version, and license");
+      assert(doc.querySelector("#settingsBackButton").getAttribute("aria-label") === "Back to settings",
+        "About provides an accessible back arrow");
+      doc.querySelector("#settingsBackButton").click();
+      assert(!doc.querySelector("#settingsView").hidden && doc.querySelector("#aboutView").hidden &&
+        doc.querySelector("#settingsTitle").textContent === "Garden settings" && doc.activeElement === doc.querySelector("#openAboutButton"),
+        "the About back arrow restores Settings and returns focus to its trigger");
+      doc.querySelector("#openAboutButton").click();
+      settingsDialog.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 0, clientY: 0 }));
+      assert(!settingsDialog.open, "clicking outside About dismisses the shared Settings dialog");
+      doc.querySelector("#settingsButton").click();
+      assert(!doc.querySelector("#settingsView").hidden && doc.querySelector("#aboutView").hidden &&
+        doc.querySelector("#settingsTitle").textContent === "Garden settings",
+        "reopening Settings after dismissing About starts on the main view");
+      settingsDialog.close();
+
+      const keypadDialog = doc.querySelector("#keypadDialog");
+      const answerButton = doc.querySelector("#answerButton");
+      answerButton.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      answerButton.dispatchEvent(new Event("pointerup", { bubbles: true }));
+      assert(!keypadDialog.open, "the answer dialog waits for the tap's click before opening");
+      answerButton.click();
+      assert(keypadDialog.open, "the completed tap opens the answer dialog without a trailing activation");
+      doc.querySelector("#keypadTitle").click();
+      assert(keypadDialog.open, "clicking inside the answer dialog keeps it open");
+      keypadDialog.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 0, clientY: 0 }));
+      assert(!keypadDialog.open && keypadDialog.returnValue === "cancel",
+        "clicking outside the answer dialog dismisses it like Cancel");
+
+      doc.querySelector("#settingsButton").click();
+      doc.querySelector("#levelSelect").value = "6";
+      doc.querySelector("#levelSelect").dispatchEvent(new Event("change", { bubbles: true }));
+      await waitFor(() => doc.querySelector("#levelBadge").textContent === "L6" && doc.querySelector(".column-title.hundreds"), "L6 override");
+      assert(doc.querySelector("#board").classList.contains("unlocking"), "crossing to L6 activates the Hundreds unlock highlight");
+      await waitFor(() => doc.querySelector("#liveRegion").textContent.includes("Hundreds column is now unlocked"), "Hundreds unlock announcement");
+      assert(doc.querySelector("#liveRegion").textContent.includes("Hundreds column is now unlocked"), "Hundreds unlock is announced");
+      const storedL6 = profileCookie();
+      assert(storedL6 && storedL6.schemaVersion === 4 && storedL6.launchChoiceMade && storedL6.currentLevel === 6 &&
+        storedL6.currentLevelSuccesses === 0 && storedL6.higherLevelSuccesses === 0 && storedL6.difficultyMode === "easy",
+        "manual level override persists L6 with reset counters and leaves difficulty unchanged");
+
+      frame = await openGame("?a=60&b=50&harness=1");
+      const fullCarryDoc = frame.contentDocument;
+      const fullCarryApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      const fullCarryEquation = fullCarryDoc.querySelector("#equationA").textContent + "+" + fullCarryDoc.querySelector("#equationB").textContent;
+      fullCarryDoc.querySelector("#settingsButton").click();
+      fullCarryDoc.querySelector("#difficultyStandard").click();
+      fullCarryDoc.querySelector("#closeSettings").click();
+      assert(fullCarryApi.snapshot().difficultyMode === "standard" &&
+        fullCarryDoc.querySelector("#equationA").textContent + "+" + fullCarryDoc.querySelector("#equationB").textContent === fullCarryEquation,
+        "Standard can be enabled for a visible-Hundreds carry without replacing the forced problem");
+      fullCarryApi.clearEvents();
+      const hundredCarryStyles = { formation: null, travel: null };
+      const carryStyleSnapshot = element => {
+        const style = frame.contentWindow.getComputedStyle(element);
+        return {
+          borderTopColor: style.borderTopColor,
+          backgroundImage: style.backgroundImage,
+          boxShadow: style.boxShadow
+        };
+      };
+      const captureHundredCarryStyles = () => {
+        const formation = fullCarryDoc.querySelector('[data-carry-origin="hundreds"]');
+        const travel = fullCarryDoc.querySelector('.motion-overlay.carry-token.hundred-token');
+        if (formation && !hundredCarryStyles.formation) hundredCarryStyles.formation = carryStyleSnapshot(formation);
+        if (travel && !hundredCarryStyles.travel) hundredCarryStyles.travel = carryStyleSnapshot(travel);
+      };
+      const hundredCarryObserver = new MutationObserver(captureHundredCarryStyles);
+      hundredCarryObserver.observe(fullCarryDoc.body, { childList: true, subtree: true });
+      await countNextUnits(frame, 10);
+      await waitFor(() => fullCarryApi.snapshot().visibleHundredsCarry && fullCarryApi.snapshot().phase === "counting-tens",
+        "visible Hundreds carry parked during remaining Tens", 8000);
+      const parkedHundredSource = fullCarryDoc.querySelector('[data-motion-role="source"][data-place="hundreds"].filled');
+      assert(parkedHundredSource && !parkedHundredSource.classList.contains("eligible") &&
+        fullCarryDoc.querySelector('.unit.eligible[data-place="tens"][data-index="10"]'),
+        "the carried 100 stays parked while the remaining Tens are counted first");
+      assert(!fullCarryDoc.querySelector(".result-panel .digit-label") &&
+        fullCarryDoc.querySelectorAll(".place-panel:not(.result-panel) .digit-label").length === 4,
+        "Standard hides progressive Ones, Tens, and Hundreds labels while keeping all visible addend labels");
+      await countNextUnits(frame, 1);
+      await waitFor(() => fullCarryApi.snapshot().phase === "counting-hundreds",
+        "visible Hundreds carry ready to count", 4000);
+      hundredCarryObserver.disconnect();
+      const fullCarryEvents = fullCarryApi.events();
+      const hundredFormationIndex = fullCarryEvents.findIndex(event => event.type === "carry-formation" && event.kind === "hundreds");
+      const hundredTravelIndex = fullCarryEvents.findIndex(event => event.type === "carry-travel" && event.kind === "hundreds" && event.destination === "hundreds");
+      const hundredLandingIndex = fullCarryEvents.findIndex(event => event.type === "carry-landing" && event.kind === "hundreds");
+      const hundredLandedIndex = fullCarryEvents.findIndex(event => event.type === "carry-landed" && event.kind === "hundreds");
+      assert(hundredFormationIndex >= 0 && hundredFormationIndex < hundredTravelIndex &&
+        hundredTravelIndex < hundredLandingIndex && hundredLandingIndex < hundredLandedIndex,
+        "an unlocked Hundreds carry records formation, measured travel, bounce, and source landing in order");
+      const goldCarryStyle = style => style && style.borderTopColor === "rgb(155, 91, 0)" &&
+        style.backgroundImage.includes("repeating-linear-gradient") && style.boxShadow !== "none";
+      assert(goldCarryStyle(hundredCarryStyles.formation) && goldCarryStyle(hundredCarryStyles.travel),
+        "the forming and in-flight hundred use the gold striped carry border, fill, and glow");
+      const carriedHundredSource = fullCarryDoc.querySelector('[data-motion-role="source"][data-place="hundreds"].filled');
+      assert(carriedHundredSource && carriedHundredSource.classList.contains("eligible") &&
+        goldCarryStyle(carryStyleSnapshot(carriedHundredSource)),
+        "the landed 100 waits as the eligible gold carried-hundred source");
+      const landedHundredBadge = carriedHundredSource.closest(".carried-hundred-source");
+      const landedHundredBadgeStyle = landedHundredBadge && frame.contentWindow.getComputedStyle(landedHundredBadge);
+      const hundredsPanelRect = fullCarryDoc.querySelector(".result-panel.hundreds").getBoundingClientRect();
+      const landedHundredBadgeRect = landedHundredBadge.getBoundingClientRect();
+      assert(landedHundredBadge && landedHundredBadge.textContent === "carry100" &&
+        landedHundredBadgeStyle.borderTopColor === "rgb(231, 173, 25)" &&
+        landedHundredBadgeStyle.backgroundColor === "rgb(255, 245, 189)" &&
+        carriedHundredSource.getBoundingClientRect().width === carriedHundredSource.getBoundingClientRect().height &&
+        landedHundredBadgeRect.left - hundredsPanelRect.left < 6 && landedHundredBadgeRect.top - hundredsPanelRect.top < 6,
+        "the carried 100 waits at the top left in a yellow outlined carry badge");
+      const emptyHundredResult = fullCarryDoc.querySelector('[data-motion-role="result"][data-place="hundreds"]');
+      assert(!emptyHundredResult.classList.contains("filled") &&
+        !fullCarryDoc.querySelector(".result-panel.hundreds .digit-label"),
+        "the Hundreds result and count stay empty until the carry is tapped");
+      const carriedHundredRect = carriedHundredSource.getBoundingClientRect();
+      carriedHundredSource.click();
+      let hundredCountSnapshot = fullCarryApi.snapshot();
+      const emptiedHundredBadge = fullCarryDoc.querySelector(".carried-hundred-source");
+      const emptiedHundredSource = emptiedHundredBadge.querySelector('.empty-unit[data-motion-role="source"][data-place="hundreds"]');
+      const movingHundred = fullCarryDoc.querySelector(".motion-overlay.owner-carry.hundred-slot.filled");
+      const emptiedHundredRect = emptiedHundredSource.getBoundingClientRect();
+      assert(hundredCountSnapshot.hundredsAcceptedCursor === 1 && hundredCountSnapshot.hundredsLandedCursor === 0 &&
+        emptiedHundredBadge.textContent === "carry" && emptiedHundredSource && !emptiedHundredSource.classList.contains("filled") &&
+        emptiedHundredRect.width === carriedHundredRect.width && emptiedHundredRect.height === carriedHundredRect.height,
+        "tapping the carried 100 immediately leaves an equal-sized outlined square slot in the yellow badge");
+      assert(hundredCountSnapshot.activeOverlayCount === 1 &&
+        fullCarryDoc.querySelectorAll(".motion-overlay.owner-carry.hundred-slot.filled").length === 1 &&
+        goldCarryStyle(carryStyleSnapshot(movingHundred)),
+        "the accepted carried 100 becomes exactly one gold moving overlay");
+      const travelingHundredResult = fullCarryDoc.querySelector('[data-motion-role="result"][data-place="hundreds"]');
+      assert(!travelingHundredResult.classList.contains("filled") &&
+        !fullCarryDoc.querySelector(".result-panel.hundreds .digit-label"),
+        "the Hundreds result target and count remain empty while the carried 100 travels");
+      await waitFor(() => fullCarryApi.snapshot().hundredsLandedCursor === 1 && fullCarryApi.snapshot().phase === "awaiting-answer",
+        "carried hundred count completion", 4000);
+      hundredCountSnapshot = fullCarryApi.snapshot();
+      const countedHundred = fullCarryDoc.querySelector('[data-motion-role="result"][data-place="hundreds"].filled');
+      let hundredCountLabel = fullCarryDoc.querySelector(".result-panel.hundreds .digit-label.hundreds-count");
+      assert(countedHundred && goldCarryStyle(carryStyleSnapshot(countedHundred)) &&
+        !hundredCountLabel &&
+        fullCarryApi.events().some(event => event.type === "drop-landed" && event.place === "hundreds" && event.index === 0),
+        "in Standard the tapped carry still lands as a gold 100 without revealing a progressive Hundreds label");
+      const standardHundredSnapshot = fullCarryApi.snapshot();
+      fullCarryDoc.querySelector("#settingsButton").click();
+      fullCarryDoc.querySelector("#difficultyEasy").click();
+      hundredCountLabel = fullCarryDoc.querySelector(".result-panel.hundreds .digit-label.hundreds-count");
+      assert(hundredCountLabel && hundredCountLabel.textContent === "1" &&
+        fullCarryApi.snapshot().hundredsLandedCursor === standardHundredSnapshot.hundredsLandedCursor &&
+        fullCarryApi.snapshot().phase === standardHundredSnapshot.phase,
+        "switching to Easy reveals the Hundreds count immediately without changing settled progress");
+      fullCarryDoc.querySelector("#closeSettings").click();
+      const settledHundredBadge = fullCarryDoc.querySelector(".carried-hundred-source");
+      const settledHundredBadgeStyle = frame.contentWindow.getComputedStyle(settledHundredBadge);
+      assert(settledHundredBadge && settledHundredBadge.textContent === "carry" &&
+        settledHundredBadge.querySelector(".empty-unit.hundred-slot") && !settledHundredBadge.querySelector(".filled") &&
+        settledHundredBadgeStyle.borderTopColor === "rgb(231, 173, 25)" &&
+        settledHundredBadgeStyle.backgroundColor === "rgb(255, 245, 189)",
+        "the empty yellow carried-hundred badge and carry label remain through awaiting-answer");
+      await enterAnswer(frame, 110);
+      assert(!fullCarryDoc.querySelector(".carried-hundred-source"),
+        "correct-answer completion removes the empty carried-hundred badge");
+
+      frame = await openGame("?a=50&b=50&harness=1");
+      const visibleCarrySolverDoc = frame.contentDocument;
+      const visibleCarrySolverApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      visibleCarrySolverApi.clearEvents();
+      visibleCarrySolverDoc.querySelector("#settingsButton").click();
+      visibleCarrySolverDoc.querySelector("#runSolverButton").click();
+      const solverLockedReset = visibleCarrySolverDoc.querySelector("#resetCurrent");
+      const solverLockedResetStyle = frame.contentWindow.getComputedStyle(solverLockedReset);
+      assert(solverLockedReset.disabled && !solverLockedReset.hidden && solverLockedResetStyle.visibility === "visible" &&
+        solverLockedResetStyle.display !== "none" && solverLockedResetStyle.opacity === "0.55",
+        "Tutorial keeps the temporarily disabled reset control visible while teaching motion runs");
+      await waitFor(() => visibleCarrySolverApi.snapshot().phase === "completed" && !visibleCarrySolverApi.snapshot().solverRunning,
+        "visible Hundreds Tutorial completion", 10000);
+      assert(visibleCarrySolverApi.events().filter(event => event.type === "drop-landed").length === 11 &&
+        visibleCarrySolverApi.events().some(event => event.type === "drop-landed" && event.place === "hundreds") &&
+        visibleCarrySolverApi.events().some(event => event.type === "tutorial-hand-cue" && event.place === "hundreds" && event.index === 0) &&
+        visibleCarrySolverApi.snapshot().hundredsLandedCursor === 1 &&
+        !visibleCarrySolverDoc.querySelector(".carried-hundred-source"),
+        "Tutorial cues and follows the explicit carried-hundred counting step when Hundreds is visible");
+
+      frame = await openGame("?reload=1&harness=1");
+      const reloadedDoc = frame.contentDocument;
+      assert(reloadedDoc.querySelector("#levelBadge").textContent === "L6", "level persists across reload");
+      assert(reloadedDoc.querySelector(".column-title.hundreds") && !reloadedDoc.querySelector("#board").classList.contains("unlocking"),
+        "ordinary reload shows Hundreds without replaying its unlock");
+
+      reloadedDoc.querySelector("#settingsButton").click();
+      reloadedDoc.querySelector("#settingsSoundButton").click();
+      assert(reloadedDoc.querySelector("#settingsSoundButton").getAttribute("aria-pressed") === "false" && profileCookie().sound === false,
+        "Settings sound toggle is accessible and persistent");
+      reloadedDoc.defaultView.confirm = () => true;
+      reloadedDoc.querySelector("#resetProgressButton").click();
+      await waitFor(() => reloadedDoc.querySelector("#levelBadge").textContent === "L1" &&
+        reloadedDoc.querySelector("#scoreValue").textContent === "0" && reloadedDoc.querySelector("#launchDialog").open,
+        "progress reset and launch dialog", 10000);
+      const reset = profileCookie();
+      assert(reset.currentLevel === 1 && reset.currentLevelSuccesses === 0 && reset.higherLevelSuccesses === 0 && reset.score === 0 &&
+        reset.emojiProgress === 0 && !reset.sound && reset.difficultyMode === "easy" && !reset.launchChoiceMade,
+        "Reset Progress clears progression and launch choice while retaining sound and difficulty");
+
+      const resetProblem = api.deriveProblem(
+        Number(reloadedDoc.querySelector("#equationA").textContent),
+        Number(reloadedDoc.querySelector("#equationB").textContent)
+      );
+      assert(api.problemMatchesLevel(resetProblem, 1) || api.problemMatchesLevel(resetProblem, 2),
+        "reset prepares a fresh normal L1-weighted problem behind the launch dialog");
+
+      reloadedDoc.querySelector("#toast").classList.remove("show");
+      reloadedDoc.querySelector("#toast").textContent = "";
+      const launchTutorialApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      launchTutorialApi.clearEvents();
+      reloadedDoc.querySelector("#launchTutorialButton").click();
+      assert(reloadedDoc.querySelector("#equationA").textContent === "28" && reloadedDoc.querySelector("#equationB").textContent === "47" &&
+        profileCookie().launchChoiceMade,
+        "the launch Tutorial persists the choice and replaces the normal problem with untagged 28 + 47");
+      await waitFor(() => launchTutorialApi.snapshot().phase === "awaiting-answer" &&
+        launchTutorialApi.events().some(event => event.type === "tutorial-answer-pause"),
+        "launch Tutorial answer pause", 20000);
+      const launchAnswerPause = launchTutorialApi.events().find(event => event.type === "tutorial-answer-pause");
+      assert(reloadedDoc.querySelector("#answerButton").textContent === "?" && !reloadedDoc.querySelector("#keypadDialog").open &&
+        !launchTutorialApi.events().some(event => event.type === "tutorial-control-tap") &&
+        launchAnswerPause.duration === api.ACTIVE_MOTION_TIMINGS.TUTORIAL_ANSWER_PAUSE,
+        "finished Tutorial counting remains at the real hidden-answer step during its dedicated pause");
+      await new Promise(resolve => setTimeout(resolve, Math.floor(api.ACTIVE_MOTION_TIMINGS.TUTORIAL_ANSWER_PAUSE / 2)));
+      assert(reloadedDoc.querySelector("#answerButton").textContent === "?" && !reloadedDoc.querySelector("#keypadDialog").open &&
+        !launchTutorialApi.events().some(event => event.type === "tutorial-control-tap"),
+        "the answer keypad stays closed throughout the compressed midpoint of the two-second production pause");
+
+      const launchKeypad = reloadedDoc.querySelector("#keypadDialog");
+      await waitFor(() => launchKeypad.open, "Tutorial opens the real keypad");
+      const blockedEscape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+      launchKeypad.querySelector('[data-key="9"]').click();
+      reloadedDoc.querySelector("#checkAnswer").click();
+      reloadedDoc.querySelector("#cancelKeypad").click();
+      launchKeypad.dispatchEvent(blockedEscape);
+      launchKeypad.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 0, clientY: 0 }));
+      const blockedCancel = new Event("cancel", { cancelable: true });
+      launchKeypad.dispatchEvent(blockedCancel);
+      assert(launchKeypad.open && reloadedDoc.querySelector("#typedValue").textContent === "" &&
+        blockedEscape.defaultPrevented && blockedCancel.defaultPrevented,
+        "Tutorial blocks competing keypad input, Escape, Cancel, and backdrop dismissal");
+
+      await waitFor(() => reloadedDoc.querySelector("#typedValue").textContent === "7", "Tutorial enters first result digit");
+      const sevenHand = launchKeypad.querySelector('.tutorial-hand-cue[data-control-id="keypad-7"]');
+      assert(sevenHand && launchKeypad.contains(sevenHand),
+        "the first keypad cue stays inside the open native dialog while 7 is entered");
+      await waitFor(() => reloadedDoc.querySelector("#typedValue").textContent === "75", "Tutorial enters complete result");
+      assert(launchKeypad.open, "the keypad display progresses to 75 before checking the answer");
+      await waitFor(() => launchTutorialApi.snapshot().phase === "completed", "Tutorial shared answer check");
+      assert(launchTutorialApi.snapshot().solverRunning && reloadedDoc.querySelector("#nextButton").disabled &&
+        reloadedDoc.querySelector('.tutorial-hand-cue[data-control-id="checkAnswer"]'),
+        "the final checker cue finishes before Tutorial unlocks the completion controls");
+      await waitFor(() => launchTutorialApi.snapshot().phase === "completed" && !launchTutorialApi.snapshot().solverRunning,
+        "launch Tutorial completion", 20000);
+      assert(!launchKeypad.open, "Tutorial closes the keypad through the normal correct-answer path");
+      const launchTutorialEvents = launchTutorialApi.events();
+      const tutorialHandEvents = launchTutorialEvents.filter(event => event.type === "tutorial-hand-cue");
+      const tutorialBlockHandEvents = tutorialHandEvents.filter(event => event.place);
+      const tutorialControlHandEvents = tutorialHandEvents.filter(event => event.controlId);
+      const tutorialControlTapEvents = launchTutorialEvents.filter(event => event.type === "tutorial-control-tap");
+      const tutorialPauseEvents = launchTutorialEvents.filter(event => event.type === "tutorial-stage-pause");
+      const carryingPromptReaction = launchTutorialEvents.find(event => event.type === "beetle-reaction" && event.promptKey === "carrying-ones");
+      const carryFormation = launchTutorialEvents.find(event => event.type === "carry-formation" && event.kind === "ones");
+      assert(tutorialBlockHandEvents.length === 22 && tutorialBlockHandEvents.every(event => event.promptKey &&
+        ["ones", "tens", "hundreds"].includes(event.place) && Number.isInteger(event.index)) &&
+        tutorialBlockHandEvents.some(event => event.place === "tens" && event.index === 6) &&
+        JSON.stringify(tutorialControlHandEvents.map(event => event.controlId)) ===
+          JSON.stringify(["answerButton", "keypad-7", "keypad-5", "checkAnswer"]),
+        "28 + 47 diagnoses every block and real answer-control hand cue with stable metadata");
+      assert(JSON.stringify(tutorialControlTapEvents.map(event => event.controlId)) ===
+        JSON.stringify(["answerButton", "keypad-7", "keypad-5", "checkAnswer"]) &&
+        tutorialControlTapEvents.every((event, index) => event.at >= tutorialControlHandEvents[index].at),
+        "Tutorial records the actual ?, 7, 5, and Check Answer activation order");
+      assert(tutorialPauseEvents.length === 4 && tutorialPauseEvents[0].reason === "initial" &&
+        tutorialPauseEvents.every(event => event.duration === api.ACTIVE_MOTION_TIMINGS.TUTORIAL_STAGE_PAUSE) &&
+        ["counting-ones", "carrying-ones", "counting-tens-with-carry"].every(promptKey =>
+          tutorialPauseEvents.some(event => event.promptKey === promptKey)) && carryingPromptReaction && carryFormation &&
+        carryFormation.at - carryingPromptReaction.at >= api.ACTIVE_MOTION_TIMINGS.TUTORIAL_STAGE_PAUSE - 5,
+        "launch Tutorial pauses at entry and message transitions, keeping the carry message visible before formation");
+      assert(launchTutorialEvents.filter(event => event.type === "tutorial-answer-pause").length === 1 &&
+        tutorialControlHandEvents[0].at - launchAnswerPause.at >= api.ACTIVE_MOTION_TIMINGS.TUTORIAL_ANSWER_PAUSE - 5 &&
+        !tutorialPauseEvents.some(event => event.promptKey === "awaiting-answer"),
+        "the dedicated answer pause replaces rather than stacks with the ordinary prompt-change pause");
+      assert(reloadedDoc.querySelector("#scoreValue").textContent === "0" && profileCookie().score === 0 &&
+        profileCookie().emojiProgress === 0 && profileCookie().currentLevel === 1 &&
+        reloadedDoc.querySelector("#nextButton").textContent === "Start Game" &&
+        reloadedDoc.querySelector("#nextButton").getAttribute("aria-label") === "Start the game with a new problem" &&
+        launchTutorialApi.snapshot().activeHandCueCount === 0,
+        "launch Tutorial awards no progress, removes its hand, and completes with Start Game");
+
+      reloadedDoc.querySelector("#nextButton").click();
+      assert(reloadedDoc.querySelector("#answerButton").textContent === "?" && reloadedDoc.querySelector("#nextButton").hidden &&
+        reloadedDoc.querySelector("#equationA").textContent + "+" + reloadedDoc.querySelector("#equationB").textContent !== "28+47" &&
+        !launchTutorialApi.snapshot().launchTutorialActive,
+        "Start Game creates a fresh normal problem and exits the launch-Tutorial flow");
+
+      reloadedDoc.querySelector("#toast").classList.remove("show");
+      reloadedDoc.querySelector("#toast").textContent = "";
+      reloadedDoc.querySelector("#settingsButton").click();
+      reloadedDoc.querySelector("#runSolverButton").click();
+      await waitFor(() => launchTutorialApi.snapshot().phase === "completed" && !launchTutorialApi.snapshot().solverRunning,
+        "Settings Tutorial completion", 20000);
+      assert(reloadedDoc.querySelector("#scoreValue").textContent === "0" && profileCookie().score === 0 && profileCookie().emojiProgress === 0,
+        "Tutorial changes neither rewards nor persistent progress");
+      assert(!reloadedDoc.querySelector("#toast").classList.contains("show") && reloadedDoc.querySelector("#toast").textContent === "",
+        "Tutorial shows no reward toast");
+      assert(reloadedDoc.querySelector("#nextButton").textContent === "Next →",
+        "a Settings Tutorial returns to the ordinary Next flow");
+
+      reloadedDoc.querySelector("#nextButton").click();
+      const answer = Number(reloadedDoc.querySelector("#equationA").textContent) + Number(reloadedDoc.querySelector("#equationB").textContent);
+      await enterAnswer(frame, answer, true);
+      assert(reloadedDoc.querySelector("#scoreValue").textContent === "10" && profileCookie().score === 10 && profileCookie().emojiProgress === 1,
+        "manual completion after a wrong attempt awards exactly one reward");
+
+      document.body.dataset.status = "passed";
+      document.title = "PASS: Number Garden curriculum checks";
+      results.textContent = checks.join("\n") + "\n\n" + checks.length + " checks passed.";
+    }
+
+    run().catch(error => {
+      document.body.dataset.status = "failed";
+      document.title = "FAIL: Number Garden curriculum checks";
+      const currentFrame = document.querySelector("iframe");
+      const motionApi = currentFrame && currentFrame.contentWindow.NumberGarden && currentFrame.contentWindow.NumberGarden.motionDiagnostics;
+      const diagnostic = motionApi ? "\n\nMOTION: " + JSON.stringify(motionApi.snapshot()) +
+        "\nEVENTS: " + JSON.stringify(motionApi.events()) : "";
+      results.textContent = checks.join("\n") + "\n\nFAIL: " + (error.stack || error.message) + diagnostic;
+    });
+  </script>
+</body>
+</html>

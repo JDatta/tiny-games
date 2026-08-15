@@ -1,0 +1,4262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#dff4ff">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23e7f7dd'/%3E%3Cpath d='M51 82V42M50 55C30 54 22 42 21 27c18-2 31 7 30 28M51 43c4-17 16-25 31-24 1 17-10 28-31 28' fill='none' stroke='%232b9348' stroke-width='10' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <title>Number Garden — Place-Value Addition</title>
+  <style>
+    :root {
+      --ink: #17243f;
+      --muted: #5d6c82;
+      --blue: #2477df;
+      --blue-soft: #eaf4ff;
+      --green: #299c50;
+      --green-soft: #e9f8e8;
+      --gold: #f3a712;
+      --gold-soft: #fff6d6;
+      --violet: #7256c9;
+      --paper: rgba(255, 255, 255, .96);
+      --line: #d9e2ee;
+      --shadow: 0 9px 24px rgba(40, 77, 117, .13);
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { margin: 0; min-height: 100%; }
+
+    body {
+      min-height: 100vh;
+      min-height: 100dvh;
+      color: var(--ink);
+      font-family: ui-rounded, "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif;
+      background:
+        radial-gradient(circle at 8% 8%, rgba(255,255,255,.82) 0 3.5%, transparent 3.8%),
+        radial-gradient(circle at 91% 13%, rgba(255,255,255,.68) 0 4%, transparent 4.3%),
+        linear-gradient(165deg, #dff4ff 0%, #eef9ff 52%, #effbe7 100%);
+      overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button, input { font: inherit; }
+    button { color: inherit; }
+
+    button:focus-visible, input:focus-visible {
+      outline: 3px solid #153eaa;
+      outline-offset: 2px;
+    }
+
+    .sr-only {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      padding: 0 !important;
+      margin: -1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      white-space: nowrap !important;
+      border: 0 !important;
+    }
+
+    .app {
+      position: relative;
+      width: min(100%, 760px);
+      height: 100vh;
+      height: 100dvh;
+      min-height: 680px;
+      margin: 0 auto;
+      padding: calc(6px + var(--safe-top)) 8px calc(6px + var(--safe-bottom));
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      isolation: isolate;
+    }
+
+    .app::before, .app::after {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      width: 44px;
+      height: 70px;
+      opacity: .22;
+      background:
+        radial-gradient(ellipse at 40% 25%, #31a852 0 26%, transparent 28%),
+        radial-gradient(ellipse at 66% 56%, #54bd61 0 28%, transparent 30%),
+        radial-gradient(ellipse at 28% 83%, #248b45 0 24%, transparent 26%);
+    }
+    .app::before { top: calc(var(--safe-top) - 8px); left: 8px; transform: rotate(20deg); }
+    .app::after { right: 8px; bottom: calc(var(--safe-bottom) + 56px); transform: rotate(195deg); }
+
+    .topbar {
+      min-height: 46px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .bee {
+      flex: 0 0 38px;
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 2px solid rgba(64,139,210,.22);
+      border-radius: 50%;
+      background: rgba(255,255,255,.7);
+      font-size: 24px;
+      filter: drop-shadow(0 2px 2px rgba(50,70,90,.12));
+    }
+
+    .level-badge {
+      flex: 0 0 38px;
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 2px solid #7656ca;
+      border-radius: 13px;
+      color: #5036a4;
+      background: #f4f0ff;
+      font-size: 14px;
+      font-weight: 950;
+      box-shadow: 0 3px 0 rgba(80,54,164,.11);
+    }
+
+    .journey {
+      min-width: 0;
+      flex: 1;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      padding: 3px 5px;
+      border: 1px solid rgba(255,255,255,.8);
+      border-radius: 18px;
+      background: rgba(255,255,255,.48);
+    }
+
+    .milestone {
+      width: 29px;
+      height: 29px;
+      flex: 0 0 29px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .milestone.placeholder {
+      border: 2px dashed rgba(96,118,139,.22);
+      background: rgba(255,255,255,.35);
+    }
+
+    .milestone.current {
+      border: 2px solid #815fd8;
+      border-radius: 50%;
+      background: white;
+      transform: scale(1.09);
+      box-shadow: 0 3px 8px rgba(80,63,140,.18);
+    }
+
+    .milestone.next {
+      margin-left: 2px;
+      border-left: 1px solid rgba(74,91,112,.18);
+      border-radius: 0 10px 10px 0;
+      filter: grayscale(1);
+      opacity: .42;
+    }
+
+    .score {
+      flex: 0 0 auto;
+      height: 40px;
+      min-width: 66px;
+      padding: 0 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      border: 2px solid #f0b221;
+      border-radius: 18px;
+      background: #fffdf5;
+      color: #74430b;
+      font-weight: 950;
+      font-variant-numeric: tabular-nums;
+      box-shadow: 0 3px 0 rgba(214,141,18,.15);
+    }
+
+    .icon-button {
+      flex: 0 0 44px;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(85,106,134,.2);
+      border-radius: 15px;
+      background: rgba(255,255,255,.86);
+      box-shadow: 0 3px 9px rgba(61,83,111,.09);
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .fullscreen-button[hidden] { display: none; }
+    .fullscreen-button svg {
+      width: 22px;
+      height: 22px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .equation-card {
+      position: relative;
+      min-height: 76px;
+      padding: 6px 54px 6px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(7px, 3vw, 14px);
+      border: 2px solid rgba(255,255,255,.95);
+      border-radius: 25px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+      font-size: clamp(30px, 10vw, 44px);
+      font-weight: 950;
+      line-height: 1;
+      letter-spacing: -.04em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .first-number { color: var(--blue); }
+    .second-number { color: var(--green); }
+    .math-symbol { color: #26324a; }
+
+    .answer-button {
+      --hold-angle: 0deg;
+      position: relative;
+      width: 62px;
+      height: 62px;
+      flex: 0 0 62px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 42% 58% 48% 52% / 54% 44% 56% 46%;
+      color: #8d5000;
+      background: #fff3b5;
+      box-shadow:
+        7px 0 0 -1px #fff3b5,
+        -7px 0 0 -1px #fff3b5,
+        0 7px 0 -1px #fff3b5,
+        0 -7px 0 -1px #fff3b5,
+        0 5px 12px rgba(207,149,20,.2);
+      font-size: 36px;
+      font-weight: 950;
+      cursor: pointer;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    .answer-button::before {
+      content: "";
+      position: absolute;
+      inset: -7px;
+      z-index: -1;
+      border-radius: 50%;
+      background: conic-gradient(#7256c9 var(--hold-angle), transparent 0);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 0);
+      mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 0);
+      opacity: 0;
+    }
+
+    .answer-button.holding::before {
+      opacity: 1;
+      animation: hold-ring 650ms linear forwards;
+    }
+
+    .answer-button.solver-hint {
+      animation: solver-hint 850ms ease-in-out 2;
+    }
+
+    .answer-button.static-hint { outline: 4px solid #7256c9; outline-offset: 4px; }
+
+    .answer-button.answer-ready {
+      color: #4d3188;
+      background: #fff3b5;
+      transform-origin: 50% 50%;
+      animation: answer-ready-pulse 650ms ease-in-out infinite;
+    }
+
+    @keyframes answer-ready-pulse {
+      0%, 100% {
+        transform: translateY(0) scale(1);
+        filter: brightness(1);
+        box-shadow:
+          7px 0 0 -1px #fff3b5,
+          -7px 0 0 -1px #fff3b5,
+          0 7px 0 -1px #fff3b5,
+          0 -7px 0 -1px #fff3b5,
+          0 0 0 4px rgba(114,86,201,.16),
+          0 5px 12px rgba(207,149,20,.2);
+      }
+      48% {
+        transform: translateY(-2px) scale(1.1);
+        filter: brightness(1.12);
+        box-shadow:
+          7px 0 0 -1px #fff3b5,
+          -7px 0 0 -1px #fff3b5,
+          0 7px 0 -1px #fff3b5,
+          0 -7px 0 -1px #fff3b5,
+          0 0 0 9px rgba(114,86,201,.24),
+          0 9px 20px rgba(72,48,145,.28);
+      }
+    }
+
+    .answer-button.answer-ready.motion-reduced {
+      animation: none;
+      outline: 4px solid rgba(114,86,201,.62);
+      outline-offset: 4px;
+      filter: brightness(1.1);
+    }
+
+    @keyframes hold-ring { to { --hold-angle: 360deg; } }
+    @keyframes solver-hint {
+      45% { transform: rotate(-7deg) scale(1.12); box-shadow: 0 0 0 7px rgba(114,86,201,.15); }
+      70% { transform: rotate(5deg) scale(1.06); }
+    }
+
+    @property --hold-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+
+    .reset-current {
+      position: absolute;
+      top: 50%;
+      right: 6px;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      transform: translateY(-50%);
+      border: 1px solid #cad7e7;
+      border-radius: 50%;
+      background: #edf5ff;
+      color: #365d96;
+      font-size: 22px;
+      cursor: pointer;
+    }
+
+    .reset-current:disabled {
+      opacity: .55;
+      cursor: default;
+    }
+
+    .reset-current[hidden] { display: none; }
+
+    .prompt-row {
+      min-height: 52px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      align-items: stretch;
+      gap: 6px;
+    }
+
+    .prompt-row.has-next { grid-template-columns: minmax(0, 1fr) auto; }
+
+    .speech {
+      min-width: 0;
+      padding: 6px 8px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid #f0c44f;
+      border-radius: 17px;
+      background: #fffbe7;
+      box-shadow: 0 3px 9px rgba(127,95,17,.08);
+      font-size: clamp(11px, 3.2vw, 14px);
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .prompt-mascot { flex: 0 0 auto; font-size: 25px; transform-origin: 50% 85%; }
+    .prompt-mascot.reacting { animation: beetle-reaction 360ms cubic-bezier(.2,.75,.25,1); }
+
+    @keyframes beetle-reaction {
+      0%, 100% { transform: translateY(0) rotate(0); }
+      28% { transform: translateY(-7px) rotate(-9deg); }
+      52% { transform: translateY(-2px) rotate(8deg); }
+      74% { transform: translateY(-4px) rotate(-4deg); }
+    }
+    #promptText { min-width: 0; }
+
+    .next-button {
+      min-width: 82px;
+      min-height: 52px;
+      padding: 4px 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #efbd34;
+      border-radius: 17px;
+      background: #fff3b8;
+      color: #713c06;
+      font-weight: 900;
+      box-shadow: 0 3px 0 rgba(204,139,18,.13);
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    .next-button[hidden] { display: none; }
+
+    .next-button.success-next {
+      border-color: #5d42c2;
+      background: linear-gradient(135deg, #fff1a8, #f1eaff 55%, #ddf8e7);
+      color: #3f278d;
+      box-shadow: 0 0 0 3px rgba(114,86,201,.16), 0 5px 12px rgba(72,48,145,.2);
+      transform-origin: 50% 50%;
+      animation: success-next-pulse 650ms ease-in-out infinite;
+    }
+
+    @keyframes success-next-pulse {
+      0%, 100% {
+        transform: translateY(0) scale(1);
+        filter: brightness(1);
+        box-shadow: 0 0 0 3px rgba(114,86,201,.16), 0 5px 12px rgba(72,48,145,.2);
+      }
+      48% {
+        transform: translateY(-2px) scale(1.055);
+        filter: brightness(1.1);
+        box-shadow: 0 0 0 7px rgba(114,86,201,.2), 0 8px 18px rgba(72,48,145,.3);
+      }
+    }
+
+    .next-button.success-next.motion-reduced {
+      animation: none;
+      outline: 4px solid rgba(114,86,201,.38);
+      outline-offset: 2px;
+      filter: brightness(1.08);
+    }
+
+    .board {
+      min-height: 0;
+      flex: 1;
+      padding: 5px;
+      display: grid;
+      grid-template-columns: 64px 54px 82px minmax(0, 1fr);
+      grid-template-rows: 24px repeat(3, minmax(64px, 1fr));
+      gap: 4px;
+      border: 2px solid rgba(255,255,255,.96);
+      border-radius: 22px;
+      background: rgba(255,255,255,.91);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .board.compact {
+      grid-template-columns: 64px 82px minmax(0, 1fr);
+    }
+
+    .board.unlocking .column-title.hundreds,
+    .board.unlocking .place-panel.hundreds {
+      animation: hundreds-unlock 1.35s ease-out;
+    }
+
+    @keyframes hundreds-unlock {
+      0% { transform: scale(.55); opacity: 0; box-shadow: 0 0 0 12px rgba(114,86,201,.22); }
+      48% { transform: scale(1.08); opacity: 1; box-shadow: 0 0 0 7px rgba(114,86,201,.16); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(114,86,201,0); }
+    }
+
+    .column-title {
+      min-width: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 9px 9px 4px 4px;
+      font-size: clamp(9px, 2.7vw, 12px);
+      font-weight: 950;
+      letter-spacing: -.02em;
+    }
+
+    .column-title.hundreds { background: #eee7ff; color: #5e3bad; }
+    .column-title.tens { background: #fff1d5; color: #95540d; }
+    .column-title.ones { background: #daf5ef; color: #176a55; }
+
+    .row-label {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: 20px minmax(0, 1fr);
+      align-items: center;
+    }
+
+    .row-sign {
+      display: grid;
+      place-items: center;
+      color: #26324a;
+      font-size: 24px;
+      font-weight: 950;
+    }
+
+    .addend-badge {
+      width: 40px;
+      min-height: 52px;
+      align-self: center;
+      display: grid;
+      place-items: center;
+      border-radius: 11px;
+      font-size: 14px;
+      font-weight: 950;
+      writing-mode: horizontal-tb;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .addend-badge.first { color: #0752b6; background: #e6f2ff; border: 1px solid #8cc3ff; }
+    .addend-badge.second { color: #147638; background: #e5f8e5; border: 1px solid #8ed18f; }
+    .addend-badge.result { color: #65441b; background: #fff5cc; border: 1px solid #f1c559; }
+
+    .place-panel {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: #fbfdff;
+    }
+
+    .place-panel.hundreds { background: #fbf9ff; border-color: #d9cdf5; }
+    .place-panel.tens { background: #fffdf7; border-color: #f0d9aa; }
+    .place-panel.ones { background: #f8fefd; border-color: #bfe5dd; }
+    .result-panel { border-style: dashed; border-width: 2px; }
+
+    .digit-label {
+      position: absolute;
+      right: 7px;
+      bottom: 7px;
+      min-width: 26px;
+      padding: 4px 6px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(72,86,108,.16);
+      border-radius: 7px;
+      color: #48566c;
+      background: rgba(255,255,255,.88);
+      font-size: clamp(15px, 4vw, 18px);
+      font-weight: 950;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      box-shadow: 0 1px 3px rgba(46,64,88,.08);
+    }
+
+    .digit-label .place-count { display: inline-flex; }
+    .digit-label .carry-digit { color: #aeb6c2; }
+    .digit-label.hundreds-count { left: 5px; right: auto; bottom: 5px; }
+
+    .hundred-slot {
+      width: 31px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 2px dashed #b8adc9;
+      border-radius: 7px;
+      color: #5c3ca0;
+      background: rgba(255,255,255,.65);
+      font-size: 11px;
+      font-weight: 950;
+    }
+
+    .hundred-slot.filled {
+      height: 31px;
+      border: 2px solid #9b5b00;
+      color: #724100;
+      background: repeating-linear-gradient(135deg, #ffc446 0 4px, #f0a000 4px 7px);
+      box-shadow: 0 0 0 4px rgba(255,196,70,.18), 0 0 11px rgba(255,190,40,.55);
+    }
+
+    .carried-hundred-source {
+      position: absolute;
+      z-index: 4;
+      top: 2px;
+      left: 2px;
+      max-width: 100%;
+      padding: 3px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      border: 1px solid #e7ad19;
+      border-radius: 8px;
+      background: #fff5bd;
+      color: #724100;
+      font-size: 7px;
+      font-weight: 950;
+      line-height: 1;
+      box-shadow: 0 2px 5px rgba(130,83,0,.12);
+    }
+
+    .carried-hundred-source .hundred-slot {
+      width: 31px;
+      height: 31px;
+    }
+
+    .carried-hundred-source.placeholder { visibility: hidden; }
+
+    .tens-grid {
+      width: 100%;
+      max-width: 76px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: repeat(5, 1fr);
+      grid-auto-flow: column;
+      gap: 2px 3px;
+    }
+
+    .unit, .empty-unit {
+      position: relative;
+      min-width: 0;
+      border: 1px solid #aeb8c5;
+      background: #fff;
+    }
+
+    .tens-grid .unit, .tens-grid .empty-unit {
+      width: 100%;
+      height: 8px;
+      padding: 0;
+      border-radius: 4px;
+    }
+
+    .ones-strip {
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(10, minmax(0, 1fr));
+      gap: 1px;
+    }
+
+    .ones-strip .unit, .ones-strip .empty-unit {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      min-height: 11px;
+      padding: 0;
+      border-radius: 3px;
+    }
+
+    button.unit { cursor: default; }
+    .unit.owner-a { border-color: #0756bc; background: var(--blue); }
+    .unit.owner-b { border-color: #126e32; background: var(--green); }
+    .unit.owner-carry {
+      border-color: #9b5b00;
+      background: repeating-linear-gradient(135deg, #ffc446 0 4px, #f0a000 4px 7px);
+    }
+
+    .unit.counted { box-shadow: inset 0 0 0 1px rgba(255,255,255,.72); }
+    .unit.counted[data-motion-role="source"] {
+      opacity: .52;
+      filter: saturate(.72);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.88);
+    }
+    .unit.queued {
+      opacity: .52;
+      filter: saturate(.72);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.88);
+    }
+    .unit.traded { opacity: .45; background-image: repeating-linear-gradient(135deg, transparent 0 3px, rgba(255,255,255,.7) 3px 5px); }
+
+    .unit.eligible {
+      z-index: 2;
+      cursor: pointer;
+      box-shadow: 0 0 0 4px rgba(114,86,201,.25), 0 0 0 8px rgba(114,86,201,.08);
+    }
+
+    .unit.eligible.next-unit-hint {
+      animation: next-unit-throb 1.15s ease-in-out infinite;
+    }
+
+    .unit.eligible::after {
+      content: "";
+      position: absolute;
+      inset: -7px -4px;
+    }
+
+    @keyframes next-unit-throb {
+      0%, 100% {
+        transform: scale(1);
+        filter: brightness(1);
+        box-shadow: 0 0 0 4px rgba(114,86,201,.25), 0 0 0 8px rgba(114,86,201,.08);
+      }
+      50% {
+        transform: scale(1.12);
+        filter: brightness(1.22);
+        box-shadow: 0 0 0 7px rgba(114,86,201,.34), 0 0 0 15px rgba(114,86,201,.1), 0 0 18px 8px rgba(114,86,201,.2);
+      }
+    }
+
+    .result-groups {
+      width: 100%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 3px;
+    }
+
+    .result-groups .tens-grid { align-self: center; }
+
+    .trade-group { border-radius: 5px; box-shadow: 0 0 0 2px rgba(241,161,12,.55); }
+    .trade-group.carry-forming .unit {
+      animation: trade-pulse 300ms ease-in-out;
+    }
+
+    @keyframes trade-pulse {
+      0% { opacity: 1; transform: scale(1); }
+      48% { opacity: .32; transform: scale(.88); }
+      100% { opacity: .45; transform: scale(1); }
+    }
+
+    .carry-callout {
+      position: absolute;
+      z-index: 4;
+      top: 2px;
+      right: 2px;
+      padding: 2px 4px;
+      border: 1px solid #e7ad19;
+      border-radius: 8px;
+      background: #fff5bd;
+      color: #724100;
+      font-size: 8px;
+      font-weight: 950;
+      line-height: 1;
+      box-shadow: 0 2px 5px rgba(130,83,0,.12);
+    }
+
+    .carried-ten-source {
+      position: absolute;
+      z-index: 4;
+      top: 2px;
+      right: 2px;
+      padding: 2px 4px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      border: 1px solid #e7ad19;
+      border-radius: 8px;
+      background: #fff5bd;
+      color: #724100;
+      font-size: 7px;
+      font-weight: 950;
+      line-height: 1;
+      box-shadow: 0 2px 5px rgba(130,83,0,.12);
+    }
+
+    .carried-ten-source .unit, .carried-ten-source .empty-unit {
+      width: 23px;
+      height: 8px;
+      padding: 0;
+      border-radius: 5px;
+    }
+
+    .carried-ten-source.placeholder {
+      visibility: hidden;
+    }
+
+    .carry-formation-token {
+      position: absolute;
+      z-index: 7;
+      left: 50%;
+      top: 50%;
+      border: 2px solid #9b5b00;
+      background: repeating-linear-gradient(135deg, #ffc446 0 4px, #f0a000 4px 7px);
+      box-shadow: 0 0 0 4px rgba(255,196,70,.18), 0 3px 8px rgba(117,72,0,.2);
+      pointer-events: none;
+    }
+
+    .carry-formation-token.ten-token {
+      width: min(54px, 58%);
+      height: 10px;
+      border-radius: 6px;
+      transform: translate(-50%, -50%);
+    }
+
+    .carry-formation-token.hundred-token {
+      width: 34px;
+      height: 34px;
+      border-radius: 7px;
+      transform: translate(-50%, -50%);
+    }
+
+    .motion-overlay {
+      position: fixed;
+      z-index: 90;
+      margin: 0;
+      padding: 0;
+      pointer-events: none;
+      transform-origin: 50% 50%;
+      will-change: transform, opacity;
+    }
+
+    .motion-overlay.carry-token {
+      border: 2px solid #9b5b00;
+      background: repeating-linear-gradient(135deg, #ffc446 0 4px, #f0a000 4px 7px);
+      box-shadow: 0 0 11px rgba(255,190,40,.8);
+    }
+
+    .motion-overlay.carry-token.hundred-token {
+      border-radius: 7px;
+    }
+
+    .tutorial-hand-cue {
+      position: fixed;
+      z-index: 100;
+      width: 44px;
+      height: 48px;
+      display: grid;
+      place-items: start center;
+      color: #7a4b16;
+      font-size: 36px;
+      line-height: 1;
+      filter: drop-shadow(0 3px 3px rgba(39, 28, 15, .28));
+      pointer-events: none;
+      user-select: none;
+      transform: translate(-50%, 6px);
+      transform-origin: 50% 0;
+      will-change: transform, opacity;
+    }
+
+    .tutorial-hand-cue.static {
+      opacity: .95;
+      transform: translate(-50%, 3px);
+    }
+
+    #keypadDialog { overflow: visible; }
+
+    .motion-target-flash { animation: motion-target-flash 240ms ease-out; }
+
+    @keyframes motion-target-flash {
+      0% { outline: 0 solid rgba(114,86,201,.55); filter: brightness(1.35); }
+      45% { outline: 7px solid rgba(114,86,201,.25); }
+      100% { outline: 0 solid transparent; filter: brightness(1); }
+    }
+
+    .tray {
+      min-height: 72px;
+      padding: 5px 6px 6px;
+      border: 1px solid #cad8eb;
+      border-radius: 18px;
+      background: rgba(245,249,255,.93);
+      box-shadow: 0 5px 15px rgba(40,73,110,.08);
+    }
+
+    .tray-title {
+      margin: 0 0 3px;
+      color: #43536a;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .suggestions {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) 42px;
+      gap: 4px;
+    }
+
+    .suggestion, .dice {
+      min-width: 0;
+      height: 46px;
+      padding: 2px;
+      border: 1px solid #bdcadc;
+      border-radius: 11px;
+      background: white;
+      box-shadow: 0 2px 5px rgba(51,71,100,.08);
+      font-size: clamp(9px, 2.8vw, 12px);
+      font-weight: 900;
+      line-height: 1.05;
+      cursor: pointer;
+    }
+
+    .suggestion.current {
+      border: 2px solid #7256c9;
+      background: #f1edff;
+      color: #5036a4;
+      cursor: default;
+    }
+
+    .suggestion:disabled, .dice:disabled { opacity: .55; }
+    .suggestion.current:disabled { opacity: 1; }
+    .dice {
+      font-size: 22px;
+      transform-origin: 50% 58%;
+    }
+
+    .dice.rolling {
+      color: #5036a4;
+      background: #f7f3ff;
+      border-color: #8a72d6;
+      box-shadow: 0 4px 11px rgba(80,54,164,.24);
+      will-change: transform;
+    }
+
+    .suggestion.refresh-pop {
+      animation: suggestion-refresh-pop var(--refresh-duration, 150ms) cubic-bezier(.2,.9,.3,1.25) var(--refresh-delay, 0ms) both;
+      will-change: transform, box-shadow;
+    }
+
+    .suggestion.refresh-static {
+      outline: 3px solid var(--refresh-glow, #7256c9);
+      outline-offset: 1px;
+      background: #fffdf4;
+      box-shadow: 0 0 0 5px color-mix(in srgb, var(--refresh-glow, #7256c9) 18%, transparent);
+      filter: brightness(1.05);
+    }
+
+    @keyframes suggestion-refresh-pop {
+      0% {
+        transform: translateY(0) scale(1);
+        outline: 0 solid transparent;
+      }
+      48% {
+        transform: translateY(-7px) scale(1.075);
+        outline: 3px solid var(--refresh-glow, #7256c9);
+        outline-offset: 2px;
+        box-shadow: 0 7px 16px color-mix(in srgb, var(--refresh-glow, #7256c9) 34%, transparent);
+      }
+      100% {
+        transform: translateY(0) scale(1);
+        outline: 0 solid transparent;
+      }
+    }
+
+    .toast {
+      position: fixed;
+      z-index: 80;
+      left: 50%;
+      bottom: calc(16px + var(--safe-bottom));
+      max-width: calc(100% - 32px);
+      padding: 9px 14px;
+      transform: translate(-50%, 18px);
+      border-radius: 999px;
+      background: #17243f;
+      color: white;
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s, transform .2s;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    .confetti-layer {
+      position: fixed;
+      z-index: 70;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      contain: strict;
+    }
+
+    .confetti-piece {
+      position: absolute;
+      top: -16px;
+      left: var(--x);
+      width: var(--size);
+      height: calc(var(--size) + 5px);
+      border-radius: 2px;
+      background: var(--color);
+      opacity: 0;
+      animation: confetti-fall var(--duration) cubic-bezier(.18,.72,.34,1) var(--delay) forwards;
+    }
+
+    .confetti-piece.round { height: var(--size); border-radius: 50%; }
+
+    .confetti-piece.ribbon {
+      width: calc(var(--size) + 8px);
+      height: 4px;
+      border-radius: 999px;
+    }
+
+    .confetti-piece.star {
+      width: auto;
+      height: auto;
+      color: var(--color);
+      background: transparent;
+      font-size: calc(var(--size) + 9px);
+      line-height: 1;
+      text-shadow: 0 2px 4px rgba(71,47,0,.18);
+    }
+
+    .confetti-piece.burst {
+      top: 46%;
+      left: 50%;
+      animation-name: confetti-burst;
+      animation-duration: 1.45s;
+      animation-timing-function: cubic-bezier(.12,.8,.2,1);
+    }
+
+    .confetti-layer.reduced .confetti-piece {
+      top: var(--y);
+      opacity: .88;
+      animation: none;
+      transform: rotate(var(--spin));
+    }
+
+    .equation-card.celebrating {
+      animation: celebration-pulse 650ms ease-out;
+    }
+
+    @keyframes confetti-fall {
+      0% { opacity: 1; transform: translate3d(0, -12px, 0) rotate(0deg); }
+      84% { opacity: 1; }
+      100% { opacity: 0; transform: translate3d(var(--drift), calc(100dvh + 28px), 0) rotate(var(--spin)); }
+    }
+
+    @keyframes confetti-burst {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(.15) rotate(0deg); }
+      12% { opacity: 1; }
+      68% { opacity: 1; transform: translate(calc(-50% + var(--burst-x)), calc(-50% + var(--burst-y))) scale(1) rotate(var(--spin)); }
+      100% { opacity: 0; transform: translate(calc(-50% + var(--burst-x)), calc(-50% + var(--burst-y) + 105px)) scale(.82) rotate(var(--spin)); }
+    }
+
+    @keyframes celebration-pulse {
+      25% { transform: scale(1.025); box-shadow: 0 0 0 9px rgba(243,167,18,.24), 0 13px 34px rgba(40,77,117,.2); }
+      62% { transform: scale(1.01); box-shadow: 0 0 0 5px rgba(114,86,201,.18), 0 11px 30px rgba(40,77,117,.18); }
+    }
+
+    dialog {
+      width: min(100% - 16px, 430px);
+      max-width: none;
+      max-height: calc(100dvh - var(--safe-top) - 8px);
+      margin: auto auto 0;
+      padding: 0;
+      border: 0;
+      border-radius: 24px 24px 0 0;
+      color: var(--ink);
+      background: white;
+      box-shadow: 0 -12px 40px rgba(25,48,78,.25);
+    }
+
+    dialog::backdrop { background: rgba(22,37,61,.48); backdrop-filter: blur(2px); }
+
+    #launchDialog {
+      width: min(100% - 28px, 400px);
+      margin: auto;
+      border-radius: 24px;
+      text-align: center;
+      box-shadow: 0 18px 55px rgba(25,48,78,.3);
+    }
+
+    .launch-sheet { padding: 22px 18px 20px; }
+    .launch-mark { margin-bottom: 6px; font-size: 42px; line-height: 1; }
+    .launch-sheet h2 { font-size: 24px; }
+    .launch-sheet p { margin: 7px auto 16px; max-width: 31ch; font-size: 14px; }
+    .launch-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .launch-actions .sheet-button { width: 100%; }
+
+    .sheet {
+      max-height: inherit;
+      padding: 10px 14px calc(14px + var(--safe-bottom));
+      overflow-y: auto;
+    }
+
+    .sheet-handle { width: 42px; height: 4px; margin: 0 auto 8px; border-radius: 4px; background: #d2d8e2; }
+    .sheet h2 { margin: 0 0 5px; font-size: 21px; }
+    .sheet p { margin: 4px 0 10px; color: var(--muted); font-size: 13px; line-height: 1.35; }
+
+    .settings-sheet-header {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .settings-sheet-header h2 { margin: 0; }
+    .settings-back {
+      width: 44px;
+      height: 44px;
+      flex: 0 0 44px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      border: 1px solid #c9d4e2;
+      border-radius: 14px;
+      background: transparent;
+      font-size: 25px;
+      font-weight: 900;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .settings-back[hidden], .settings-view[hidden], .about-view[hidden] { display: none; }
+
+    .about-details {
+      margin: 8px 0 0;
+      border: 1px solid #d8e1eb;
+      border-radius: 14px;
+      background: #f9fbfe;
+      overflow: hidden;
+    }
+    .about-details div {
+      min-height: 54px;
+      padding: 9px 11px;
+      display: grid;
+      grid-template-columns: minmax(76px, .7fr) minmax(0, 1.3fr);
+      align-items: center;
+      gap: 12px;
+    }
+    .about-details div + div { border-top: 1px solid #d8e1eb; }
+    .about-details dt { color: var(--muted); font-size: 13px; font-weight: 800; }
+    .about-details dd { margin: 0; font-size: 14px; font-weight: 900; }
+    .about-details dd[data-version] { font-variant-numeric: tabular-nums; }
+
+    .keypad-display {
+      min-height: 48px;
+      margin: 8px 0;
+      padding: 5px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 2px solid #d6e0ec;
+      border-radius: 14px;
+      background: #f7faff;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    #typedValue { min-width: 55px; color: #5941ac; font-size: 26px; text-align: right; }
+    #typedValue:empty::after { content: "—"; color: #99a3b2; }
+    .keypad-display.wrong { animation: wrong-shake .34s ease; border-color: #e45b5b; background: #fff1f1; }
+    @keyframes wrong-shake { 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
+
+    .keys {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+    }
+
+    .key {
+      min-height: 48px;
+      border: 1px solid #cbd7e5;
+      border-radius: 13px;
+      background: #f7faff;
+      font-size: 20px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .key.utility { color: #45556d; font-size: 15px; }
+
+    .sheet-actions { margin-top: 9px; display: grid; grid-template-columns: 1fr 1.35fr; gap: 8px; }
+    .sheet-button {
+      min-height: 48px;
+      padding: 8px 12px;
+      border: 1px solid #c9d4e2;
+      border-radius: 14px;
+      background: #f4f7fb;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .sheet-button.primary { border-color: #5b42b5; background: #7256c9; color: white; }
+    .sheet-button.danger { border-color: #e3a2a2; background: #fff2f2; color: #a42f2f; }
+    .sheet-button.full { width: 100%; margin-top: 7px; }
+
+    .setting-row {
+      min-height: 54px;
+      margin: 7px 0;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border: 1px solid #d8e1eb;
+      border-radius: 14px;
+      background: #f9fbfe;
+    }
+    .setting-row span, .setting-row label { font-size: 13px; font-weight: 800; }
+    .setting-row button { flex: 0 0 auto; }
+
+    .difficulty-setting {
+      margin: 7px 0;
+      padding: 8px 10px 10px;
+      border: 1px solid #d8e1eb;
+      border-radius: 14px;
+      background: #f9fbfe;
+    }
+    .difficulty-setting legend { padding: 0 4px; font-size: 13px; font-weight: 900; }
+    .difficulty-options { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .difficulty-option {
+      min-width: 0;
+      min-height: 70px;
+      padding: 8px;
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      border: 1px solid #c9d4e2;
+      border-radius: 12px;
+      background: white;
+      cursor: pointer;
+    }
+    .difficulty-option input { flex: 0 0 auto; margin: 3px 0 0; accent-color: #7256c9; }
+    .difficulty-option span { min-width: 0; display: grid; gap: 2px; }
+    .difficulty-option strong { color: #5036a4; font-size: 13px; }
+    .difficulty-option small { color: var(--muted); font-size: 11px; font-weight: 700; line-height: 1.25; }
+    .difficulty-option:has(input:checked) { border-color: #7256c9; background: #f4f0ff; box-shadow: 0 0 0 2px rgba(114,86,201,.12); }
+
+    .level-select {
+      min-width: 82px;
+      min-height: 44px;
+      padding: 6px 28px 6px 10px;
+      border: 1px solid #9f8bd9;
+      border-radius: 12px;
+      color: #5036a4;
+      background: #f4f0ff;
+      font-weight: 950;
+      cursor: pointer;
+    }
+
+    @media (max-width: 480px) {
+      .topbar { gap: 4px; }
+      .journey { gap: 1px; padding-left: 3px; padding-right: 3px; }
+      .milestone { width: 20px; height: 24px; flex-basis: 20px; font-size: 16px; }
+    }
+
+    @media (max-width: 379px) {
+      .score { min-width: 60px; padding: 0 6px; }
+      .bee, .level-badge { width: 34px; height: 34px; flex-basis: 34px; }
+      .bee { font-size: 21px; }
+      .level-badge { font-size: 13px; }
+      .icon-button { width: 40px; flex-basis: 40px; }
+      .equation-card { padding-left: 7px; gap: 6px; }
+      .board { grid-template-columns: 62px 50px 78px minmax(0, 1fr); }
+      .board.compact { grid-template-columns: 62px 78px minmax(0, 1fr); }
+      .row-label { grid-template-columns: 18px minmax(0, 1fr); }
+      .addend-badge { width: 38px; }
+    }
+
+    @media (max-height: 819px) {
+      .app { gap: 4px; padding-top: calc(4px + var(--safe-top)); padding-bottom: calc(4px + var(--safe-bottom)); }
+      .topbar { min-height: 42px; }
+      .bee, .journey, .score { height: 38px; }
+      .equation-card { min-height: 68px; font-size: clamp(28px, 9.5vw, 40px); }
+      .answer-button { width: 54px; height: 54px; flex-basis: 54px; font-size: 31px; }
+      .prompt-row, .next-button { min-height: 48px; }
+      .prompt-mascot { font-size: 21px; }
+      .board { grid-template-rows: 22px repeat(3, minmax(58px, 1fr)); }
+      .tray { min-height: 66px; padding-top: 3px; }
+      .suggestion, .dice { height: 42px; }
+    }
+
+    @media (orientation: landscape), (max-height: 679px) {
+      body { overflow-y: auto; }
+      .app { height: auto; min-height: 680px; }
+      .board { min-height: 330px; }
+    }
+
+    @media (min-width: 600px) {
+      .app { padding-left: 20px; padding-right: 20px; }
+      .board { grid-template-columns: 90px 80px 150px minmax(0,1fr); }
+      .board.compact { grid-template-columns: 90px 150px minmax(0,1fr); }
+      .tens-grid { max-width: 128px; gap: 3px 5px; }
+      .tens-grid .unit, .tens-grid .empty-unit { height: 10px; }
+      .ones-strip { gap: 3px; max-width: 330px; }
+      .row-label { grid-template-columns: 28px minmax(0, 1fr); }
+      .addend-badge { width: 56px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+      .unit.eligible { outline: 3px solid rgba(114,86,201,.55); animation: none; }
+      .unit.eligible.next-unit-hint {
+        outline: 5px solid rgba(114,86,201,.85);
+        outline-offset: 3px;
+        filter: brightness(1.18);
+        box-shadow: 0 0 0 7px rgba(114,86,201,.28), 0 0 16px 8px rgba(114,86,201,.18);
+      }
+      .board.unlocking .column-title.hundreds,
+      .board.unlocking .place-panel.hundreds { outline: 4px solid rgba(114,86,201,.45); outline-offset: -2px; animation: none; }
+      .prompt-mascot.reacting, .trade-group.carry-forming .unit { animation: none; }
+      .motion-target-flash {
+        animation: none;
+        outline: 5px solid rgba(114,86,201,.42);
+        outline-offset: 2px;
+        filter: brightness(1.22);
+      }
+      .next-button.success-next {
+        animation: none;
+        outline: 4px solid rgba(114,86,201,.38);
+        outline-offset: 2px;
+        filter: brightness(1.08);
+      }
+      .answer-button.answer-ready {
+        animation: none;
+        outline: 4px solid rgba(114,86,201,.62);
+        outline-offset: 4px;
+        filter: brightness(1.1);
+      }
+      .dice.rolling { animation: none; transform: none; }
+      .suggestion.refresh-pop { animation: none; transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" aria-labelledby="gameTitle">
+    <h1 id="gameTitle" class="sr-only">Number Garden place-value addition game</h1>
+
+    <header class="topbar">
+      <div class="bee" aria-hidden="true">🐝</div>
+      <div id="levelBadge" class="level-badge" role="status" aria-label="Current learning level 1">L1</div>
+      <div id="journey" class="journey" aria-label="Garden milestones"></div>
+      <div class="score" aria-label="Coin score"><span aria-hidden="true">🪙</span><span id="scoreValue">0</span></div>
+      <button id="settingsButton" class="icon-button" type="button" aria-label="Open settings">⚙️</button>
+      <button id="fullscreenButton" class="icon-button fullscreen-button" type="button" aria-label="Enter fullscreen" aria-pressed="false" title="Enter fullscreen" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path id="fullscreenIconPath" d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path>
+        </svg>
+      </button>
+    </header>
+
+    <section class="equation-card" aria-label="Current addition problem">
+      <span id="equationA" class="first-number">58</span>
+      <span class="math-symbol" aria-hidden="true">+</span>
+      <span id="equationB" class="second-number">47</span>
+      <span class="math-symbol" aria-hidden="true">=</span>
+      <button id="answerButton" class="answer-button" type="button" aria-label="Question mark. Tap to type the answer, or hold to start Tutorial">?</button>
+      <button id="resetCurrent" class="reset-current" type="button" aria-label="Reset this problem" title="Reset this problem">↻</button>
+    </section>
+
+    <section id="promptRow" class="prompt-row" aria-label="Instructions">
+      <div class="speech">
+        <span class="prompt-mascot" aria-hidden="true">🐞</span>
+        <span id="promptText">Tap the glowing ones, in order.</span>
+      </div>
+      <button id="nextButton" class="next-button" type="button" aria-label="Open the next problem" hidden disabled>Next →</button>
+    </section>
+
+    <section id="board" class="board" aria-label="Place-value board">
+      <span aria-hidden="true"></span>
+      <div class="column-title hundreds">Hundreds</div>
+      <div class="column-title tens">Tens</div>
+      <div class="column-title ones">Ones</div>
+      <!-- Rows are rendered by JavaScript. -->
+    </section>
+
+    <section id="suggestionTray" class="tray" aria-label="Try another sum">
+      <p class="tray-title">Try another sum</p>
+      <div id="suggestions" class="suggestions"></div>
+    </section>
+  </main>
+
+  <dialog id="launchDialog" aria-labelledby="launchTitle" aria-describedby="launchDescription">
+    <div class="sheet launch-sheet">
+      <div class="launch-mark" aria-hidden="true">🌱</div>
+      <h2 id="launchTitle">Welcome to Number Garden</h2>
+      <p id="launchDescription">Count the glowing blocks yourself, or watch a guided example first.</p>
+      <div class="launch-actions">
+        <button id="launchStartButton" class="sheet-button primary" type="button" autofocus>Start</button>
+        <button id="launchTutorialButton" class="sheet-button" type="button">Tutorial</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="keypadDialog" aria-labelledby="keypadTitle">
+    <form class="sheet" method="dialog" id="keypadForm">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="keypadTitle">What is the answer?</h2>
+      <p>Tip: press and hold the question mark to start Tutorial.</p>
+      <div id="keypadDisplay" class="keypad-display" aria-live="polite">
+        <span id="keypadEquation">58 + 47 =</span>
+        <span id="typedValue"></span>
+      </div>
+      <div class="keys" aria-label="Number keypad">
+        <button class="key" type="button" data-key="1">1</button>
+        <button class="key" type="button" data-key="2">2</button>
+        <button class="key" type="button" data-key="3">3</button>
+        <button class="key" type="button" data-key="4">4</button>
+        <button class="key" type="button" data-key="5">5</button>
+        <button class="key" type="button" data-key="6">6</button>
+        <button class="key" type="button" data-key="7">7</button>
+        <button class="key" type="button" data-key="8">8</button>
+        <button class="key" type="button" data-key="9">9</button>
+        <button class="key utility" type="button" data-key="clear">Clear</button>
+        <button class="key" type="button" data-key="0">0</button>
+        <button class="key utility" type="button" data-key="backspace" aria-label="Backspace">⌫</button>
+      </div>
+      <div class="sheet-actions">
+        <button id="cancelKeypad" class="sheet-button" value="cancel">Cancel</button>
+        <button id="checkAnswer" class="sheet-button primary" type="button">Check Answer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settingsDialog" aria-labelledby="settingsTitle">
+    <div class="sheet">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <div class="settings-sheet-header">
+        <button id="settingsBackButton" class="settings-back" type="button" aria-label="Back to settings" hidden>←</button>
+        <h2 id="settingsTitle" tabindex="-1" autofocus>Garden settings</h2>
+      </div>
+      <div id="settingsView" class="settings-view">
+        <p>Tap <strong>?</strong> to type an answer. Hold it for about a second to let Tutorial continue from your place.</p>
+        <div class="setting-row">
+          <label for="levelSelect">Practice level</label>
+          <select id="levelSelect" class="level-select" aria-describedby="levelHelp">
+            <option value="1">L1</option><option value="2">L2</option><option value="3">L3</option>
+            <option value="4">L4</option><option value="5">L5</option><option value="6">L6</option>
+            <option value="7">L7</option><option value="8">L8</option><option value="9">L9</option>
+          </select>
+        </div>
+        <p id="levelHelp">Changing level starts a fresh problem and resets the two advancement counters.</p>
+        <fieldset class="difficulty-setting">
+          <legend>Difficulty</legend>
+          <div class="difficulty-options">
+            <label class="difficulty-option" for="difficultyStandard">
+              <input id="difficultyStandard" name="difficultyMode" type="radio" value="standard" aria-describedby="difficultyStandardHelp">
+              <span><strong>Standard</strong><small id="difficultyStandardHelp">Hides running result counts and waits longer before hints.</small></span>
+            </label>
+            <label class="difficulty-option" for="difficultyEasy">
+              <input id="difficultyEasy" name="difficultyMode" type="radio" value="easy" aria-describedby="difficultyEasyHelp">
+              <span><strong>Easy</strong><small id="difficultyEasyHelp">Shows running result counts and offers hints sooner.</small></span>
+            </label>
+          </div>
+        </fieldset>
+        <div class="setting-row">
+          <span>Sound effects</span>
+          <button id="settingsSoundButton" class="sheet-button" type="button" aria-label="Turn sound off" aria-pressed="true">🔊 On</button>
+        </div>
+        <div class="setting-row">
+          <span>Watch this problem solved step by step.</span>
+          <button id="runSolverButton" class="sheet-button primary" type="button">Start Tutorial</button>
+        </div>
+        <div class="setting-row">
+          <span>Erase coins, milestones, and level progress</span>
+          <button id="resetProgressButton" class="sheet-button danger" type="button">Reset Progress</button>
+        </div>
+        <button id="openAboutButton" class="sheet-button full" type="button">About Number Garden</button>
+        <button id="closeSettings" class="sheet-button full" type="button">Done</button>
+      </div>
+      <div id="aboutView" class="about-view" hidden>
+        <dl class="about-details">
+          <div><dt>Author</dt><dd>Joydip Datta</dd></div>
+          <div><dt>Version</dt><dd data-version>0.1a_29e687</dd></div>
+          <div><dt>License</dt><dd>All rights reserved.</dd></div>
+        </dl>
+      </div>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="liveRegion" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+    "use strict";
+
+    const PROGRESS_EMOJIS = [
+      ["1F331", "Seedling"], ["1F33F", "Sprout"], ["1F333", "Tree"], ["1F33C", "Flower"],
+      ["1F98B", "Butterfly"], ["1F41E", "Lady beetle"], ["1F41D", "Bee"], ["1F40C", "Snail"],
+      ["1F422", "Turtle"], ["1F438", "Frog"], ["1F430", "Rabbit"], ["1F43F", "Chipmunk"],
+      ["1F98A", "Fox"], ["1F43C", "Panda"], ["1F981", "Lion"], ["1F418", "Elephant"],
+      ["1F34E", "Apple"], ["1F353", "Strawberry"], ["1F349", "Watermelon"], ["1F36A", "Cookie"],
+      ["1F308", "Rainbow"], ["2B50", "Star"], ["1F319", "Moon"], ["1FA90", "Planet"],
+      ["1F680", "Rocket"], ["1F389", "Party popper"], ["1F388", "Balloon"], ["1F3C6", "Trophy"],
+      ["1F451", "Crown"], ["1F3AA", "Circus tent"], ["1F3AF", "Bullseye"], ["2728", "Sparkles"]
+    ];
+
+    const PROMPT_POOLS = Object.freeze(Object.fromEntries(Object.entries({
+      "counting-ones": [
+        "Tap the glowing ones, in order.",
+        "Start with the ones. Tap each glowing block in order.",
+        "Count the ones by tapping the next glowing block.",
+        "One by one! Tap the glowing ones in order.",
+        "Follow the glow and count each one.",
+        "Tap the next glowing one to keep counting.",
+        "Let's count the ones. Follow the glowing blocks.",
+        "Count each one by tapping the glow.",
+        "Find the glowing one and tap it next.",
+        "Keep the ones in order. Tap the glowing block.",
+        "Ready to count? Tap the glowing ones one at a time.",
+        "Watch for the glow, then tap the next one.",
+        "Begin in the Ones column. Follow the glow.",
+        "Tap one glowing block at a time in the Ones column.",
+        "Count along by tapping each glowing one.",
+        "The ones go first. Tap the next glow.",
+        "Follow the glowing path through the ones.",
+        "Tap, count, and move to the next glowing one.",
+        "Count the ones in order, one glowing block at a time.",
+        "Find the next glow in Ones and give it a tap.",
+        "Let's begin with ones. Tap the glow in order.",
+        "Keep counting ones by following the glow.",
+        "Tap the glowing ones from first to last.",
+        "Your next one is glowing. Tap it to count it."
+      ],
+      "counting-tens": [
+        "Now tap the glowing tens, in order.",
+        "Move to Tens and tap each glowing block in order.",
+        "Count the tens by tapping the next glowing block.",
+        "Ten by ten! Follow the glowing blocks.",
+        "Tap the next glowing ten to keep counting.",
+        "Let's count the tens. Follow the glow in order.",
+        "Count each ten by tapping its glowing block.",
+        "Find the glowing ten and tap it next.",
+        "Keep the tens in order. Tap the glow.",
+        "Ready for tens? Tap one glowing block at a time.",
+        "Watch for the glow, then tap the next ten.",
+        "Begin in the Tens column and follow the glow.",
+        "Tap one glowing block at a time in the Tens column.",
+        "Count along by tapping each glowing ten.",
+        "The tens are next. Tap the glowing block.",
+        "Follow the glowing path through the tens.",
+        "Tap, count, and move to the next glowing ten.",
+        "Count the tens in order, one glowing block at a time.",
+        "Find the next glow in Tens and give it a tap.",
+        "Let's work through the tens. Tap the glow in order.",
+        "Keep counting tens by following the glow.",
+        "Tap the glowing tens from first to last.",
+        "Your next ten is glowing. Tap it to count it.",
+        "On to the tens! Follow each glowing block."
+      ],
+      "counting-tens-with-carry": [
+        "Count both tens rows, then the gold carried ten.",
+        "Tap the two tens rows first, then tap the gold ten.",
+        "Count the regular tens in order, then the gold carried ten.",
+        "Follow both tens rows, and finish with the gold ten.",
+        "Tap each row of tens before the gold carried ten.",
+        "Count the blue and green tens, then count the gold ten.",
+        "Work through both tens rows, then tap the carried ten.",
+        "The gold ten comes last. Count both rows first.",
+        "Follow the glowing tens. The gold carried ten is last.",
+        "Count every ten in the two rows, then the gold one.",
+        "Tap the tens in both rows before tapping the gold ten.",
+        "First count the two tens rows. Then count the carried ten.",
+        "Keep the order: both tens rows, then the gold ten.",
+        "Count the regular tens first and the carried ten last.",
+        "Tap through both rows, then finish with the gold ten.",
+        "The carried ten joins after both tens rows are counted.",
+        "Count the tens rows in order, then tap the gold carry.",
+        "Both rows come first. The gold carried ten comes next.",
+        "Follow the glow across the rows, then to the gold ten.",
+        "Tap all the row tens, and finish on the gold ten.",
+        "Count the two rows first, then add the gold carried ten.",
+        "Work in order through both rows and then the gold ten.",
+        "Start with the tens rows and end with the carried ten.",
+        "Follow every glowing ten, with the gold ten last."
+      ],
+      "skip-zero-ones": [
+        "There are 0 ones, so begin with the tens.",
+        "No ones this time. Start counting the tens.",
+        "The Ones column has 0, so move to Tens.",
+        "Zero ones means the tens are first today.",
+        "There are no ones to count. Begin with Tens.",
+        "Skip the empty Ones column and start with tens.",
+        "Nothing is in Ones, so let's count the tens.",
+        "The ones total is 0. Go straight to the tens.",
+        "No ones are waiting. Start in the Tens column.",
+        "With 0 ones, we can begin counting tens.",
+        "The Ones column is empty. Tens come next.",
+        "Zero in Ones! Move over and count the tens.",
+        "We can skip Ones because there are 0 to count.",
+        "There are no one-blocks, so start with ten-blocks.",
+        "Ones are finished already. Begin with the tens.",
+        "The ones add to 0, so head to the Tens column.",
+        "No tapping is needed in Ones. Start with Tens.",
+        "This sum has 0 ones. Count the tens first.",
+        "The Ones column is clear, so begin with tens.",
+        "Skip Ones this round and follow the glowing tens.",
+        "There are zero ones. The tens are ready to count.",
+        "No ones to add here. Let's start with the tens.",
+        "Begin at Tens because the ones total is 0.",
+        "The ones make 0, so go right to counting tens."
+      ],
+      "carrying-ones": [
+        "10 ones make 1 ten. Carry it to Tens!",
+        "A group of 10 ones becomes 1 ten. Move it to Tens!",
+        "Trade 10 ones for 1 ten and carry it over.",
+        "You made 10 ones! They become 1 ten.",
+        "Bundle those 10 ones into 1 ten for the Tens column.",
+        "10 ones are the same as 1 ten. Carry the new ten.",
+        "Great grouping! Move 1 ten from the 10 ones to Tens.",
+        "Turn the group of 10 ones into 1 ten.",
+        "Those 10 ones join together as 1 ten. Carry it.",
+        "Make the trade: 10 ones for 1 ten.",
+        "A full group of 10 ones carries into the Tens column.",
+        "Pack 10 ones together to make 1 ten.",
+        "10 one-blocks become 1 ten-block. Carry it to Tens.",
+        "The 10 ones regroup as 1 ten. Move it over.",
+        "Carry time! 10 ones make exactly 1 ten.",
+        "Join 10 ones into 1 ten for the next column.",
+        "That group of 10 ones is now 1 carried ten.",
+        "Swap the 10 ones for 1 ten in the Tens column.",
+        "The ones reached 10, so carry 1 ten.",
+        "Regroup 10 ones as 1 ten and move it to Tens.",
+        "One bundle of 10 ones makes 1 new ten.",
+        "Move the new ten over: it came from 10 ones.",
+        "10 ones fit perfectly into 1 ten. Carry it across.",
+        "The ones made a group of 10. Carry 1 ten to Tens."
+      ],
+      "carrying-hundreds": [
+        "10 tens make 1 hundred. Carry it to Hundreds!",
+        "A group of 10 tens becomes 1 hundred. Move it over!",
+        "Trade 10 tens for 1 hundred and carry it.",
+        "You made 10 tens! They become 1 hundred.",
+        "Bundle those 10 tens into 1 hundred for Hundreds.",
+        "10 tens are the same as 1 hundred. Carry it over.",
+        "Great grouping! Move 1 hundred from the 10 tens.",
+        "Turn the group of 10 tens into 1 hundred.",
+        "Those 10 tens join together as 1 hundred. Carry it.",
+        "Make the trade: 10 tens for 1 hundred.",
+        "A full group of 10 tens carries into Hundreds.",
+        "Pack 10 tens together to make 1 hundred.",
+        "10 ten-blocks become 1 hundred-block. Carry it over.",
+        "The 10 tens regroup as 1 hundred. Move it across.",
+        "Carry time! 10 tens make exactly 1 hundred.",
+        "Join 10 tens into 1 hundred for the next column.",
+        "That group of 10 tens is now 1 carried hundred.",
+        "Swap the 10 tens for 1 hundred in Hundreds.",
+        "The tens reached 10, so carry 1 hundred.",
+        "Regroup 10 tens as 1 hundred and move it over.",
+        "One bundle of 10 tens makes 1 new hundred.",
+        "Move the new hundred over: it came from 10 tens.",
+        "10 tens fit perfectly into 1 hundred. Carry it across.",
+        "The tens made a group of 10. Carry 1 to Hundreds."
+      ],
+      "awaiting-answer": [
+        "Counting is finished! Tap ? and enter the answer.",
+        "You counted every block. Tap ? to give your answer.",
+        "All counted! Tap ? and type the total.",
+        "The blocks are counted. Tap ? to enter the sum.",
+        "Ready to solve it? Tap ? and enter your answer.",
+        "Nice counting! Tap ? and tell me the total.",
+        "Now use your count. Tap ? and type the answer.",
+        "Counting complete! Tap ? to enter the total.",
+        "You reached the end. Tap ? and give the answer.",
+        "What is the total? Tap ? and type it in.",
+        "The counting is done. Tap ? to answer.",
+        "Use the blocks to help. Tap ? and enter the total.",
+        "Every block is counted. Tap ? to finish the sum.",
+        "Time for your answer! Tap ? and type the total.",
+        "Great counting. Tap ? to enter what you found.",
+        "You have the count! Tap ? and enter the answer.",
+        "Let's finish the sum. Tap ? and type your answer.",
+        "The total is ready. Tap ? to enter it.",
+        "What did the blocks make? Tap ? and answer.",
+        "Count complete! Tap ? and put in the total.",
+        "Now show your answer. Tap ? and type it.",
+        "You counted them all. Tap ? to solve the equation.",
+        "The blocks are ready. Tap ? and enter the answer.",
+        "Finish strong! Tap ? and type the total."
+      ],
+      "completed": [
+        "Wonderful! {a} + {b} = {result}.",
+        "Great work! {a} + {b} = {result}.",
+        "You got it! {a} + {b} = {result}.",
+        "Super counting! {a} + {b} = {result}.",
+        "That's right! {a} + {b} = {result}.",
+        "Fantastic! {a} + {b} = {result}.",
+        "Math star! {a} + {b} = {result}.",
+        "Brilliant job! {a} + {b} = {result}.",
+        "Well done! {a} + {b} = {result}.",
+        "Amazing adding! {a} + {b} = {result}.",
+        "Terrific! {a} + {b} = {result}.",
+        "You solved it! {a} + {b} = {result}.",
+        "Excellent work! {a} + {b} = {result}.",
+        "Hooray! {a} + {b} = {result}.",
+        "Nice adding! {a} + {b} = {result}.",
+        "Correct! {a} + {b} = {result}.",
+        "You did the math! {a} + {b} = {result}.",
+        "Super job! {a} + {b} = {result}.",
+        "What a solve! {a} + {b} = {result}.",
+        "You found it! {a} + {b} = {result}.",
+        "Bright thinking! {a} + {b} = {result}.",
+        "Great counting and adding! {a} + {b} = {result}.",
+        "That sum is solved! {a} + {b} = {result}.",
+        "Number power! {a} + {b} = {result}."
+      ],
+      "place-value-fallback": [
+        "Build the answer with place values.",
+        "Use the ones, tens, and hundreds to find the answer.",
+        "Let the place-value blocks guide you.",
+        "Work through each place to build the total.",
+        "Count by place value to solve the sum.",
+        "Build the total one place at a time.",
+        "Use each column to help find the answer.",
+        "Follow the place values and make the total.",
+        "Solve it step by step with the blocks.",
+        "The place-value blocks will show the way.",
+        "Start with the blocks and build the answer.",
+        "Use the columns to put the total together.",
+        "Count each place and find the sum.",
+        "Make the answer from ones, tens, and hundreds.",
+        "Work across the place values to solve it.",
+        "Let each column add a piece to the answer.",
+        "Build this sum with the place-value blocks.",
+        "Count carefully through each place.",
+        "Use the board to put the answer together.",
+        "Follow the columns and discover the total.",
+        "Each place value helps build the answer.",
+        "Use the blocks to solve one place at a time.",
+        "Put the ones, tens, and hundreds together.",
+        "Follow the place-value steps to the total."
+      ]
+    }).map(([key, messages]) => [key, Object.freeze(messages)])));
+
+    const CATEGORY_NAMES = ["No carry", "Ones-only carry", "Tens-only carry", "Two carries"];
+    const LEVEL_COUNT = 9;
+    const STANDARD_CURRENT_LEVEL_MIX = 0.50;
+    const STANDARD_HIGHER_LEVEL_MIX = 0.25;
+    const STANDARD_LOWER_LEVEL_MIX = 0.25;
+    const LEVEL_ONE_CURRENT_MIX = 0.75;
+    const LEVEL_ONE_HIGHER_MIX = 0.25;
+    const LEVEL_NINE_CURRENT_MIX = 0.60;
+    const LEVEL_NINE_REVIEW_MIX = 0.40;
+    const LEVEL_EIGHT_TENS_ONLY_MIX = 0.50;
+    const LEVEL_EIGHT_BOTH_CARRIES_MIX = 0.50;
+    const CURRENT_LEVEL_ADVANCEMENT_TARGET = 4;
+    const HIGHER_LEVEL_ADVANCEMENT_TARGET = 2;
+    const HUNDREDS_UNLOCK_LEVEL = 6;
+    const PROFILE_SCHEMA_VERSION = 4;
+    const DIFFICULTY_MODES = Object.freeze(["standard", "easy"]);
+    const LEVEL_DEFINITIONS = Object.freeze([
+      { level: 1, label: "Single digits without regrouping" },
+      { level: 2, label: "One single digit and one two-digit number without regrouping" },
+      { level: 3, label: "Single digits that regroup into a ten" },
+      { level: 4, label: "One single digit and one two-digit number with an ones carry" },
+      { level: 5, label: "Two two-digit numbers without regrouping" },
+      { level: 6, label: "Two two-digit numbers with an ones carry and a two-digit result" },
+      { level: 7, label: "Two two-digit numbers with a tens-only carry" },
+      { level: 8, label: "Three-digit results with tens-only or both-column carries" },
+      { level: 9, label: "Two two-digit numbers with carries in both columns" }
+    ]);
+    const DB_NAME = "numberGarden";
+    const DB_VERSION = 1;
+    const STORE_NAME = "state";
+    const PROFILE_KEY = "profile";
+    const COOKIE_NAME = "numberGardenProgress";
+    const HOLD_DURATION = 650;
+    const IDLE_HINT_TIMINGS = Object.freeze({
+      standard: Object.freeze({ NEXT_BLOCK: 9000, FIRST_SOLVER_HINT: 60000, SOLVER_REPEAT: 15000 }),
+      easy: Object.freeze({ NEXT_BLOCK: 3000, FIRST_SOLVER_HINT: 20000, SOLVER_REPEAT: 5000 })
+    });
+    const MOTION_TIMINGS = Object.freeze({
+      BLOCK_FALL_LAND: 520,
+      CARRY_FORMATION: 300,
+      CARRY_TRAVEL: 560,
+      CARRY_LANDING: 140,
+      BEETLE_REACTION: 360,
+      DICE_TUMBLE: 380,
+      DICE_CARD_POP: 150,
+      DICE_CARD_STAGGER: 35,
+      DICE_REDUCED_HIGHLIGHT: 140,
+      TUTORIAL_STAGE_PAUSE: 1000,
+      TUTORIAL_ANSWER_PAUSE: 2000,
+      SOLVER_GAP: 70
+    });
+    const HARNESS_MOTION_TIMINGS = Object.freeze({
+      BLOCK_FALL_LAND: 36,
+      CARRY_FORMATION: 24,
+      CARRY_TRAVEL: 38,
+      CARRY_LANDING: 18,
+      BEETLE_REACTION: 28,
+      DICE_TUMBLE: 48,
+      DICE_CARD_POP: 32,
+      DICE_CARD_STAGGER: 8,
+      DICE_REDUCED_HIGHLIGHT: 26,
+      TUTORIAL_STAGE_PAUSE: 42,
+      TUTORIAL_ANSWER_PAUSE: 84,
+      SOLVER_GAP: 6
+    });
+    const DICE_FACES = Object.freeze(["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]);
+    const DICE_REFRESH_GLOWS = Object.freeze(["#f0a000", "#4a8fe7", "#43a85b"]);
+    const diagnosticParams = new URLSearchParams(location.search);
+    const harnessMode = diagnosticParams.get("harness") === "1";
+    const activeMotionTimings = harnessMode ? HARNESS_MOTION_TIMINGS : MOTION_TIMINGS;
+    const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      (harnessMode && diagnosticParams.get("reducedMotion") === "1");
+
+    const $ = (selector) => document.querySelector(selector);
+    const elements = {
+      journey: $("#journey"), levelBadge: $("#levelBadge"), score: $("#scoreValue"), settings: $("#settingsButton"),
+      fullscreen: $("#fullscreenButton"), fullscreenIconPath: $("#fullscreenIconPath"),
+      equationA: $("#equationA"), equationB: $("#equationB"), answer: $("#answerButton"), reset: $("#resetCurrent"),
+      promptRow: $("#promptRow"), prompt: $("#promptText"), next: $("#nextButton"), board: $("#board"),
+      launchDialog: $("#launchDialog"), launchStart: $("#launchStartButton"), launchTutorial: $("#launchTutorialButton"),
+      tray: $("#suggestionTray"), suggestions: $("#suggestions"), keypad: $("#keypadDialog"), keypadForm: $("#keypadForm"),
+      keypadEquation: $("#keypadEquation"), typed: $("#typedValue"), keypadDisplay: $("#keypadDisplay"),
+      cancelKeypad: $("#cancelKeypad"), check: $("#checkAnswer"), settingsDialog: $("#settingsDialog"), settingsTitle: $("#settingsTitle"),
+      settingsView: $("#settingsView"), aboutView: $("#aboutView"), settingsBack: $("#settingsBackButton"),
+      openAbout: $("#openAboutButton"), levelSelect: $("#levelSelect"),
+      difficultyInputs: Array.from(document.querySelectorAll('input[name="difficultyMode"]')),
+      sound: $("#settingsSoundButton"), runSolver: $("#runSolverButton"),
+      resetProgress: $("#resetProgressButton"), closeSettings: $("#closeSettings"), toast: $("#toast"), live: $("#liveRegion")
+    };
+    elements.promptMascot = $(".prompt-mascot");
+
+    let profile = defaultProfile();
+    let problem = null;
+    let state = null;
+    let tray = [];
+    let recentPairs = [];
+    let typedAnswer = "";
+    let saveChain = Promise.resolve();
+    let databasePromise = null;
+    let nextUnitHintTimer = 0;
+    let solverHintTimer = 0;
+    let toastTimer = 0;
+    let holdTimer = 0;
+    let holdStarted = false;
+    let holdCompleted = false;
+    let solverRunning = false;
+    let tutorialControlActivation = null;
+    let launchTutorialActive = false;
+    let pendingTutorialStagePromptKey = null;
+    let audioContext = null;
+    let hundredsUnlockPending = false;
+    let announcementRunning = false;
+    let lastAnnouncement = "";
+    const announcementQueue = [];
+    let dropDrainPromise = null;
+    let motionSession = 0;
+    let motionSkipRequested = false;
+    let diceRefreshState = "idle";
+    let diceRefreshCount = 0;
+    let diceFace = "🎲";
+    let diceRefreshDisabledState = null;
+    let lastRenderedPrompt = null;
+    let beetleReactionCount = 0;
+    let soundEffectCount = 0;
+    const activeAnimations = new Set();
+    const motionEvents = [];
+    const curriculumPairCache = new Map();
+    const lastPromptTemplateByKey = Object.create(null);
+
+    function defaultProfile() {
+      return {
+        schemaVersion: PROFILE_SCHEMA_VERSION,
+        score: 0,
+        emojiProgress: 0,
+        sound: true,
+        difficultyMode: "standard",
+        launchChoiceMade: false,
+        currentLevel: 1,
+        currentLevelSuccesses: 0,
+        higherLevelSuccesses: 0,
+        updatedAt: Date.now()
+      };
+    }
+
+    function validateProfile(value) {
+      if (!value || typeof value !== "object") return null;
+      const score = Number(value.score);
+      const emojiProgress = Number(value.emojiProgress);
+      const updatedAt = Number(value.updatedAt);
+      const schemaVersion = Number(value.schemaVersion);
+      if (![1, 2, 3, PROFILE_SCHEMA_VERSION].includes(schemaVersion) || !Number.isInteger(score) || score < 0 ||
+          !Number.isInteger(emojiProgress) || emojiProgress < 0 || typeof value.sound !== "boolean" ||
+          !Number.isFinite(updatedAt) || updatedAt <= 0) return null;
+      if (schemaVersion === 1) {
+        return { ...defaultProfile(), score, emojiProgress, sound: value.sound, launchChoiceMade: true, updatedAt };
+      }
+      const currentLevel = Number(value.currentLevel);
+      const currentLevelSuccesses = Number(value.currentLevelSuccesses);
+      const higherLevelSuccesses = Number(value.higherLevelSuccesses);
+      if (!Number.isInteger(currentLevel) || currentLevel < 1 || currentLevel > LEVEL_COUNT ||
+          !Number.isInteger(currentLevelSuccesses) || currentLevelSuccesses < 0 ||
+          !Number.isInteger(higherLevelSuccesses) || higherLevelSuccesses < 0) return null;
+      const difficultyMode = schemaVersion === 2 ? "standard" : value.difficultyMode;
+      if (!DIFFICULTY_MODES.includes(difficultyMode)) return null;
+      const launchChoiceMade = schemaVersion < PROFILE_SCHEMA_VERSION ? true : value.launchChoiceMade;
+      if (typeof launchChoiceMade !== "boolean") return null;
+      return {
+        schemaVersion: PROFILE_SCHEMA_VERSION, score, emojiProgress, sound: value.sound, difficultyMode, launchChoiceMade, currentLevel,
+        currentLevelSuccesses, higherLevelSuccesses, updatedAt
+      };
+    }
+
+    function emojiFromCode(code) {
+      return String.fromCodePoint(...code.split("-").map(part => parseInt(part, 16)));
+    }
+
+    function deriveProblem(a, b) {
+      if (!Number.isInteger(a) || !Number.isInteger(b) || a < 1 || a > 99 || b < 1 || b > 99) {
+        throw new RangeError("Addends must be integers from 1 through 99.");
+      }
+      const digits = {
+        a: { hundreds: 0, tens: Math.floor(a / 10), ones: a % 10 },
+        b: { hundreds: 0, tens: Math.floor(b / 10), ones: b % 10 }
+      };
+      const onesTotal = digits.a.ones + digits.b.ones;
+      const carryToTens = Math.floor(onesTotal / 10);
+      const onesRemainder = onesTotal % 10;
+      const originalTensTotal = digits.a.tens + digits.b.tens;
+      const tensTotal = originalTensTotal + carryToTens;
+      const carryToHundreds = Math.floor(tensTotal / 10);
+      const tensRemainder = tensTotal % 10;
+      const category = carryToTens ? (carryToHundreds ? 3 : 1) : (carryToHundreds ? 2 : 0);
+      return {
+        a, b, digits, onesTotal, carryToTens, onesRemainder, originalTensTotal, tensTotal,
+        carryToHundreds, tensRemainder, hundreds: carryToHundreds, result: a + b, category
+      };
+    }
+
+    function freshState(model) {
+      const skipOnes = model.onesTotal === 0;
+      return {
+        phase: skipOnes ? "counting-tens" : "counting-ones",
+        onesAcceptedCursor: 0,
+        onesCursor: 0,
+        tensAcceptedCursor: 0,
+        tensCursor: 0,
+        hundredsAcceptedCursor: 0,
+        hundredsCursor: 0,
+        tempCount: 0,
+        visibleOnesCarry: false,
+        visibleHundredsCarry: false,
+        animationState: null,
+        carryPhase: null,
+        carryKind: null,
+        dropQueue: [],
+        solverUsed: false,
+        rewardAwarded: false,
+        skipMessage: skipOnes,
+        promptKey: null,
+        promptTemplate: ""
+      };
+    }
+
+    function nextQueueBoundary(landed, total, carryNeeded, carryVisible) {
+      const safeLanded = Math.max(0, Math.min(Number(landed) || 0, Number(total) || 0));
+      const safeTotal = Math.max(0, Number(total) || 0);
+      if (carryNeeded && !carryVisible && safeLanded < 10 && safeTotal >= 10) return 10;
+      return safeTotal;
+    }
+
+    function canQueuePlaceUnit(accepted, landed, total, carryNeeded, carryVisible) {
+      return Number(accepted) < nextQueueBoundary(landed, total, carryNeeded, carryVisible);
+    }
+
+    function pairKey(a, b) { return [Math.min(a, b), Math.max(a, b)].join("+"); }
+
+    function curriculumPattern(model) {
+      if (model.category === 2) return "tens-only";
+      if (model.category === 3) return "both-carries";
+      return null;
+    }
+
+    function problemMatchesLevel(model, level, pattern = null) {
+      const bothSingle = model.a < 10 && model.b < 10;
+      const bothDouble = model.a >= 10 && model.b >= 10;
+      const mixedDigits = (model.a < 10) !== (model.b < 10);
+      switch (level) {
+        case 1: return bothSingle && model.result <= 9;
+        case 2: return mixedDigits && model.category === 0;
+        case 3: return bothSingle && model.result >= 10;
+        case 4: return mixedDigits && model.category === 1 && model.result <= 99;
+        case 5: return bothDouble && model.category === 0;
+        case 6: return bothDouble && model.category === 1 && model.result <= 99;
+        case 7: return bothDouble && model.category === 2;
+        case 8:
+          return bothDouble && model.result >= 100 &&
+            (pattern ? curriculumPattern(model) === pattern : model.category === 2 || model.category === 3);
+        case 9: return bothDouble && model.category === 3;
+        default: return false;
+      }
+    }
+
+    function clampLevel(level) {
+      const numeric = Number(level);
+      return Number.isInteger(numeric) ? Math.max(1, Math.min(LEVEL_COUNT, numeric)) : 1;
+    }
+
+    function normalizedRandom(random) {
+      const value = Number(random());
+      if (!Number.isFinite(value) || value <= 0) return 0;
+      return Math.min(value, 1 - Number.EPSILON);
+    }
+
+    function uniformlySelectLevel(first, last, random) {
+      return first + Math.floor(normalizedRandom(random) * (last - first + 1));
+    }
+
+    function selectCurriculumLevel(currentLevel, random = Math.random) {
+      const level = clampLevel(currentLevel);
+      const roll = normalizedRandom(random);
+      if (level === 1) return roll < LEVEL_ONE_CURRENT_MIX ? 1 : 2;
+      if (level === LEVEL_COUNT) {
+        return roll < LEVEL_NINE_CURRENT_MIX ? LEVEL_COUNT : uniformlySelectLevel(1, LEVEL_COUNT - 1, random);
+      }
+      if (roll < STANDARD_CURRENT_LEVEL_MIX) return level;
+      if (roll < STANDARD_CURRENT_LEVEL_MIX + STANDARD_HIGHER_LEVEL_MIX) return level + 1;
+      return uniformlySelectLevel(1, level - 1, random);
+    }
+
+    function curriculumPairs(level, pattern = null) {
+      const key = level + ":" + (pattern || "all");
+      if (curriculumPairCache.has(key)) return curriculumPairCache.get(key);
+      const pairs = [];
+      for (let a = 1; a <= 99; a += 1) {
+        for (let b = a; b <= 99; b += 1) {
+          const model = deriveProblem(a, b);
+          if (problemMatchesLevel(model, level, pattern)) pairs.push([a, b]);
+        }
+      }
+      curriculumPairCache.set(key, pairs);
+      return pairs;
+    }
+
+    function generateProblemForLevel(level, exclusions = new Set(), random = Math.random) {
+      const curriculumLevel = clampLevel(level);
+      const pattern = curriculumLevel === 8
+        ? (normalizedRandom(random) < LEVEL_EIGHT_TENS_ONLY_MIX ? "tens-only" : "both-carries")
+        : null;
+      const allPairs = curriculumPairs(curriculumLevel, pattern);
+      const available = allPairs.filter(pair => !exclusions.has(pairKey(pair[0], pair[1])));
+      const pool = available.length ? available : allPairs;
+      if (!pool.length) throw new Error("No problems are defined for level " + curriculumLevel + ".");
+      const pair = pool[Math.floor(normalizedRandom(random) * pool.length)];
+      const swap = pair[0] !== pair[1] && normalizedRandom(random) >= 0.5;
+      const model = deriveProblem(swap ? pair[1] : pair[0], swap ? pair[0] : pair[1]);
+      return { ...model, curriculumLevel, curriculumPattern: pattern || curriculumPattern(model) };
+    }
+
+    function sampleCurriculumProblem(currentLevel, exclusions = new Set(), random = Math.random) {
+      return generateProblemForLevel(selectCurriculumLevel(currentLevel, random), exclusions, random);
+    }
+
+    function applyProgressForSuccess(sourceProfile, sampledLevel) {
+      const next = { ...sourceProfile };
+      const level = clampLevel(next.currentLevel);
+      next.currentLevel = level;
+      let credit = "none";
+      let advanced = false;
+      if (level < LEVEL_COUNT && Number.isInteger(sampledLevel)) {
+        if (sampledLevel === level) {
+          next.currentLevelSuccesses += 1;
+          credit = "current";
+        } else if (sampledLevel > level) {
+          next.higherLevelSuccesses += 1;
+          credit = "higher";
+        }
+        if (next.currentLevelSuccesses >= CURRENT_LEVEL_ADVANCEMENT_TARGET ||
+            next.higherLevelSuccesses >= HIGHER_LEVEL_ADVANCEMENT_TARGET) {
+          next.currentLevel = level + 1;
+          next.currentLevelSuccesses = 0;
+          next.higherLevelSuccesses = 0;
+          advanced = true;
+        }
+      }
+      return { profile: next, credit, advanced };
+    }
+
+    function makeTray(current) {
+      const exclusions = new Set(recentPairs);
+      exclusions.add(pairKey(current.a, current.b));
+      const alternatives = [];
+      for (let index = 0; index < 3; index += 1) {
+        const candidate = sampleCurriculumProblem(profile.currentLevel, exclusions);
+        exclusions.add(pairKey(candidate.a, candidate.b));
+        alternatives.push(candidate);
+      }
+      return [current, ...alternatives];
+    }
+
+    function setDiceRefreshControlsLocked(locked, dice) {
+      if (locked) {
+        const controls = [
+          elements.answer, elements.reset, elements.settings, elements.next, elements.fullscreen,
+          ...elements.board.querySelectorAll("button"),
+          ...elements.suggestions.querySelectorAll(".suggestion:not(.current)")
+        ].filter(Boolean);
+        diceRefreshDisabledState = new Map(controls.map(control => [control, control.disabled]));
+        controls.forEach(control => { control.disabled = true; });
+        elements.tray.setAttribute("aria-busy", "true");
+        dice.classList.toggle("rolling", !reduceMotion);
+        dice.setAttribute("aria-disabled", "true");
+        dice.setAttribute("aria-label", reduceMotion
+          ? "Refreshing the three alternative sums"
+          : "Rolling the die for three new alternative sums");
+        return;
+      }
+      if (diceRefreshDisabledState) {
+        diceRefreshDisabledState.forEach((wasDisabled, control) => {
+          if (control.isConnected) control.disabled = wasDisabled;
+        });
+      }
+      diceRefreshDisabledState = null;
+      elements.suggestions.querySelectorAll(".suggestion:not(.current)").forEach(button => {
+        button.disabled = isMotionDraining() || solverRunning;
+      });
+      elements.tray.removeAttribute("aria-busy");
+      dice.classList.remove("rolling");
+      dice.removeAttribute("aria-disabled");
+      dice.setAttribute("aria-label", "Refresh the three alternative sums");
+    }
+
+    async function animateDiceTumble(dice) {
+      const duration = activeMotionTimings.DICE_TUMBLE;
+      let faceIndex = Math.floor(normalizedRandom(Math.random) * DICE_FACES.length);
+      const showNextFace = () => {
+        diceFace = DICE_FACES[faceIndex % DICE_FACES.length];
+        dice.textContent = diceFace;
+        recordMotion("dice-face", { face: diceFace });
+        faceIndex += 1 + Math.floor(normalizedRandom(Math.random) * (DICE_FACES.length - 1));
+      };
+      showNextFace();
+      const faceTimer = setInterval(showNextFace, Math.max(8, Math.floor(duration / 6)));
+      recordMotion("dice-tumble-start", { duration });
+      try {
+        await Promise.all([
+          animateTracked(dice, [
+            { transform: "translateY(0) rotate(0deg) scale(1)", offset: 0 },
+            { transform: "translateY(-9px) rotate(78deg) scale(1.06)", offset: .2 },
+            { transform: "translateY(1px) rotate(168deg) scale(.92)", offset: .43 },
+            { transform: "translateY(-6px) rotate(266deg) scale(1.04)", offset: .66 },
+            { transform: "translateY(1px) rotate(344deg) scale(.94)", offset: .86 },
+            { transform: "translateY(0) rotate(360deg) scale(1)", offset: 1 }
+          ], { duration, easing: "cubic-bezier(.25,.78,.35,1)", fill: "none" }),
+          pause(duration)
+        ]);
+      } finally {
+        clearInterval(faceTimer);
+      }
+      diceFace = DICE_FACES[Math.floor(normalizedRandom(Math.random) * DICE_FACES.length)];
+      dice.textContent = diceFace;
+      recordMotion("dice-landed", { face: diceFace });
+    }
+
+    async function emphasizeRefreshedAlternatives(buttons, mode) {
+      const reduced = mode === "static";
+      buttons.forEach((button, index) => {
+        const glow = DICE_REFRESH_GLOWS[index];
+        button.dataset.refreshEmphasis = mode;
+        button.style.setProperty("--refresh-glow", glow);
+        button.style.setProperty("--refresh-duration", activeMotionTimings.DICE_CARD_POP + "ms");
+        button.style.setProperty("--refresh-delay", index * activeMotionTimings.DICE_CARD_STAGGER + "ms");
+        button.classList.add(reduced ? "refresh-static" : "refresh-pop");
+        recordMotion("dice-card-emphasis", { index, mode, reduced });
+      });
+      await pause(reduced
+        ? activeMotionTimings.DICE_REDUCED_HIGHLIGHT
+        : activeMotionTimings.DICE_CARD_POP + activeMotionTimings.DICE_CARD_STAGGER * (buttons.length - 1));
+      buttons.forEach(button => button.classList.remove("refresh-pop", "refresh-static"));
+    }
+
+    async function refreshAlternatives(event) {
+      if (isInteractionLocked()) return;
+      const dice = event && event.currentTarget instanceof HTMLElement
+        ? event.currentTarget
+        : elements.suggestions.querySelector(".dice");
+      if (!dice) return;
+      diceRefreshState = reduceMotion ? "static-highlight" : "tumbling";
+      diceRefreshCount += 1;
+      recordMotion("dice-refresh-start", { reduced: reduceMotion, refreshCount: diceRefreshCount });
+      setDiceRefreshControlsLocked(true, dice);
+      noteActivity();
+      playDiceRefreshSound();
+      try {
+        if (!reduceMotion) await animateDiceTumble(dice);
+        diceRefreshState = reduceMotion ? "static-highlight" : "emphasizing";
+        tray = makeTray(problem);
+        const refreshedButtons = replaceAlternativeSuggestions(reduceMotion ? "static" : "pop");
+        recordMotion("dice-alternatives-updated", { reduced: reduceMotion, count: refreshedButtons.length });
+        await emphasizeRefreshedAlternatives(refreshedButtons, reduceMotion ? "static" : "pop");
+      } finally {
+        diceRefreshState = "idle";
+        motionSkipRequested = false;
+        setDiceRefreshControlsLocked(false, dice);
+        recordMotion("dice-refresh-complete", { reduced: reduceMotion, refreshCount: diceRefreshCount });
+        announce("Three new alternative sums are ready.");
+        if (dice.isConnected) dice.focus({ preventScroll: true });
+      }
+    }
+
+    function rememberProblem(model) {
+      const key = pairKey(model.a, model.b);
+      recentPairs = recentPairs.filter(item => item !== key);
+      recentPairs.push(key);
+      if (recentPairs.length > 6) recentPairs.shift();
+    }
+
+    function startProblem(model, options = {}) {
+      abandonActiveMotion();
+      problem = model;
+      state = freshState(model);
+      solverRunning = false;
+      tutorialControlActivation = null;
+      launchTutorialActive = Boolean(options.launchTutorial);
+      pendingTutorialStagePromptKey = null;
+      rememberProblem(model);
+      tray = options.keepTray && tray.length ? tray : makeTray(model);
+      if (options.keepTray) tray[0] = model;
+      render();
+      noteActivity();
+      if (state.skipMessage) announce("There are zero ones, so we skip to tens.");
+    }
+
+    function startWeightedProblem() {
+      startProblem(sampleCurriculumProblem(profile.currentLevel, new Set(recentPairs)));
+    }
+
+    function openDatabase() {
+      if (!("indexedDB" in window)) return Promise.reject(new Error("IndexedDB unavailable"));
+      if (databasePromise) return databasePromise;
+      databasePromise = new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error("Could not open IndexedDB"));
+        request.onblocked = () => reject(new Error("IndexedDB blocked"));
+      });
+      return databasePromise;
+    }
+
+    async function loadProfile() {
+      const db = await openDatabase();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, "readonly");
+        const request = transaction.objectStore(STORE_NAME).get(PROFILE_KEY);
+        request.onsuccess = () => resolve(validateProfile(request.result));
+        request.onerror = () => reject(request.error || new Error("Could not read profile"));
+      });
+    }
+
+    async function writeIndexedProfile(value) {
+      const db = await openDatabase();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, "readwrite");
+        transaction.objectStore(STORE_NAME).put(value, PROFILE_KEY);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error || new Error("Could not save profile"));
+        transaction.onabort = () => reject(transaction.error || new Error("Profile save aborted"));
+      });
+    }
+
+    function parseProfileCookie() {
+      try {
+        const prefix = COOKIE_NAME + "=";
+        const part = document.cookie.split(";").map(item => item.trim()).find(item => item.startsWith(prefix));
+        if (!part) return null;
+        return validateProfile(JSON.parse(decodeURIComponent(part.slice(prefix.length))));
+      } catch (_) { return null; }
+    }
+
+    function writeProfileCookie(value) {
+      try {
+        const compact = {
+          schemaVersion: PROFILE_SCHEMA_VERSION,
+          score: value.score,
+          emojiProgress: value.emojiProgress,
+          sound: value.sound,
+          difficultyMode: value.difficultyMode,
+          launchChoiceMade: value.launchChoiceMade,
+          currentLevel: value.currentLevel,
+          currentLevelSuccesses: value.currentLevelSuccesses,
+          higherLevelSuccesses: value.higherLevelSuccesses,
+          updatedAt: value.updatedAt
+        };
+        const secure = location.protocol === "https:" ? "; Secure" : "";
+        document.cookie = COOKIE_NAME + "=" + encodeURIComponent(JSON.stringify(compact)) + "; Max-Age=31536000; Path=/; SameSite=Lax" + secure;
+      } catch (_) { /* Cookies may be unavailable under file://. */ }
+    }
+
+    function withTimeout(promise, milliseconds) {
+      return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error("Storage timeout")), milliseconds))]);
+    }
+
+    async function initializeProfile() {
+      const cookieProfile = parseProfileCookie();
+      let indexedProfile = null;
+      try { indexedProfile = await withTimeout(loadProfile(), 900); } catch (_) { /* use cookie or memory */ }
+      const candidates = [cookieProfile, indexedProfile].filter(Boolean);
+      profile = candidates.length ? candidates.sort((a, b) => b.updatedAt - a.updatedAt)[0] : defaultProfile();
+      writeProfileCookie(profile);
+      writeIndexedProfile(profile).catch(() => announce("Progress is saved where this browser allows."));
+    }
+
+    function saveProfile() {
+      const snapshot = { ...profile, schemaVersion: PROFILE_SCHEMA_VERSION, updatedAt: Date.now() };
+      profile = snapshot;
+      writeProfileCookie(snapshot);
+      saveChain = saveChain.then(() => writeIndexedProfile(snapshot)).catch(() => {
+        announce("The game still works, but this browser may not keep progress after it closes.");
+      });
+      return saveChain;
+    }
+
+    function resetProfile() {
+      profile = { ...defaultProfile(), sound: profile.sound, difficultyMode: profile.difficultyMode };
+      writeProfileCookie(profile);
+      saveChain = saveChain.then(() => writeIndexedProfile(profile)).catch(() => {});
+      return saveChain;
+    }
+
+    function announce(message) {
+      if (!message) return;
+      lastAnnouncement = message;
+      announcementQueue.push(message);
+      if (announcementRunning) return;
+      announcementRunning = true;
+      const speakNext = () => {
+        const next = announcementQueue.shift();
+        if (!next) {
+          announcementRunning = false;
+          return;
+        }
+        elements.live.textContent = "";
+        requestAnimationFrame(() => {
+          elements.live.textContent = next;
+          setTimeout(speakNext, 70);
+        });
+      };
+      speakNext();
+    }
+
+    function showToast(message) {
+      clearTimeout(toastTimer);
+      elements.toast.textContent = message;
+      elements.toast.classList.add("show");
+      toastTimer = setTimeout(() => elements.toast.classList.remove("show"), 1900);
+    }
+
+    function recordMotion(type, detail = {}) {
+      motionEvents.push(Object.freeze({ type, ...detail, at: Math.round(performance.now()) }));
+      if (motionEvents.length > 320) motionEvents.splice(0, motionEvents.length - 320);
+      document.body.dataset.motionEvent = type;
+    }
+
+    function getAudioContext() {
+      if (!profile.sound) return null;
+      try {
+        audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === "suspended") audioContext.resume();
+        return audioContext;
+      } catch (_) { return null; }
+    }
+
+    function playTone({ frequency = 440, endFrequency = frequency, duration = .06, delay = 0, volume = .08, type = "sine" } = {}) {
+      const context = getAudioContext();
+      if (!context) return;
+      soundEffectCount += 1;
+      const start = context.currentTime + delay;
+      const stop = start + Math.max(.018, duration);
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(Math.max(20, frequency), start);
+      if (endFrequency !== frequency) oscillator.frequency.exponentialRampToValueAtTime(Math.max(20, endFrequency), stop);
+      gain.gain.setValueAtTime(.001, start);
+      gain.gain.exponentialRampToValueAtTime(Math.max(.002, volume), start + Math.min(.018, duration / 3));
+      gain.gain.exponentialRampToValueAtTime(.001, stop);
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start(start);
+      oscillator.stop(stop + .015);
+    }
+
+    function cue(frequency = 440, duration = .06) {
+      playTone({ frequency, duration, volume: .11 });
+    }
+
+    function playDiceRefreshSound() {
+      if (!profile.sound) return;
+      const context = getAudioContext();
+      if (!context) return;
+      try {
+        const now = context.currentTime + .006;
+        const duration = Math.max(.09, (reduceMotion
+          ? activeMotionTimings.DICE_REDUCED_HIGHLIGHT
+          : activeMotionTimings.DICE_TUMBLE) / 1000);
+        const length = Math.max(1, Math.floor(context.sampleRate * duration));
+        const buffer = context.createBuffer(1, length, context.sampleRate);
+        const data = buffer.getChannelData(0);
+        const hitTimes = [0, .2, .42, .64, .82, .96].map(value => value * duration);
+        for (let index = 0; index < length; index += 1) {
+          const time = index / context.sampleRate;
+          let envelope = 0;
+          hitTimes.forEach(hit => {
+            const distance = Math.max(0, time - hit);
+            if (distance < .028) envelope += Math.exp(-distance * 115);
+          });
+          data[index] = (Math.random() * 2 - 1) * Math.min(1, envelope);
+        }
+        const noise = context.createBufferSource();
+        const bandpass = context.createBiquadFilter();
+        const noiseGain = context.createGain();
+        noise.buffer = buffer;
+        bandpass.type = "bandpass";
+        bandpass.Q.setValueAtTime(1.25, now);
+        bandpass.frequency.setValueAtTime(1450, now);
+        bandpass.frequency.exponentialRampToValueAtTime(760, now + duration);
+        noiseGain.gain.setValueAtTime(.052, now);
+        noiseGain.gain.exponentialRampToValueAtTime(.018, now + duration);
+        noise.connect(bandpass).connect(noiseGain).connect(context.destination);
+        noise.start(now);
+
+        [
+          { offset: duration * .2, frequency: 235, volume: .026, length: .035 },
+          { offset: duration * .64, frequency: 190, volume: .032, length: .045 },
+          { offset: duration * .94, frequency: 132, volume: .085, length: .075 }
+        ].forEach(impact => {
+          const start = now + impact.offset;
+          const oscillator = context.createOscillator();
+          const gain = context.createGain();
+          oscillator.type = "triangle";
+          oscillator.frequency.setValueAtTime(impact.frequency, start);
+          oscillator.frequency.exponentialRampToValueAtTime(impact.frequency * .58, start + impact.length);
+          gain.gain.setValueAtTime(impact.volume, start);
+          gain.gain.exponentialRampToValueAtTime(.001, start + impact.length);
+          oscillator.connect(gain).connect(context.destination);
+          oscillator.start(start);
+          oscillator.stop(start + impact.length + .01);
+        });
+        soundEffectCount += 1;
+      } catch (_) { /* Audio is optional. */ }
+    }
+
+    function playDropImpact(place, delay = 0) {
+      const base = place === "ones" ? 210 : 132;
+      playTone({ frequency: base, endFrequency: base * .72, duration: .085, delay, volume: .085, type: "triangle" });
+      playTone({ frequency: base * 2.1, endFrequency: base * 1.75, duration: .07, delay: delay + .045, volume: .035 });
+    }
+
+    function playDropSound(place, durationMs) {
+      if (reduceMotion) {
+        playDropImpact(place);
+        return;
+      }
+      const base = place === "ones" ? 410 : 255;
+      const duration = Math.max(.08, durationMs / 1000 * .76);
+      playTone({ frequency: base, endFrequency: base * .52, duration, volume: .035, type: "sine" });
+      playDropImpact(place, Math.max(0, durationMs / 1000 - .1));
+    }
+
+    function playGroupingSound(kind) {
+      const base = kind === "ones" ? 520 : 410;
+      playTone({ frequency: base, duration: .11, volume: .055, type: "triangle" });
+      playTone({ frequency: base * 1.5, duration: .15, delay: .075, volume: .06, type: "triangle" });
+    }
+
+    function playCarrySwoosh(durationMs) {
+      if (reduceMotion || !profile.sound) return;
+      const context = getAudioContext();
+      if (!context) return;
+      try {
+        const duration = Math.max(.08, durationMs / 1000);
+        const length = Math.max(1, Math.floor(context.sampleRate * duration));
+        const buffer = context.createBuffer(1, length, context.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let index = 0; index < length; index += 1) {
+          const envelope = Math.sin(Math.PI * index / length);
+          data[index] = (Math.random() * 2 - 1) * envelope;
+        }
+        const source = context.createBufferSource();
+        const filter = context.createBiquadFilter();
+        const gain = context.createGain();
+        source.buffer = buffer;
+        filter.type = "bandpass";
+        filter.frequency.setValueAtTime(420, context.currentTime);
+        filter.frequency.exponentialRampToValueAtTime(920, context.currentTime + duration);
+        gain.gain.setValueAtTime(.001, context.currentTime);
+        gain.gain.exponentialRampToValueAtTime(.035, context.currentTime + duration * .35);
+        gain.gain.exponentialRampToValueAtTime(.001, context.currentTime + duration);
+        source.connect(filter).connect(gain).connect(context.destination);
+        source.start();
+        soundEffectCount += 1;
+      } catch (_) { /* Audio is optional. */ }
+    }
+
+    function playCarryLanding(kind) {
+      const base = kind === "ones" ? 300 : 205;
+      playTone({ frequency: base, endFrequency: base * .72, duration: .1, volume: .075, type: "triangle" });
+    }
+
+    function playBeetleReactionSound() {
+      playTone({ frequency: 780, duration: .075, volume: .035, type: "sine" });
+      playTone({ frequency: 1040, duration: .09, delay: .065, volume: .04, type: "sine" });
+    }
+
+    function playCelebrationSound() {
+      if (!profile.sound) return;
+      try {
+        const context = getAudioContext();
+        if (!context) return;
+        const start = context.currentTime + .025;
+        const notes = [
+          { frequency: 523.25, delay: 0, duration: .2 },
+          { frequency: 659.25, delay: .08, duration: .22 },
+          { frequency: 783.99, delay: .16, duration: .24 },
+          { frequency: 1046.5, delay: .27, duration: .42 },
+          { frequency: 1318.51, delay: .36, duration: .38 },
+          { frequency: 1567.98, delay: .36, duration: .42 }
+        ];
+        notes.forEach(note => {
+          const oscillator = context.createOscillator();
+          const gain = context.createGain();
+          const noteStart = start + note.delay;
+          oscillator.type = "triangle";
+          oscillator.frequency.setValueAtTime(note.frequency, noteStart);
+          gain.gain.setValueAtTime(.001, noteStart);
+          gain.gain.exponentialRampToValueAtTime(.14, noteStart + .025);
+          gain.gain.exponentialRampToValueAtTime(.001, noteStart + note.duration);
+          oscillator.connect(gain).connect(context.destination);
+          oscillator.start(noteStart);
+          oscillator.stop(noteStart + note.duration + .02);
+        });
+      } catch (_) { /* Audio is optional. */ }
+    }
+
+    function playHundredsUnlockSound() {
+      if (!profile.sound) return;
+      cue(659.25, .12);
+      setTimeout(() => cue(987.77, .18), reduceMotion ? 20 : 110);
+    }
+
+    function playConfettiBurstSound() {
+      if (!profile.sound) return;
+      try {
+        const context = getAudioContext();
+        if (!context) return;
+        const start = context.currentTime + .02;
+
+        const pop = context.createOscillator();
+        const popGain = context.createGain();
+        pop.type = "sine";
+        pop.frequency.setValueAtTime(190, start);
+        pop.frequency.exponentialRampToValueAtTime(72, start + .16);
+        popGain.gain.setValueAtTime(.21, start);
+        popGain.gain.exponentialRampToValueAtTime(.001, start + .18);
+        pop.connect(popGain).connect(context.destination);
+        pop.start(start);
+        pop.stop(start + .19);
+
+        const noiseLength = Math.floor(context.sampleRate * .28);
+        const noiseBuffer = context.createBuffer(1, noiseLength, context.sampleRate);
+        const noiseData = noiseBuffer.getChannelData(0);
+        for (let index = 0; index < noiseLength; index += 1) {
+          const fade = 1 - index / noiseLength;
+          noiseData[index] = (Math.random() * 2 - 1) * fade * fade;
+        }
+        const noise = context.createBufferSource();
+        const filter = context.createBiquadFilter();
+        const noiseGain = context.createGain();
+        noise.buffer = noiseBuffer;
+        filter.type = "highpass";
+        filter.frequency.value = 900;
+        noiseGain.gain.setValueAtTime(.17, start);
+        noiseGain.gain.exponentialRampToValueAtTime(.001, start + .27);
+        noise.connect(filter).connect(noiseGain).connect(context.destination);
+        noise.start(start);
+
+        [1318.51, 1760, 2093].forEach((frequency, index) => {
+          const sparkle = context.createOscillator();
+          const sparkleGain = context.createGain();
+          const sparkleStart = start + .08 + index * .08;
+          sparkle.type = "sine";
+          sparkle.frequency.value = frequency;
+          sparkleGain.gain.setValueAtTime(.001, sparkleStart);
+          sparkleGain.gain.exponentialRampToValueAtTime(.105, sparkleStart + .012);
+          sparkleGain.gain.exponentialRampToValueAtTime(.001, sparkleStart + .16);
+          sparkle.connect(sparkleGain).connect(context.destination);
+          sparkle.start(sparkleStart);
+          sparkle.stop(sparkleStart + .17);
+        });
+      } catch (_) { /* Audio is optional. */ }
+    }
+
+    function launchConfetti() {
+      const oldLayer = document.querySelector(".confetti-layer");
+      if (oldLayer) oldLayer.remove();
+      const layer = document.createElement("div");
+      layer.className = "confetti-layer" + (reduceMotion ? " reduced" : "");
+      layer.setAttribute("aria-hidden", "true");
+      const colors = ["#2477df", "#299c50", "#f3a712", "#ff6b35", "#e85278", "#7256c9", "#38bfc3", "#ffd23f"];
+      const pieceCount = reduceMotion ? 26 : 76;
+      for (let index = 0; index < pieceCount; index += 1) {
+        const piece = document.createElement("span");
+        const shapeClass = index % 11 === 0 ? " star" : index % 5 === 0 ? " ribbon" : index % 4 === 0 ? " round" : "";
+        piece.className = "confetti-piece" + shapeClass;
+        if (shapeClass === " star") piece.textContent = index % 2 ? "★" : "✦";
+        piece.style.setProperty("--x", (2 + Math.random() * 96).toFixed(1) + "vw");
+        piece.style.setProperty("--y", (8 + Math.random() * 62).toFixed(1) + "vh");
+        piece.style.setProperty("--size", (6 + Math.random() * 7).toFixed(1) + "px");
+        piece.style.setProperty("--color", colors[index % colors.length]);
+        piece.style.setProperty("--delay", (Math.random() * .48).toFixed(2) + "s");
+        piece.style.setProperty("--duration", (1.8 + Math.random() * 1.05).toFixed(2) + "s");
+        piece.style.setProperty("--drift", (-95 + Math.random() * 190).toFixed(0) + "px");
+        piece.style.setProperty("--spin", (300 + Math.random() * 720).toFixed(0) + "deg");
+        layer.append(piece);
+      }
+      if (!reduceMotion) {
+        for (let index = 0; index < 30; index += 1) {
+          const piece = document.createElement("span");
+          const isStar = index % 6 === 0;
+          piece.className = "confetti-piece burst" + (isStar ? " star" : index % 4 === 0 ? " ribbon" : index % 3 === 0 ? " round" : "");
+          if (isStar) piece.textContent = index % 2 ? "★" : "✦";
+          piece.style.setProperty("--x", "50vw");
+          piece.style.setProperty("--y", "46vh");
+          piece.style.setProperty("--size", (7 + Math.random() * 8).toFixed(1) + "px");
+          piece.style.setProperty("--color", colors[(index + 3) % colors.length]);
+          piece.style.setProperty("--delay", (Math.random() * .13).toFixed(2) + "s");
+          piece.style.setProperty("--burst-x", (-innerWidth * .44 + Math.random() * innerWidth * .88).toFixed(0) + "px");
+          piece.style.setProperty("--burst-y", (-80 - Math.random() * Math.min(290, innerHeight * .36)).toFixed(0) + "px");
+          piece.style.setProperty("--spin", (360 + Math.random() * 900).toFixed(0) + "deg");
+          layer.append(piece);
+        }
+      }
+      document.body.append(layer);
+      const equationCard = document.querySelector(".equation-card");
+      equationCard.classList.remove("celebrating");
+      void equationCard.offsetWidth;
+      equationCard.classList.add("celebrating");
+      setTimeout(() => equationCard.classList.remove("celebrating"), reduceMotion ? 650 : 1050);
+      setTimeout(() => layer.remove(), reduceMotion ? 950 : 3800);
+    }
+
+    function isDialogOpen() { return elements.launchDialog.open || elements.keypad.open || elements.settingsDialog.open; }
+
+    function isMotionDraining() {
+      return Boolean(state && (state.animationState || state.dropQueue.length ||
+        state.onesAcceptedCursor !== state.onesCursor || state.tensAcceptedCursor !== state.tensCursor ||
+        state.hundredsAcceptedCursor !== state.hundredsCursor));
+    }
+
+    function isInteractionLocked() {
+      return isMotionDraining() || solverRunning || diceRefreshState !== "idle" || isDialogOpen();
+    }
+
+    function cleanupMotionOverlays() {
+      document.querySelectorAll(".motion-overlay").forEach(overlay => overlay.remove());
+    }
+
+    function cleanupTutorialHandCues() {
+      document.querySelectorAll(".tutorial-hand-cue").forEach(cue => cue.remove());
+    }
+
+    function settleActiveMotionImmediately() {
+      if (!isMotionDraining() && activeAnimations.size === 0) {
+        cleanupMotionOverlays();
+        cleanupTutorialHandCues();
+        return;
+      }
+      motionSkipRequested = true;
+      activeAnimations.forEach(animation => {
+        try { animation.finish(); } catch (_) { animation.cancel(); }
+      });
+      cleanupMotionOverlays();
+      cleanupTutorialHandCues();
+    }
+
+    function abandonActiveMotion() {
+      motionSession += 1;
+      activeAnimations.forEach(animation => {
+        try { animation.cancel(); } catch (_) { /* Animation may already be gone. */ }
+      });
+      activeAnimations.clear();
+      cleanupMotionOverlays();
+      cleanupTutorialHandCues();
+      dropDrainPromise = null;
+      motionSkipRequested = false;
+      pendingTutorialStagePromptKey = null;
+    }
+
+    async function animateTracked(element, keyframes, options) {
+      if (reduceMotion || motionSkipRequested || !element || typeof element.animate !== "function") return false;
+      let animation;
+      try {
+        animation = element.animate(keyframes, options);
+        activeAnimations.add(animation);
+        const completed = await new Promise(resolve => {
+          let settled = false;
+          const finish = value => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(fallbackTimer);
+            resolve(value);
+          };
+          const fallbackTimer = setTimeout(() => {
+            try { if (animation.playState !== "finished") animation.finish(); } catch (_) { /* Commit below. */ }
+            finish(true);
+          }, Math.max(32, Number(options && options.duration) || 0) + 80);
+          animation.finished.then(() => finish(true), () => finish(false));
+        });
+        if (!completed) motionSkipRequested = true;
+        return completed;
+      } catch (_) {
+        motionSkipRequested = true;
+        return false;
+      } finally {
+        if (animation) activeAnimations.delete(animation);
+      }
+    }
+
+    function rectSnapshot(element) {
+      if (!element || !element.isConnected) return null;
+      const rect = element.getBoundingClientRect();
+      if (!rect.width || !rect.height) return null;
+      return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+    }
+
+    function makeMotionOverlay(rect, className, metadata = {}) {
+      if (!rect) return null;
+      const overlay = document.createElement("span");
+      overlay.className = "motion-overlay " + className;
+      overlay.setAttribute("aria-hidden", "true");
+      Object.entries(metadata).forEach(([key, value]) => { overlay.dataset[key] = String(value); });
+      Object.assign(overlay.style, {
+        left: rect.left + "px",
+        top: rect.top + "px",
+        width: rect.width + "px",
+        height: rect.height + "px"
+      });
+      document.body.append(overlay);
+      return overlay;
+    }
+
+    function tutorialHandCueDuration() {
+      return reduceMotion
+        ? Math.min(480, activeMotionTimings.BLOCK_FALL_LAND * 2)
+        : Math.min(840, activeMotionTimings.BLOCK_FALL_LAND * 2);
+    }
+
+    function positionTutorialHandCue(cue, target) {
+      const rect = rectSnapshot(target);
+      if (!rect) return false;
+      Object.assign(cue.style, {
+        left: rect.left + rect.width / 2 + "px",
+        top: rect.top + rect.height / 2 + "px"
+      });
+      return true;
+    }
+
+    function showTutorialHandCue(unit, place, index) {
+      const rect = rectSnapshot(unit);
+      cleanupTutorialHandCues();
+      if (!rect) return;
+      const cue = document.createElement("span");
+      cue.className = "tutorial-hand-cue" + (reduceMotion ? " static" : "");
+      cue.textContent = "👆";
+      cue.setAttribute("aria-hidden", "true");
+      cue.dataset.place = place;
+      cue.dataset.index = String(index);
+      positionTutorialHandCue(cue, unit);
+      document.body.append(cue);
+      recordMotion("tutorial-hand-cue", {
+        promptKey: state.promptKey || promptKeyForState(state),
+        place,
+        index,
+        reduced: reduceMotion
+      });
+      const duration = tutorialHandCueDuration();
+      if (reduceMotion) {
+        setTimeout(() => cue.remove(), duration);
+        return;
+      }
+      animateTracked(cue, [
+        { transform: "translate(-50%, 9px) scale(.94)", opacity: 0 },
+        { offset: .2, transform: "translate(-50%, 5px) scale(1)", opacity: 1 },
+        { offset: .55, transform: "translate(-50%, 0) scale(.9)", opacity: 1 },
+        { transform: "translate(-50%, 3px) scale(.96)", opacity: 0 }
+      ], { duration, easing: "ease-out", fill: "forwards" }).finally(() => cue.remove());
+    }
+
+    async function tapTutorialControl(target, controlId, session = motionSession) {
+      cleanupTutorialHandCues();
+      if (!target || !target.isConnected) return false;
+      const cue = document.createElement("span");
+      cue.className = "tutorial-hand-cue" + (reduceMotion ? " static" : "");
+      cue.textContent = "👆";
+      cue.setAttribute("aria-hidden", "true");
+      cue.dataset.controlId = controlId;
+      if (!positionTutorialHandCue(cue, target)) return false;
+      const targetDialog = target.closest("dialog");
+      (targetDialog && targetDialog.open ? targetDialog : document.body).append(cue);
+      recordMotion("tutorial-hand-cue", {
+        promptKey: state.promptKey || promptKeyForState(state),
+        controlId,
+        reduced: reduceMotion
+      });
+
+      const duration = tutorialHandCueDuration();
+      const fullCue = pause(duration);
+      const animation = reduceMotion ? Promise.resolve() : animateTracked(cue, [
+        { transform: "translate(-50%, 9px) scale(.94)", opacity: 0 },
+        { offset: .2, transform: "translate(-50%, 5px) scale(1)", opacity: 1 },
+        { offset: .55, transform: "translate(-50%, 0) scale(.9)", opacity: 1 },
+        { transform: "translate(-50%, 3px) scale(.96)", opacity: 0 }
+      ], { duration, easing: "ease-out", fill: "forwards" });
+
+      await pause(Math.round(duration * .55));
+      if (!state || session !== motionSession || !solverRunning || !target.isConnected) {
+        cue.remove();
+        return false;
+      }
+      recordMotion("tutorial-control-tap", {
+        promptKey: state.promptKey || promptKeyForState(state),
+        controlId
+      });
+      tutorialControlActivation = target;
+      try {
+        target.click();
+      } finally {
+        tutorialControlActivation = null;
+      }
+
+      // A modal moves into or out of the top layer at the press point. Keep the
+      // remainder of the cue visible on whichever side of that transition is active.
+      if (elements.keypad.open) elements.keypad.append(cue);
+      else if (cue.closest("dialog")) document.body.append(cue);
+      await Promise.all([animation, fullCue]);
+      cue.remove();
+      return Boolean(state && session === motionSession && solverRunning);
+    }
+
+    function resultUnit(place, index) {
+      return elements.board.querySelector('[data-motion-role="result"][data-place="' + place + '"][data-index="' + index + '"]');
+    }
+
+    function sourceUnit(place, index) {
+      return elements.board.querySelector('[data-motion-role="source"][data-place="' + place + '"][data-index="' + index + '"]');
+    }
+
+    function flashMotionTarget(element) {
+      if (!element) return;
+      element.classList.remove("motion-target-flash");
+      void element.offsetWidth;
+      element.classList.add("motion-target-flash");
+      setTimeout(() => element.classList.remove("motion-target-flash"), 280);
+    }
+
+    function clearIdleHints() {
+      clearTimeout(nextUnitHintTimer);
+      clearTimeout(solverHintTimer);
+      nextUnitHintTimer = 0;
+      solverHintTimer = 0;
+      elements.answer.classList.remove("solver-hint", "static-hint");
+      document.querySelectorAll(".unit.next-unit-hint").forEach(unit => unit.classList.remove("next-unit-hint"));
+    }
+
+    function idleHintsAllowed() {
+      return !document.hidden && state && state.phase !== "completed" && !state.solverUsed &&
+        !solverRunning && !isDialogOpen() && !isMotionDraining();
+    }
+
+    function noteActivity() {
+      clearIdleHints();
+      if (!idleHintsAllowed()) return;
+      const timings = IDLE_HINT_TIMINGS[profile.difficultyMode];
+      if (document.querySelector(".unit.eligible")) {
+        nextUnitHintTimer = setTimeout(showNextUnitHint, timings.NEXT_BLOCK);
+      }
+      solverHintTimer = setTimeout(showSolverHint, timings.FIRST_SOLVER_HINT);
+    }
+
+    function showNextUnitHint() {
+      nextUnitHintTimer = 0;
+      if (!idleHintsAllowed()) {
+        clearIdleHints();
+        return;
+      }
+      const eligibleUnit = document.querySelector(".unit.eligible");
+      if (eligibleUnit) eligibleUnit.classList.add("next-unit-hint");
+    }
+
+    function showSolverHint(shouldAnnounce = true) {
+      solverHintTimer = 0;
+      if (!idleHintsAllowed()) {
+        clearIdleHints();
+        return;
+      }
+      const className = reduceMotion ? "static-hint" : "solver-hint";
+      elements.answer.classList.remove("solver-hint", "static-hint");
+      if (!reduceMotion) void elements.answer.offsetWidth;
+      elements.answer.classList.add(className);
+      const message = "Need help? Hold the question mark for Tutorial.";
+      if (shouldAnnounce) announce(message);
+      if (reduceMotion) showToast(message);
+      else solverHintTimer = setTimeout(showSolverHint, IDLE_HINT_TIMINGS[profile.difficultyMode].SOLVER_REPEAT);
+    }
+
+    function renderJourney() {
+      elements.journey.replaceChildren();
+      const earned = Math.min(4, profile.emojiProgress);
+      const start = Math.max(0, profile.emojiProgress - earned);
+      for (let i = 0; i < 4 - earned; i += 1) {
+        const placeholder = document.createElement("span");
+        placeholder.className = "milestone placeholder";
+        placeholder.setAttribute("aria-hidden", "true");
+        elements.journey.append(placeholder);
+      }
+      for (let i = 0; i < earned; i += 1) {
+        const absoluteStep = start + i;
+        const item = PROGRESS_EMOJIS[absoluteStep % PROGRESS_EMOJIS.length];
+        const milestone = document.createElement("span");
+        milestone.className = "milestone" + (i === earned - 1 ? " current" : "");
+        milestone.textContent = emojiFromCode(item[0]);
+        milestone.setAttribute("aria-label", "Earned: " + item[1]);
+        if (i === earned - 1) milestone.setAttribute("aria-current", "step");
+        elements.journey.append(milestone);
+      }
+      const nextItem = PROGRESS_EMOJIS[profile.emojiProgress % PROGRESS_EMOJIS.length];
+      const next = document.createElement("span");
+      next.className = "milestone next";
+      next.textContent = emojiFromCode(nextItem[0]);
+      next.setAttribute("aria-label", "Next milestone: " + nextItem[1]);
+      elements.journey.append(next);
+    }
+
+    function makeUnit(owner, counted, eligible, label, traded = false, metadata = null, queued = false) {
+      const unit = document.createElement(eligible ? "button" : "span");
+      unit.className = "unit owner-" + owner + (counted ? " counted" : "") + (queued ? " queued" : "") +
+        (eligible ? " eligible" : "") + (traded ? " traded" : "");
+      if (metadata) {
+        unit.dataset.motionRole = metadata.role;
+        unit.dataset.place = metadata.place;
+        unit.dataset.index = String(metadata.index);
+        unit.dataset.owner = owner;
+      }
+      if (eligible) {
+        unit.type = "button";
+        unit.setAttribute("aria-label", label);
+        unit.addEventListener("click", onUnitTap);
+      } else {
+        unit.setAttribute("aria-hidden", "true");
+      }
+      return unit;
+    }
+
+    function makeEmptyUnit(metadata = null) {
+      const unit = document.createElement("span");
+      unit.className = "empty-unit";
+      unit.setAttribute("aria-hidden", "true");
+      if (metadata) {
+        unit.dataset.motionRole = metadata.role;
+        unit.dataset.place = metadata.place;
+        unit.dataset.index = String(metadata.index);
+      }
+      return unit;
+    }
+
+    function placeProgress(place) {
+      if (place === "ones") {
+        return {
+          accepted: state.onesAcceptedCursor,
+          landed: state.onesCursor,
+          total: problem.onesTotal,
+          carryNeeded: Boolean(problem.carryToTens),
+          carryVisible: state.visibleOnesCarry,
+          phase: "counting-ones"
+        };
+      }
+      if (place === "hundreds") {
+        return {
+          accepted: state.hundredsAcceptedCursor,
+          landed: state.hundredsCursor,
+          total: problem.hundreds,
+          carryNeeded: false,
+          carryVisible: true,
+          phase: "counting-hundreds"
+        };
+      }
+      return {
+        accepted: state.tensAcceptedCursor,
+        landed: state.tensCursor,
+        total: problem.tensTotal,
+        carryNeeded: Boolean(problem.carryToHundreds),
+        carryVisible: state.visibleHundredsCarry,
+        phase: "counting-tens"
+      };
+    }
+
+    function canAcceptPlaceUnit(place, allowSolver = false) {
+      if (!state || state.phase === "completed") return false;
+      const progress = placeProgress(place);
+      return state.phase === progress.phase && (allowSolver || !solverRunning) &&
+        canQueuePlaceUnit(progress.accepted, progress.landed, progress.total, progress.carryNeeded, progress.carryVisible);
+    }
+
+    function sourceHundreds() {
+      const panel = document.createElement("div");
+      panel.className = "place-panel hundreds";
+      panel.innerHTML = '<span class="hundred-slot" aria-label="Empty hundreds slot"></span>';
+      return panel;
+    }
+
+    function sourceTens(owner, digit, rowOffset) {
+      const panel = document.createElement("div");
+      panel.className = "place-panel tens";
+      const grid = document.createElement("div");
+      grid.className = "tens-grid";
+      for (let index = 0; index < 10; index += 1) {
+        if (index < digit) {
+          const globalIndex = rowOffset + index;
+          const eligible = canAcceptPlaceUnit("tens") && state.tensAcceptedCursor === globalIndex;
+          const counted = state.tensCursor > globalIndex;
+          const queued = state.tensAcceptedCursor > globalIndex && !counted;
+          grid.append(makeUnit(owner, counted, eligible, "Count the next ten", false,
+            { role: "source", place: "tens", index: globalIndex }, queued));
+        } else grid.append(makeEmptyUnit());
+      }
+      const label = document.createElement("span");
+      label.className = "digit-label";
+      label.textContent = digit;
+      label.setAttribute("aria-label", digit + " tens out of 10 positions");
+      panel.append(grid, label);
+      return panel;
+    }
+
+    function sourceOnes(owner, digit, rowOffset) {
+      const panel = document.createElement("div");
+      panel.className = "place-panel ones";
+      const strip = document.createElement("div");
+      strip.className = "ones-strip";
+      for (let index = 0; index < 10; index += 1) {
+        if (index < digit) {
+          const globalIndex = rowOffset + index;
+          const eligible = canAcceptPlaceUnit("ones") && state.onesAcceptedCursor === globalIndex;
+          const counted = state.onesCursor > globalIndex;
+          const queued = state.onesAcceptedCursor > globalIndex && !counted;
+          strip.append(makeUnit(owner, counted, eligible, "Count the next one", false,
+            { role: "source", place: "ones", index: globalIndex }, queued));
+        } else strip.append(makeEmptyUnit());
+      }
+      const label = document.createElement("span");
+      label.className = "digit-label";
+      label.textContent = digit;
+      label.setAttribute("aria-label", digit + " ones out of 10 positions");
+      panel.append(strip, label);
+      return panel;
+    }
+
+    function resultHundreds() {
+      const panel = document.createElement("div");
+      panel.className = "place-panel hundreds result-panel";
+      const countedHundreds = state.phase === "completed" ? problem.hundreds : state.hundredsCursor;
+      const slot = document.createElement("span");
+      slot.className = "hundred-slot" + (countedHundreds ? " filled" : "");
+      slot.dataset.motionRole = "result";
+      slot.dataset.place = "hundreds";
+      slot.dataset.index = "0";
+      slot.setAttribute("aria-label", countedHundreds ? "One hundred counted" : "Empty hundreds result slot");
+      if (countedHundreds) slot.textContent = "100";
+      panel.append(slot);
+      if (problem.carryToHundreds && state.phase !== "completed") {
+        const carriedHundred = document.createElement("span");
+        carriedHundred.className = "carried-hundred-source" + (state.visibleHundredsCarry ? "" : " placeholder");
+        const carryLabel = document.createElement("span");
+        carryLabel.textContent = "carry";
+        carryLabel.setAttribute("aria-hidden", "true");
+        const eligible = state.visibleHundredsCarry && canAcceptPlaceUnit("hundreds") && state.hundredsAcceptedCursor === 0;
+        const carryAvailable = state.visibleHundredsCarry && state.hundredsAcceptedCursor <= 0;
+        const carryToken = carryAvailable
+          ? makeUnit("carry", false, eligible, "Count the gold carried hundred", false,
+            { role: "source", place: "hundreds", index: 0 })
+          : makeEmptyUnit({ role: "source", place: "hundreds", index: 0 });
+        carryToken.classList.add("hundred-slot");
+        if (carryAvailable) {
+          carryToken.classList.add("filled");
+          carryToken.textContent = "100";
+        }
+        carryToken.dataset.carryDestination = "hundreds";
+        carriedHundred.append(carryLabel, carryToken);
+        panel.append(carriedHundred);
+      }
+      if (countedHundreds && (state.phase === "completed" || profile.difficultyMode === "easy")) {
+        const label = document.createElement("span");
+        label.className = "digit-label hundreds-count";
+        label.textContent = countedHundreds;
+        label.setAttribute("aria-label", countedHundreds + (state.phase === "completed" ? " hundred in the result" : " hundred counted"));
+        panel.append(label);
+      }
+      if (state.carryKind === "hundreds") {
+        const callout = document.createElement("span");
+        callout.className = "carry-callout";
+        callout.textContent = "10 tens → 100";
+        panel.append(callout);
+      }
+      return panel;
+    }
+
+    function ownerForOnes(index) { return index < problem.digits.a.ones ? "a" : "b"; }
+    function ownerForTens(index) {
+      if (index < problem.digits.a.tens) return "a";
+      if (index < problem.originalTensTotal) return "b";
+      return "carry";
+    }
+
+    function renderPlaceCountLabel(label, count, ariaLabel, showCarry) {
+      label.setAttribute("aria-label", ariaLabel);
+      if (!showCarry || count < 10) {
+        label.textContent = count;
+        return;
+      }
+      const value = document.createElement("span");
+      value.className = "place-count";
+      value.setAttribute("aria-hidden", "true");
+      const carry = document.createElement("span");
+      carry.className = "carry-digit";
+      carry.textContent = Math.floor(count / 10);
+      const remainder = document.createElement("span");
+      remainder.textContent = count % 10;
+      value.append(carry, remainder);
+      label.replaceChildren(value);
+    }
+
+    function resultOnes() {
+      const panel = document.createElement("div");
+      panel.className = "place-panel ones result-panel";
+      const groups = document.createElement("div");
+      groups.className = "result-groups";
+      if (state.phase === "completed") {
+        groups.append(resultOnesStrip(problem.onesRemainder));
+      } else {
+        const groupCount = problem.onesTotal > 10 || state.onesCursor > 10 ? 2 : 1;
+        for (let group = 0; group < groupCount; group += 1) {
+          const strip = document.createElement("div");
+          const forming = group === 0 && state.carryKind === "ones" && state.carryPhase === "formation";
+          strip.className = "ones-strip" + (group === 0 && state.visibleOnesCarry ? " trade-group" : "") +
+            (forming ? " trade-group carry-forming" : "");
+          for (let local = 0; local < 10; local += 1) {
+            const index = group * 10 + local;
+            const metadata = { role: "result", place: "ones", index };
+            if (index < state.onesCursor) {
+              strip.append(makeUnit(ownerForOnes(index), true, false, "", group === 0 && state.visibleOnesCarry, metadata));
+            } else strip.append(makeEmptyUnit(metadata));
+          }
+          groups.append(strip);
+        }
+      }
+      panel.append(groups);
+      if (state.carryKind === "ones" && state.carryPhase === "formation") {
+        const token = document.createElement("span");
+        token.className = "carry-formation-token ten-token";
+        token.dataset.carryOrigin = "ones";
+        token.setAttribute("aria-hidden", "true");
+        panel.append(token);
+      }
+      if (state.phase === "completed" || profile.difficultyMode === "easy") {
+        const label = document.createElement("span");
+        label.className = "digit-label";
+        const displayedOnes = state.phase === "completed" ? problem.onesRemainder : state.onesCursor;
+        renderPlaceCountLabel(
+          label,
+          displayedOnes,
+          displayedOnes + (state.phase === "completed" ? " ones in the result" : " ones counted"),
+          state.phase !== "completed"
+        );
+        panel.append(label);
+      }
+      return panel;
+    }
+
+    function resultOnesStrip(count) {
+      const strip = document.createElement("div");
+      strip.className = "ones-strip";
+      const remainderOffset = problem.carryToTens ? 10 : 0;
+      for (let index = 0; index < 10; index += 1) {
+        const resultIndex = remainderOffset + index;
+        const metadata = { role: "result", place: "ones", index: resultIndex };
+        if (index < count) strip.append(makeUnit(ownerForOnes(resultIndex), true, false, "", false, metadata));
+        else strip.append(makeEmptyUnit(metadata));
+      }
+      return strip;
+    }
+
+    function resultTens() {
+      const panel = document.createElement("div");
+      panel.className = "place-panel tens result-panel";
+      const groups = document.createElement("div");
+      groups.className = "result-groups";
+      if (state.phase === "completed") {
+        groups.append(resultTensGrid(problem.tensRemainder, problem.carryToHundreds ? 10 : 0, false));
+      } else {
+        const groupCount = problem.tensTotal > 10 || state.tensCursor > 10 ? 2 : 1;
+        for (let group = 0; group < groupCount; group += 1) {
+          groups.append(resultTensGrid(Math.max(0, Math.min(10, state.tensCursor - group * 10)), group * 10, group === 0 && state.visibleHundredsCarry));
+        }
+      }
+      panel.append(groups);
+      if (state.carryKind === "hundreds" && state.carryPhase === "formation") {
+        const token = document.createElement("span");
+        token.className = "carry-formation-token hundred-token";
+        token.dataset.carryOrigin = "hundreds";
+        token.setAttribute("aria-hidden", "true");
+        panel.append(token);
+      }
+      if (state.phase === "completed" || profile.difficultyMode === "easy") {
+        const label = document.createElement("span");
+        label.className = "digit-label";
+        const displayedTens = state.phase === "completed" ? problem.tensRemainder : state.tensCursor;
+        renderPlaceCountLabel(
+          label,
+          displayedTens,
+          displayedTens + (state.phase === "completed" ? " tens in the result" : " tens counted"),
+          state.phase !== "completed"
+        );
+        panel.append(label);
+      }
+      if (problem.carryToTens && state.phase !== "completed") {
+        const source = document.createElement("span");
+        source.className = "carried-ten-source" + (state.visibleOnesCarry ? "" : " placeholder");
+        source.append(document.createTextNode("carry"));
+        const carryIndex = problem.originalTensTotal;
+        const eligible = state.visibleOnesCarry && canAcceptPlaceUnit("tens") && state.tensAcceptedCursor === carryIndex;
+        const carryAvailable = state.visibleOnesCarry && state.tensAcceptedCursor <= carryIndex;
+        const metadata = { role: "source", place: "tens", index: carryIndex };
+        const token = carryAvailable
+          ? makeUnit("carry", false, eligible, "Count the gold carried ten", false, metadata)
+          : makeEmptyUnit(metadata);
+        token.dataset.carryDestination = "tens";
+        source.append(token);
+        panel.append(source);
+      }
+      return panel;
+    }
+
+    function resultTensGrid(count, offset, traded) {
+      const grid = document.createElement("div");
+      const forming = offset === 0 && state.carryKind === "hundreds" && state.carryPhase === "formation";
+      grid.className = "tens-grid" + (traded ? " trade-group" : "") + (forming ? " trade-group carry-forming" : "");
+      for (let local = 0; local < 10; local += 1) {
+        const index = offset + local;
+        const metadata = { role: "result", place: "tens", index };
+        if (local < count) grid.append(makeUnit(ownerForTens(index), true, false, "", traded, metadata));
+        else grid.append(makeEmptyUnit(metadata));
+      }
+      return grid;
+    }
+
+    function renderBoard() {
+      const showHundreds = profile.currentLevel >= HUNDREDS_UNLOCK_LEVEL;
+      elements.board.className = "board" + (showHundreds ? "" : " compact") + (hundredsUnlockPending ? " unlocking" : "");
+      elements.board.replaceChildren();
+      const emptyHeader = document.createElement("span");
+      emptyHeader.setAttribute("aria-hidden", "true");
+      elements.board.append(emptyHeader);
+      if (showHundreds) {
+        const hundredsTitle = document.createElement("div");
+        hundredsTitle.className = "column-title hundreds";
+        hundredsTitle.textContent = "Hundreds";
+        elements.board.append(hundredsTitle);
+      }
+      ["Tens", "Ones"].forEach(name => {
+        const title = document.createElement("div");
+        title.className = "column-title " + name.toLowerCase();
+        title.textContent = name;
+        elements.board.append(title);
+      });
+      const rows = [
+        { sign: "", badge: problem.a, badgeClass: "first", owner: "a", digits: problem.digits.a, offsets: { tens: 0, ones: 0 } },
+        { sign: "+", badge: problem.b, badgeClass: "second", owner: "b", digits: problem.digits.b, offsets: { tens: problem.digits.a.tens, ones: problem.digits.a.ones } }
+      ];
+      rows.forEach(row => {
+        const rowLabel = document.createElement("div");
+        rowLabel.className = "row-label";
+        const sign = document.createElement("span");
+        sign.className = "row-sign";
+        sign.textContent = row.sign;
+        sign.setAttribute("aria-hidden", "true");
+        const badge = document.createElement("div");
+        badge.className = "addend-badge " + row.badgeClass;
+        badge.textContent = row.badge;
+        badge.setAttribute("aria-label", "Addend " + row.badge);
+        rowLabel.append(sign, badge);
+        elements.board.append(rowLabel);
+        if (showHundreds) elements.board.append(sourceHundreds());
+        elements.board.append(sourceTens(row.owner, row.digits.tens, row.offsets.tens), sourceOnes(row.owner, row.digits.ones, row.offsets.ones));
+      });
+      const resultLabel = document.createElement("div");
+      resultLabel.className = "row-label";
+      const equals = document.createElement("span");
+      equals.className = "row-sign";
+      equals.textContent = "=";
+      equals.setAttribute("aria-hidden", "true");
+      const resultBadge = document.createElement("div");
+      resultBadge.className = "addend-badge result";
+      resultBadge.textContent = state.phase === "completed" ? problem.result : "?";
+      resultBadge.setAttribute("aria-label", state.phase === "completed" ? "Result " + problem.result : "Result not yet revealed");
+      resultLabel.append(equals, resultBadge);
+      elements.board.append(resultLabel);
+      if (showHundreds) elements.board.append(resultHundreds());
+      elements.board.append(resultTens(), resultOnes());
+      if (hundredsUnlockPending) {
+        hundredsUnlockPending = false;
+        setTimeout(() => elements.board.classList.remove("unlocking"), reduceMotion ? 1800 : 1450);
+      }
+    }
+
+    function promptKeyForState(currentState) {
+      if (currentState.phase === "completed") return "completed";
+      if (currentState.phase === "awaiting-answer") return "awaiting-answer";
+      if (currentState.animationState === "ones" || currentState.phase === "carrying-to-tens") return "carrying-ones";
+      if (currentState.animationState === "hundreds" || currentState.phase === "carrying-to-hundreds") return "carrying-hundreds";
+      if (currentState.phase === "counting-hundreds") return "carrying-hundreds";
+      if (currentState.skipMessage && currentState.phase === "counting-tens" && currentState.tensCursor === 0) return "skip-zero-ones";
+      if (currentState.phase === "counting-ones") return "counting-ones";
+      if (currentState.phase === "counting-tens") return currentState.visibleOnesCarry ? "counting-tens-with-carry" : "counting-tens";
+      return "place-value-fallback";
+    }
+
+    function selectPromptTemplate(pool, previousTemplate = "", random = Math.random) {
+      if (!Array.isArray(pool) || !pool.length) return "";
+      const choices = pool.length > 1 ? pool.filter(template => template !== previousTemplate) : pool;
+      return choices[Math.floor(normalizedRandom(random) * choices.length)];
+    }
+
+    function formatPrompt(template, values = {}) {
+      return String(template).replace(/\{(a|b|result)\}/g, (_, key) => String(values[key] ?? ""));
+    }
+
+    function getPrompt() {
+      const key = promptKeyForState(state);
+      if (state.promptKey !== key || !state.promptTemplate) {
+        state.promptKey = key;
+        state.promptTemplate = selectPromptTemplate(PROMPT_POOLS[key], lastPromptTemplateByKey[key]);
+        lastPromptTemplateByKey[key] = state.promptTemplate;
+      }
+      return formatPrompt(state.promptTemplate, problem);
+    }
+
+    function renderPrompt() {
+      const nextPrompt = getPrompt();
+      const changed = lastRenderedPrompt !== null && lastRenderedPrompt !== nextPrompt;
+      elements.prompt.textContent = nextPrompt;
+      if (changed) {
+        beetleReactionCount += 1;
+        elements.promptMascot.dataset.reactionCount = String(beetleReactionCount);
+        recordMotion("beetle-reaction", { promptKey: state.promptKey });
+        if (solverRunning && state.phase !== "completed") pendingTutorialStagePromptKey = state.promptKey;
+        playBeetleReactionSound();
+        elements.promptMascot.classList.remove("reacting");
+        if (!reduceMotion) {
+          void elements.promptMascot.offsetWidth;
+          elements.promptMascot.style.animationDuration = activeMotionTimings.BEETLE_REACTION + "ms";
+          elements.promptMascot.classList.add("reacting");
+          setTimeout(() => elements.promptMascot.classList.remove("reacting"), activeMotionTimings.BEETLE_REACTION + 20);
+        }
+      }
+      lastRenderedPrompt = nextPrompt;
+    }
+
+    function createSuggestionButton(item, index) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "suggestion" + (index === 0 ? " current" : "");
+      button.innerHTML = item.a + "<br>+ " + item.b;
+      button.setAttribute("aria-label", item.a + " plus " + item.b + ", " + CATEGORY_NAMES[item.category]);
+      if (index === 0) {
+        button.disabled = true;
+        button.setAttribute("aria-current", "true");
+      } else {
+        button.disabled = isMotionDraining() || solverRunning || diceRefreshState !== "idle";
+        button.addEventListener("click", () => selectSuggestion(item));
+      }
+      return button;
+    }
+
+    function replaceAlternativeSuggestions(mode) {
+      const existing = Array.from(elements.suggestions.querySelectorAll(".suggestion:not(.current)"));
+      return tray.slice(1).map((item, index) => {
+        const button = createSuggestionButton(item, index + 1);
+        button.disabled = true;
+        button.dataset.refreshEmphasis = mode;
+        if (existing[index]) existing[index].replaceWith(button);
+        else elements.suggestions.querySelector(".dice")?.before(button);
+        return button;
+      });
+    }
+
+    function renderSuggestions() {
+      elements.suggestions.replaceChildren();
+      tray.forEach((item, index) => {
+        elements.suggestions.append(createSuggestionButton(item, index));
+      });
+      const dice = document.createElement("button");
+      dice.type = "button";
+      dice.className = "dice";
+      dice.textContent = diceFace;
+      dice.setAttribute("aria-label", "Refresh the three alternative sums");
+      dice.disabled = isMotionDraining() || solverRunning;
+      dice.addEventListener("click", refreshAlternatives);
+      elements.suggestions.append(dice);
+    }
+
+    function render() {
+      const motionLocked = isMotionDraining() || diceRefreshState !== "idle";
+      elements.equationA.textContent = problem.a;
+      elements.equationB.textContent = problem.b;
+      elements.answer.textContent = state.phase === "completed" ? problem.result : "?";
+      const answerReady = state.phase === "awaiting-answer";
+      elements.answer.classList.toggle("answer-ready", answerReady);
+      elements.answer.classList.toggle("motion-reduced", answerReady && reduceMotion);
+      elements.answer.setAttribute("aria-label", state.phase === "completed" ? "Answer: " + problem.result : "Question mark. Tap to type the answer, or hold to start Tutorial");
+      const solverNeedsAnswerControl = solverRunning && state.phase === "awaiting-answer";
+      elements.answer.disabled = state.phase === "completed" || motionLocked || (solverRunning && !solverNeedsAnswerControl);
+      const resetCompleted = state.phase === "completed";
+      elements.reset.hidden = resetCompleted;
+      elements.reset.disabled = resetCompleted || motionLocked || solverRunning;
+      elements.settings.disabled = motionLocked || solverRunning;
+      elements.fullscreen.disabled = motionLocked || solverRunning;
+      renderPrompt();
+      elements.score.textContent = profile.score;
+      elements.levelBadge.textContent = "L" + profile.currentLevel;
+      elements.levelBadge.setAttribute("aria-label", "Current learning level " + profile.currentLevel);
+      elements.sound.textContent = profile.sound ? "🔊 On" : "🔇 Off";
+      elements.sound.setAttribute("aria-pressed", String(profile.sound));
+      elements.sound.setAttribute("aria-label", profile.sound ? "Turn sound off" : "Turn sound on");
+      elements.levelSelect.value = String(profile.currentLevel);
+      elements.difficultyInputs.forEach(input => { input.checked = input.value === profile.difficultyMode; });
+      const showNext = state.phase === "completed";
+      const launchTutorialComplete = showNext && launchTutorialActive;
+      elements.promptRow.classList.toggle("has-next", showNext);
+      elements.next.hidden = !showNext;
+      elements.next.disabled = !showNext || motionLocked || solverRunning;
+      elements.next.textContent = launchTutorialComplete ? "Start Game" : "Next →";
+      elements.next.setAttribute("aria-label", launchTutorialComplete ? "Start the game with a new problem" : "Open the next problem");
+      elements.next.className = "next-button" + (showNext ? " success-next" + (reduceMotion ? " motion-reduced" : "") : "");
+      renderJourney();
+      renderBoard();
+      renderSuggestions();
+    }
+
+    function pause(milliseconds = 0) {
+      return new Promise(resolve => setTimeout(resolve, milliseconds));
+    }
+
+    async function pauseTutorialStage(reason, promptKey, session = motionSession) {
+      const duration = activeMotionTimings.TUTORIAL_STAGE_PAUSE;
+      recordMotion("tutorial-stage-pause", { promptKey, reason, duration });
+      await pause(duration);
+      return Boolean(state && session === motionSession && solverRunning);
+    }
+
+    async function pauseTutorialAnswer(session = motionSession) {
+      const duration = activeMotionTimings.TUTORIAL_ANSWER_PAUSE;
+      pendingTutorialStagePromptKey = null;
+      recordMotion("tutorial-answer-pause", { promptKey: "awaiting-answer", reason: "answer-ready", duration });
+      await pause(duration);
+      return Boolean(state && session === motionSession && solverRunning && state.phase === "awaiting-answer");
+    }
+
+    async function pausePendingTutorialStage(session = motionSession) {
+      if (!pendingTutorialStagePromptKey) return true;
+      const promptKey = pendingTutorialStagePromptKey;
+      pendingTutorialStagePromptKey = null;
+      return pauseTutorialStage("prompt-change", promptKey, session);
+    }
+
+    function onUnitTap(event) {
+      const unit = event.currentTarget;
+      if (!unit || solverRunning || diceRefreshState !== "idle" || isDialogOpen() || state.phase === "completed") return;
+      noteActivity();
+      acceptPlaceUnit(unit.dataset.place, unit, false);
+    }
+
+    function acceptPlaceUnit(place, unit, allowSolver) {
+      if (!allowSolver && isDialogOpen()) return null;
+      if (!canAcceptPlaceUnit(place, allowSolver)) return null;
+      const progress = placeProgress(place);
+      const index = Number(unit && unit.dataset.index);
+      if (!unit || index !== progress.accepted) return null;
+      const item = {
+        place,
+        index,
+        owner: unit.dataset.owner || (place === "ones" ? ownerForOnes(index) : place === "tens" ? ownerForTens(index) : "carry"),
+        origin: rectSnapshot(unit)
+      };
+      if (place === "ones") state.onesAcceptedCursor += 1;
+      else if (place === "tens") state.tensAcceptedCursor += 1;
+      else state.hundredsAcceptedCursor += 1;
+      state.dropQueue.push(item);
+      state.animationState = "drop";
+      recordMotion("drop-accepted", { place, index, accepted: index + 1 });
+      render();
+      return ensureDropDrain();
+    }
+
+    function acceptNextPlaceUnitForSolver() {
+      const place = state.phase === "counting-ones" ? "ones"
+        : state.phase === "counting-tens" ? "tens"
+          : state.phase === "counting-hundreds" ? "hundreds" : null;
+      if (!place || !canAcceptPlaceUnit(place, true)) return null;
+      const progress = placeProgress(place);
+      const unit = sourceUnit(place, progress.accepted);
+      if (!unit) return null;
+      showTutorialHandCue(unit, place, progress.accepted);
+      return acceptPlaceUnit(place, unit, true);
+    }
+
+    function ensureDropDrain() {
+      if (dropDrainPromise) return dropDrainPromise;
+      const session = motionSession;
+      const promise = drainDropQueue(session);
+      dropDrainPromise = promise;
+      promise.finally(() => {
+        if (dropDrainPromise === promise) dropDrainPromise = null;
+      });
+      return promise;
+    }
+
+    async function animateDrop(item) {
+      const target = resultUnit(item.place, item.index);
+      const destination = rectSnapshot(target);
+      if (reduceMotion || motionSkipRequested || !item.origin || !destination) {
+        playDropImpact(item.place);
+        recordMotion("drop-static", { place: item.place, index: item.index });
+        if (!item.origin || !destination) motionSkipRequested = true;
+        return true;
+      }
+      cleanupMotionOverlays();
+      const overlay = makeMotionOverlay(item.origin,
+        "unit owner-" + item.owner + (item.place === "hundreds" ? " hundred-slot filled" : ""), {
+        motionKind: "drop", place: item.place, index: item.index
+      });
+      if (!overlay) return true;
+      const deltaX = destination.left - item.origin.left;
+      const deltaY = destination.top - item.origin.top;
+      const scaleX = destination.width / item.origin.width;
+      const scaleY = destination.height / item.origin.height;
+      const translate = (x, y, xScale, yScale) =>
+        "translate(" + x.toFixed(2) + "px," + y.toFixed(2) + "px) scale(" + xScale.toFixed(3) + "," + yScale.toFixed(3) + ")";
+      recordMotion("drop-start", { place: item.place, index: item.index });
+      playDropSound(item.place, activeMotionTimings.BLOCK_FALL_LAND);
+      try {
+        await animateTracked(overlay, [
+          { offset: 0, transform: translate(0, 0, 1, 1), opacity: 1, easing: "cubic-bezier(.55,.02,.82,.45)" },
+          { offset: .72, transform: translate(deltaX, deltaY, scaleX * 1.08, scaleY * .76), opacity: 1, easing: "cubic-bezier(.18,.8,.3,1)" },
+          { offset: .86, transform: translate(deltaX, deltaY - 3, scaleX * .94, scaleY * 1.08), opacity: 1, easing: "ease-out" },
+          { offset: 1, transform: translate(deltaX, deltaY, scaleX, scaleY), opacity: 1 }
+        ], { duration: activeMotionTimings.BLOCK_FALL_LAND, fill: "forwards" });
+      } finally {
+        overlay.remove();
+      }
+      return false;
+    }
+
+    async function drainDropQueue(session) {
+      while (state && session === motionSession && state.dropQueue.length) {
+        const item = state.dropQueue[0];
+        const useStaticFlash = await animateDrop(item);
+        if (!state || session !== motionSession) return;
+        if (item.place === "ones") state.onesCursor = item.index + 1;
+        else if (item.place === "tens") state.tensCursor = item.index + 1;
+        else state.hundredsCursor = item.index + 1;
+        state.tempCount = item.index + 1;
+        state.dropQueue.shift();
+        recordMotion("drop-landed", { place: item.place, index: item.index, landed: item.index + 1 });
+        announce(item.place === "hundreds" ? "Count 1 hundred." : "Count " + state.tempCount + " " + item.place + ".");
+
+        const carryKind = item.place === "ones" && state.onesCursor === 10 && problem.carryToTens && !state.visibleOnesCarry
+          ? "ones"
+          : item.place === "tens" && state.tensCursor === 10 && problem.carryToHundreds && !state.visibleHundredsCarry
+            ? "hundreds"
+            : null;
+        if (carryKind) {
+          state.animationState = "carry-pause";
+          render();
+          if (useStaticFlash) flashMotionTarget(resultUnit(item.place, item.index));
+          await pause(0);
+          await performCarry(carryKind, session);
+          if (!state || session !== motionSession) return;
+        } else {
+          state.animationState = state.dropQueue.length ? "drop" : null;
+          render();
+          if (useStaticFlash) flashMotionTarget(resultUnit(item.place, item.index));
+        }
+
+        if (!state.dropQueue.length) {
+          const progress = placeProgress(item.place);
+          if (progress.landed >= progress.total) {
+            if (item.place === "ones") finishOnesPlace();
+            else if (item.place === "tens") finishTensPlace();
+            else finishHundredsPlace();
+          }
+        }
+      }
+      if (state && session === motionSession && !state.dropQueue.length && state.animationState === "drop") {
+        state.animationState = null;
+        render();
+      }
+      motionSkipRequested = false;
+      if (!solverRunning) noteActivity();
+    }
+
+    function finishOnesPlace() {
+      if (state.phase === "completed") return;
+      state.animationState = null;
+      state.phase = "counting-tens";
+      state.tempCount = 0;
+      state.skipMessage = false;
+      render();
+      noteActivity();
+      announce("Ones finished. Count the tens from zero.");
+      if (problem.tensTotal === 0) finishTensPlace();
+    }
+
+    function enterAwaitingAnswer() {
+      state.animationState = null;
+      state.phase = "awaiting-answer";
+      clearIdleHints();
+      render();
+      if (!solverRunning) {
+        showSolverHint(false);
+        cue(610, .08);
+      }
+      announce("Counting finished. The answer is still hidden. Tap the question mark and enter the answer.");
+    }
+
+    function finishTensPlace() {
+      if (state.phase === "completed") return;
+      state.animationState = null;
+      if (problem.carryToHundreds && state.visibleHundredsCarry && !state.hundredsCursor &&
+          profile.currentLevel >= HUNDREDS_UNLOCK_LEVEL) {
+        state.phase = "counting-hundreds";
+        state.tempCount = 0;
+        render();
+        announce("Tens finished. Tap the gold carried hundred.");
+        return;
+      }
+      enterAwaitingAnswer();
+    }
+
+    function finishHundredsPlace() {
+      if (state.phase === "completed") return;
+      enterAwaitingAnswer();
+    }
+
+    async function performCarry(kind, session = motionSession) {
+      const isOnes = kind === "ones";
+      clearIdleHints();
+      state.phase = isOnes ? "carrying-to-tens" : "carrying-to-hundreds";
+      state.animationState = "carry-pause";
+      state.carryKind = kind;
+      state.carryPhase = null;
+      render();
+      announce(isOnes ? "10 ones make 1 ten." : "10 tens make 1 hundred.");
+      if (solverRunning) {
+        const continued = await pausePendingTutorialStage(session);
+        if (!continued || !state || session !== motionSession) return;
+      }
+
+      state.animationState = "carry-formation";
+      state.carryPhase = "formation";
+      render();
+      recordMotion("carry-formation", { kind });
+      playGroupingSound(kind);
+
+      if (reduceMotion || motionSkipRequested) {
+        if (isOnes) state.visibleOnesCarry = true;
+        else state.visibleHundredsCarry = true;
+        state.animationState = null;
+        state.carryPhase = null;
+        state.carryKind = null;
+        state.phase = isOnes ? "counting-ones" : "counting-tens";
+        render();
+        flashMotionTarget(elements.board.querySelector('[data-carry-destination="' + (isOnes ? "tens" : "hundreds") + '"]'));
+        playCarryLanding(kind);
+        recordMotion("carry-landed", { kind, reduced: true });
+        return;
+      }
+
+      const formationToken = elements.board.querySelector('[data-carry-origin="' + kind + '"]');
+      if (formationToken) {
+        await animateTracked(formationToken, [
+          { transform: "translate(-50%,-50%) scale(.28)", opacity: .18 },
+          { offset: .7, transform: "translate(-50%,-50%) scale(1.12)", opacity: 1 },
+          { transform: "translate(-50%,-50%) scale(1)", opacity: 1 }
+        ], { duration: activeMotionTimings.CARRY_FORMATION, fill: "forwards", easing: "ease-out" });
+      } else {
+        motionSkipRequested = true;
+      }
+      if (!state || session !== motionSession) return;
+
+      const originRect = rectSnapshot(formationToken);
+      const destinationName = isOnes ? "tens" : "hundreds";
+      let destinationElement = elements.board.querySelector('[data-carry-destination="' + destinationName + '"]');
+      let destinationRect = rectSnapshot(destinationElement);
+      let overlay = null;
+      let compactSettled = false;
+      if (!destinationRect && formationToken && formationToken.isConnected && !motionSkipRequested) {
+        recordMotion("carry-compact-settle", { kind, destinationVisible: false });
+        await animateTracked(formationToken, [
+          { transform: "translate(-50%,-50%) scale(1)" },
+          { offset: .45, transform: "translate(-50%,-50%) scale(1.1,.82)" },
+          { transform: "translate(-50%,-50%) scale(1)" }
+        ], { duration: activeMotionTimings.CARRY_LANDING, easing: "ease-out" });
+        playCarryLanding(kind);
+        compactSettled = true;
+      }
+      if (originRect && destinationRect && !motionSkipRequested) {
+        overlay = makeMotionOverlay(originRect, "carry-token " + (isOnes ? "ten-token" : "hundred-token"), {
+          motionKind: "carry", carryKind: kind
+        });
+      }
+
+      state.carryPhase = "travel";
+      state.animationState = "carry-travel";
+      render();
+      destinationElement = elements.board.querySelector('[data-carry-destination="' + destinationName + '"]');
+      destinationRect = rectSnapshot(destinationElement) || destinationRect;
+
+      if (overlay && destinationRect && !motionSkipRequested) {
+        const deltaX = destinationRect.left - originRect.left;
+        const deltaY = destinationRect.top - originRect.top;
+        const scaleX = destinationRect.width / originRect.width;
+        const scaleY = destinationRect.height / originRect.height;
+        const at = (x, y, sx, sy) => "translate(" + x.toFixed(2) + "px," + y.toFixed(2) + "px) scale(" + sx.toFixed(3) + "," + sy.toFixed(3) + ")";
+        recordMotion("carry-travel", { kind, destination: destinationName });
+        playCarrySwoosh(activeMotionTimings.CARRY_TRAVEL);
+        await animateTracked(overlay, [
+          { transform: at(0, 0, 1, 1), opacity: 1 },
+          { offset: .5, transform: at(deltaX * .5, deltaY * .5 - 12, (1 + scaleX) / 2, (1 + scaleY) / 2), opacity: 1 },
+          { transform: at(deltaX, deltaY, scaleX, scaleY), opacity: 1 }
+        ], { duration: activeMotionTimings.CARRY_TRAVEL, fill: "forwards", easing: "cubic-bezier(.35,.05,.25,1)" });
+        if (!state || session !== motionSession) { overlay.remove(); return; }
+        state.carryPhase = "landing";
+        state.animationState = "carry-landing";
+        recordMotion("carry-landing", { kind });
+        playCarryLanding(kind);
+        await animateTracked(overlay, [
+          { transform: at(deltaX, deltaY, scaleX, scaleY) },
+          { offset: .38, transform: at(deltaX, deltaY + 2, scaleX * 1.12, scaleY * .82) },
+          { offset: .72, transform: at(deltaX, deltaY - 2, scaleX * .94, scaleY * 1.1) },
+          { transform: at(deltaX, deltaY, scaleX, scaleY) }
+        ], { duration: activeMotionTimings.CARRY_LANDING, fill: "forwards", easing: "ease-out" });
+        overlay.remove();
+      } else {
+        cleanupMotionOverlays();
+        if (!compactSettled) {
+          recordMotion("carry-compact-settle", { kind, destinationVisible: Boolean(destinationRect) });
+          playCarryLanding(kind);
+        }
+      }
+      if (!state || session !== motionSession) return;
+      if (isOnes) state.visibleOnesCarry = true;
+      else state.visibleHundredsCarry = true;
+      state.animationState = null;
+      state.carryPhase = null;
+      state.carryKind = null;
+      state.phase = isOnes ? "counting-ones" : "counting-tens";
+      render();
+      flashMotionTarget(elements.board.querySelector('[data-carry-destination="' + destinationName + '"]'));
+      recordMotion("carry-landed", { kind, destinationVisible: Boolean(destinationRect) });
+    }
+
+    function completeProblem(method) {
+      if (state.phase === "completed") return;
+      state.phase = "completed";
+      state.onesAcceptedCursor = problem.onesTotal;
+      state.onesCursor = problem.onesTotal;
+      state.tensAcceptedCursor = problem.tensTotal;
+      state.tensCursor = problem.tensTotal;
+      state.hundredsAcceptedCursor = problem.hundreds;
+      state.hundredsCursor = problem.hundreds;
+      state.dropQueue.length = 0;
+      state.animationState = null;
+      state.carryPhase = null;
+      state.carryKind = null;
+      state.visibleOnesCarry = Boolean(problem.carryToTens);
+      state.visibleHundredsCarry = Boolean(problem.carryToHundreds);
+      state.tempCount = problem.tensTotal;
+      if (method !== "solver") solverRunning = false;
+      pendingTutorialStagePromptKey = null;
+      if (method !== "solver") cleanupTutorialHandCues();
+      clearIdleHints();
+      const isManual = method === "typed";
+      let advanced = false;
+      let unlockedHundreds = false;
+      if (isManual && !state.rewardAwarded) {
+        state.rewardAwarded = true;
+        const previousLevel = profile.currentLevel;
+        const progress = applyProgressForSuccess(profile, problem.curriculumLevel);
+        profile = progress.profile;
+        advanced = progress.advanced;
+        unlockedHundreds = previousLevel < HUNDREDS_UNLOCK_LEVEL && profile.currentLevel >= HUNDREDS_UNLOCK_LEVEL;
+        hundredsUnlockPending = unlockedHundreds;
+        profile.score += 10;
+        profile.emojiProgress += 1;
+        saveProfile();
+        tray = makeTray(problem);
+      }
+      render();
+      launchConfetti();
+      playCelebrationSound();
+      playConfettiBurstSound();
+      if (unlockedHundreds) playHundredsUnlockSound();
+      if (isManual) {
+        const levelMessage = advanced ? " You advanced to level " + profile.currentLevel + "." : "";
+        const unlockMessage = unlockedHundreds ? " The Hundreds column is now unlocked." : "";
+        announce("Correct. " + problem.a + " plus " + problem.b + " equals " + problem.result + ". You earned 10 coins." + levelMessage + unlockMessage);
+        showToast(advanced ? "+10 coins · Welcome to L" + profile.currentLevel + "!" : "+10 coins · New milestone earned!");
+      } else {
+        announce("Tutorial complete. " + problem.a + " plus " + problem.b + " equals " + problem.result + ". No coins or level progress were awarded.");
+      }
+    }
+
+    async function runTutorialAnswerSequence(session = motionSession) {
+      if (!await pauseTutorialAnswer(session)) return false;
+      if (!await tapTutorialControl(elements.answer, "answerButton", session)) return false;
+      if (!elements.keypad.open) return false;
+
+      for (const digit of String(problem.result)) {
+        const key = elements.keypad.querySelector('[data-key="' + digit + '"]');
+        if (!await tapTutorialControl(key, "keypad-" + digit, session)) return false;
+      }
+      return tapTutorialControl(elements.check, "checkAnswer", session);
+    }
+
+    async function runSolver() {
+      if (!state || state.phase === "completed" || solverRunning || isMotionDraining()) return;
+      clearTimeout(toastTimer);
+      elements.toast.classList.remove("show");
+      if (isDialogOpen()) {
+        if (elements.settingsDialog.open) elements.settingsDialog.close();
+        if (elements.keypad.open) elements.keypad.close();
+      }
+      state.solverUsed = true;
+      solverRunning = true;
+      clearIdleHints();
+      announce("Tutorial started from the next unfinished block.");
+      render();
+      const session = motionSession;
+      if (state.phase !== "awaiting-answer" &&
+          !await pauseTutorialStage("initial", state.promptKey || promptKeyForState(state), session)) return;
+      while (state.phase !== "completed") {
+        if (state.phase === "awaiting-answer") {
+          if (!await runTutorialAnswerSequence(session)) return;
+          continue;
+        }
+        if (state.phase === "counting-ones" || state.phase === "counting-tens" || state.phase === "counting-hundreds") {
+          if (!await pausePendingTutorialStage(session)) return;
+          const drain = acceptNextPlaceUnitForSolver();
+          if (drain) await drain;
+        }
+        if (state.phase !== "completed") {
+          if (state.phase === "awaiting-answer") continue;
+          if (!await pausePendingTutorialStage(session)) return;
+          await pause(reduceMotion ? 0 : activeMotionTimings.SOLVER_GAP);
+        }
+      }
+      solverRunning = false;
+      render();
+    }
+
+    function selectSuggestion(model) {
+      if (isInteractionLocked()) return;
+      cue(330, .05);
+      startProblem(model);
+    }
+
+    function nextProblem() {
+      if (state.phase !== "completed" || solverRunning || diceRefreshState !== "idle") return;
+      launchTutorialActive = false;
+      startWeightedProblem();
+    }
+
+    function resetCurrentProblem() {
+      if (state.phase === "completed" || isInteractionLocked()) return;
+      state = freshState(problem);
+      render();
+      noteActivity();
+      announce("This problem was reset. Begin counting again.");
+      cue(260, .06);
+    }
+
+    function openKeypad(allowSolver = false) {
+      if (state.phase === "completed" || isMotionDraining() || (solverRunning && !allowSolver) || diceRefreshState !== "idle") return;
+      clearIdleHints();
+      typedAnswer = "";
+      updateTypedValue();
+      elements.keypadEquation.textContent = problem.a + " + " + problem.b + " =";
+      elements.keypad.showModal();
+      requestAnimationFrame(() => elements.keypad.querySelector('[data-key="1"]').focus());
+    }
+
+    function updateTypedValue() { elements.typed.textContent = typedAnswer; }
+
+    function handleKeypadKey(key, event = null) {
+      if (solverRunning && (!event || tutorialControlActivation !== event.currentTarget)) return;
+      noteActivity();
+      elements.keypadDisplay.classList.remove("wrong");
+      if (/^\d$/.test(key)) {
+        if (typedAnswer.length < 3) typedAnswer += key;
+      } else if (key === "backspace") typedAnswer = typedAnswer.slice(0, -1);
+      else if (key === "clear") typedAnswer = "";
+      updateTypedValue();
+      cue(430, .025);
+    }
+
+    function checkTypedAnswer(event = null) {
+      if (solverRunning && (!event || tutorialControlActivation !== event.currentTarget)) return;
+      noteActivity();
+      if (Number(typedAnswer) === problem.result && typedAnswer !== "") {
+        elements.keypad.close();
+        completeProblem(solverRunning ? "solver" : "typed");
+        return;
+      }
+      typedAnswer = "";
+      updateTypedValue();
+      elements.keypadDisplay.classList.remove("wrong");
+      void elements.keypadDisplay.offsetWidth;
+      elements.keypadDisplay.classList.add("wrong");
+      cue(180, .12);
+      announce("That is not the answer yet. Try again. Your block counting is still here.");
+    }
+
+    function startHold(event) {
+      if (event.button !== undefined && event.button !== 0) return;
+      if (state.phase === "completed" || isMotionDraining() || solverRunning || diceRefreshState !== "idle") return;
+      noteActivity();
+      holdStarted = true;
+      holdCompleted = false;
+      elements.answer.classList.add("holding");
+      if (event.pointerId !== undefined) elements.answer.setPointerCapture(event.pointerId);
+      holdTimer = setTimeout(() => {
+        holdTimer = 0;
+        holdCompleted = true;
+        holdStarted = false;
+        elements.answer.classList.remove("holding");
+        cue(660, .07);
+        runSolver();
+      }, HOLD_DURATION);
+    }
+
+    function endHold(event) {
+      if (!holdStarted) return;
+      holdStarted = false;
+      clearTimeout(holdTimer);
+      holdTimer = 0;
+      elements.answer.classList.remove("holding");
+      if (event.type === "pointercancel") holdCompleted = true;
+    }
+
+    function handleAnswerClick(event) {
+      event.preventDefault();
+      const tutorialActivation = solverRunning && tutorialControlActivation === event.currentTarget;
+      if (holdCompleted) {
+        holdCompleted = false;
+        if (!tutorialActivation) return;
+      }
+      if (solverRunning && !tutorialActivation) return;
+      openKeypad(tutorialActivation);
+    }
+
+    function toggleSound() {
+      profile.sound = !profile.sound;
+      saveProfile();
+      render();
+      noteActivity();
+      if (profile.sound) cue(520, .07);
+      announce("Sound " + (profile.sound ? "on." : "off."));
+    }
+
+    function handleDifficultyChange(event) {
+      const difficultyMode = event.currentTarget.value;
+      if (!event.currentTarget.checked || !DIFFICULTY_MODES.includes(difficultyMode) || difficultyMode === profile.difficultyMode) return;
+      profile = { ...profile, difficultyMode };
+      saveProfile();
+      render();
+      noteActivity();
+      const isStandard = difficultyMode === "standard";
+      announce("Difficulty changed to " + (isStandard ? "Standard. Running result counts are hidden and hints will wait longer." : "Easy. Running result counts are shown and hints will arrive sooner."));
+      showToast("Difficulty: " + (isStandard ? "Standard" : "Easy"));
+    }
+
+    function syncFullscreenControl(announceChange = false) {
+      const isFullscreen = Boolean(document.fullscreenElement);
+      const label = isFullscreen ? "Exit fullscreen" : "Enter fullscreen";
+      elements.fullscreen.setAttribute("aria-label", label);
+      elements.fullscreen.setAttribute("aria-pressed", String(isFullscreen));
+      elements.fullscreen.title = label;
+      elements.fullscreenIconPath.setAttribute("d", isFullscreen
+        ? "M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5"
+        : "M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5");
+      if (announceChange) announce(isFullscreen ? "Entered fullscreen." : "Exited fullscreen.");
+    }
+
+    async function toggleFullscreen() {
+      try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else await document.documentElement.requestFullscreen();
+      } catch (error) {
+        if (error && error.name === "NotSupportedError") {
+          elements.fullscreen.hidden = true;
+          document.documentElement.classList.remove("fullscreen-supported");
+        }
+        showToast("Fullscreen isn't available right now");
+      }
+    }
+
+    function initializeFullscreenControl() {
+      const isSupported = document.fullscreenEnabled && typeof document.documentElement.requestFullscreen === "function";
+      elements.fullscreen.hidden = !isSupported;
+      document.documentElement.classList.toggle("fullscreen-supported", Boolean(isSupported));
+      if (isSupported) syncFullscreenControl();
+    }
+
+    function showSettingsView(restoreFocus = false) {
+      elements.settingsTitle.textContent = "Garden settings";
+      elements.settingsBack.hidden = true;
+      elements.aboutView.hidden = true;
+      elements.settingsView.hidden = false;
+      if (restoreFocus) elements.openAbout.focus();
+    }
+
+    function showAboutView() {
+      elements.settingsTitle.textContent = "About";
+      elements.settingsView.hidden = true;
+      elements.aboutView.hidden = false;
+      elements.settingsBack.hidden = false;
+      elements.settingsTitle.focus();
+    }
+
+    function openSettings() {
+      if (isMotionDraining() || solverRunning || diceRefreshState !== "idle") return;
+      clearIdleHints();
+      showSettingsView();
+      elements.settingsDialog.showModal();
+      elements.settingsTitle.focus();
+    }
+
+    function showLaunchDialog() {
+      if (profile.launchChoiceMade || elements.launchDialog.open) return;
+      clearIdleHints();
+      elements.launchDialog.showModal();
+      requestAnimationFrame(() => elements.launchStart.focus());
+    }
+
+    function handleLaunchChoice(choice) {
+      if (!elements.launchDialog.open || (choice !== "start" && choice !== "tutorial")) return;
+      profile = { ...profile, launchChoiceMade: true };
+      saveProfile();
+      elements.launchDialog.close(choice);
+      if (choice === "tutorial") {
+        startProblem(deriveProblem(28, 47), { launchTutorial: true });
+        runSolver();
+        return;
+      }
+      announce("Welcome to Number Garden. Start by tapping the glowing block.");
+      noteActivity();
+    }
+
+    function dismissDialogFromBackdrop(event) {
+      const dialog = event.currentTarget;
+      if (event.target !== dialog) return;
+      if (solverRunning && dialog === elements.keypad) return;
+      const bounds = dialog.getBoundingClientRect();
+      const clickedOutside = event.clientX < bounds.left || event.clientX > bounds.right ||
+        event.clientY < bounds.top || event.clientY > bounds.bottom;
+      if (clickedOutside) dialog.close("cancel");
+    }
+
+    function handleLevelChange() {
+      const chosenLevel = clampLevel(Number(elements.levelSelect.value));
+      const previousLevel = profile.currentLevel;
+      const unlockedHundreds = previousLevel < HUNDREDS_UNLOCK_LEVEL && chosenLevel >= HUNDREDS_UNLOCK_LEVEL;
+      profile = {
+        ...profile,
+        currentLevel: chosenLevel,
+        currentLevelSuccesses: 0,
+        higherLevelSuccesses: 0
+      };
+      hundredsUnlockPending = unlockedHundreds;
+      saveProfile();
+      elements.settingsDialog.close();
+      startWeightedProblem();
+      if (unlockedHundreds) playHundredsUnlockSound();
+      announce("Practice level changed to level " + chosenLevel + ". Advancement counters reset." +
+        (unlockedHundreds ? " The Hundreds column is now unlocked." : ""));
+      showToast("Now practicing at L" + chosenLevel);
+    }
+
+    function handleResetProgress() {
+      noteActivity();
+      if (!confirm("Reset coins, garden milestones, level, and advancement counters? Your sound and difficulty settings will stay the same.")) return;
+      resetProfile();
+      elements.settingsDialog.close();
+      startWeightedProblem();
+      showLaunchDialog();
+      announce("Progress reset to level 1 with zero coins, milestones, and advancement counters. Sound and difficulty preferences kept.");
+      showToast("Progress reset");
+    }
+
+    function validQueryProblem() {
+      const params = new URLSearchParams(location.search);
+      if (!params.has("a") || !params.has("b")) return null;
+      const rawA = params.get("a");
+      const rawB = params.get("b");
+      if (!/^\d+$/.test(rawA) || !/^\d+$/.test(rawB)) return null;
+      const a = Number(rawA), b = Number(rawB);
+      try { return deriveProblem(a, b); } catch (_) { return null; }
+    }
+
+    function bindEvents() {
+      elements.answer.addEventListener("pointerdown", startHold);
+      elements.answer.addEventListener("pointerup", endHold);
+      elements.answer.addEventListener("pointercancel", endHold);
+      elements.answer.addEventListener("contextmenu", event => event.preventDefault());
+      elements.answer.addEventListener("click", handleAnswerClick);
+      elements.answer.addEventListener("keydown", event => {
+        if ((event.key === "Enter" || event.key === " ") && !event.repeat) {
+          event.preventDefault();
+          if (solverRunning) return;
+          openKeypad();
+        }
+      });
+      elements.reset.addEventListener("click", resetCurrentProblem);
+      elements.next.addEventListener("click", nextProblem);
+      elements.launchStart.addEventListener("click", () => handleLaunchChoice("start"));
+      elements.launchTutorial.addEventListener("click", () => handleLaunchChoice("tutorial"));
+      elements.launchDialog.addEventListener("cancel", event => event.preventDefault());
+      elements.sound.addEventListener("click", toggleSound);
+      elements.difficultyInputs.forEach(input => input.addEventListener("change", handleDifficultyChange));
+      elements.levelSelect.addEventListener("change", handleLevelChange);
+      elements.settings.addEventListener("click", openSettings);
+      elements.fullscreen.addEventListener("click", toggleFullscreen);
+      document.addEventListener("fullscreenchange", () => syncFullscreenControl(true));
+      elements.suggestions.addEventListener("pointerdown", noteActivity);
+      elements.keypad.querySelectorAll("[data-key]").forEach(button => button.addEventListener("click", event => handleKeypadKey(button.dataset.key, event)));
+      elements.cancelKeypad.addEventListener("click", event => {
+        if (!solverRunning) return;
+        event.preventDefault();
+        event.stopPropagation();
+      });
+      elements.check.addEventListener("click", checkTypedAnswer);
+      elements.keypad.addEventListener("click", dismissDialogFromBackdrop);
+      elements.keypad.addEventListener("close", noteActivity);
+      elements.keypad.addEventListener("cancel", event => {
+        if (solverRunning) event.preventDefault();
+        else noteActivity();
+      });
+      elements.keypad.addEventListener("keydown", event => {
+        if (solverRunning) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        if (/^\d$/.test(event.key)) { event.preventDefault(); handleKeypadKey(event.key, event); }
+        else if (event.key === "Backspace") { event.preventDefault(); handleKeypadKey("backspace", event); }
+        else if (event.key === "Enter") { event.preventDefault(); checkTypedAnswer(event); }
+      });
+      elements.runSolver.addEventListener("click", runSolver);
+      elements.resetProgress.addEventListener("click", handleResetProgress);
+      elements.openAbout.addEventListener("click", showAboutView);
+      elements.settingsBack.addEventListener("click", () => showSettingsView(true));
+      elements.closeSettings.addEventListener("click", () => elements.settingsDialog.close());
+      elements.settingsDialog.addEventListener("click", dismissDialogFromBackdrop);
+      elements.settingsDialog.addEventListener("close", () => {
+        showSettingsView();
+        noteActivity();
+      });
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+          clearIdleHints();
+          settleActiveMotionImmediately();
+        } else noteActivity();
+      });
+      window.addEventListener("resize", settleActiveMotionImmediately, { passive: true });
+    }
+
+    async function init() {
+      initializeFullscreenControl();
+      bindEvents();
+      await initializeProfile();
+      const initial = validQueryProblem() || sampleCurriculumProblem(profile.currentLevel);
+      startProblem(initial);
+      showLaunchDialog();
+    }
+
+    function getMotionSnapshot() {
+      return state ? {
+        phase: state.phase,
+        onesAcceptedCursor: state.onesAcceptedCursor,
+        onesLandedCursor: state.onesCursor,
+        tensAcceptedCursor: state.tensAcceptedCursor,
+        tensLandedCursor: state.tensCursor,
+        hundredsAcceptedCursor: state.hundredsAcceptedCursor,
+        hundredsLandedCursor: state.hundredsCursor,
+        queueLength: state.dropQueue.length,
+        queueBoundary: state.phase === "counting-ones"
+          ? nextQueueBoundary(state.onesCursor, problem.onesTotal, Boolean(problem.carryToTens), state.visibleOnesCarry)
+          : state.phase === "counting-hundreds"
+            ? nextQueueBoundary(state.hundredsCursor, problem.hundreds, false, true)
+            : nextQueueBoundary(state.tensCursor, problem.tensTotal, Boolean(problem.carryToHundreds), state.visibleHundredsCarry),
+        animationState: state.animationState,
+        carryPhase: state.carryPhase,
+        carryKind: state.carryKind,
+        visibleOnesCarry: state.visibleOnesCarry,
+        visibleHundredsCarry: state.visibleHundredsCarry,
+        solverRunning,
+        launchTutorialActive,
+        launchChoiceMade: profile.launchChoiceMade,
+        diceRefreshState,
+        diceRefreshCount,
+        diceFace,
+        activeOverlayCount: document.querySelectorAll(".motion-overlay").length,
+        activeHandCueCount: document.querySelectorAll(".tutorial-hand-cue").length,
+        beetleReactionCount,
+        soundEffectCount,
+        lastAnnouncement,
+        difficultyMode: profile.difficultyMode,
+        idleHintTimings: IDLE_HINT_TIMINGS[profile.difficultyMode],
+        reducedMotion: reduceMotion,
+        controlsLocked: isMotionDraining() || solverRunning || diceRefreshState !== "idle"
+      } : null;
+    }
+
+    const motionDiagnostics = Object.freeze({
+      snapshot: getMotionSnapshot,
+      events: () => motionEvents.slice(),
+      clearEvents: () => { motionEvents.length = 0; }
+    });
+
+    window.NumberGarden = {
+      deriveProblem,
+      problemMatchesLevel,
+      selectCurriculumLevel,
+      generateProblemForLevel,
+      sampleCurriculumProblem,
+      applyProgressForSuccess,
+      validateProfile,
+      defaultProfile,
+      promptKeyForState,
+      selectPromptTemplate,
+      formatPrompt,
+      nextQueueBoundary,
+      canQueuePlaceUnit,
+      LEVEL_DEFINITIONS,
+      PROMPT_POOLS,
+      MOTION_TIMINGS,
+      DIFFICULTY_MODES,
+      IDLE_HINT_TIMINGS,
+      ACTIVE_MOTION_TIMINGS: activeMotionTimings,
+      motionDiagnostics,
+      constants: Object.freeze({
+        LEVEL_COUNT,
+        STANDARD_CURRENT_LEVEL_MIX,
+        STANDARD_HIGHER_LEVEL_MIX,
+        STANDARD_LOWER_LEVEL_MIX,
+        LEVEL_ONE_CURRENT_MIX,
+        LEVEL_ONE_HIGHER_MIX,
+        LEVEL_NINE_CURRENT_MIX,
+        LEVEL_NINE_REVIEW_MIX,
+        LEVEL_EIGHT_TENS_ONLY_MIX,
+        LEVEL_EIGHT_BOTH_CARRIES_MIX,
+        CURRENT_LEVEL_ADVANCEMENT_TARGET,
+        HIGHER_LEVEL_ADVANCEMENT_TARGET,
+        HUNDREDS_UNLOCK_LEVEL,
+        PROFILE_SCHEMA_VERSION,
+        DIFFICULTY_MODES,
+        IDLE_HINT_TIMINGS,
+        MOTION_TIMINGS
+      }),
+      CATEGORY_NAMES,
+      PROGRESS_EMOJIS
+    };
+    init();
+  </script>
+</body>
+</html>
