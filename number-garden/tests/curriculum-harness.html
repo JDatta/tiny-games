@@ -164,6 +164,72 @@
       return actions;
     }
 
+    async function advanceSubtractionToPhase(frame, targetPhase) {
+      const doc = frame.contentDocument;
+      const diagnostics = frame.contentWindow.NumberGarden.motionDiagnostics;
+      let actions = 0;
+      while (diagnostics.snapshot().phase !== targetPhase && actions < 30) {
+        await waitFor(() => doc.querySelector(".unit.eligible") && !diagnostics.snapshot().controlsLocked,
+          "subtraction phase " + targetPhase, 10000);
+        doc.querySelector(".unit.eligible").click();
+        await waitFor(() => !diagnostics.snapshot().controlsLocked, "subtraction phase step", 10000);
+        actions += 1;
+      }
+      if (diagnostics.snapshot().phase !== targetPhase) throw new Error("Subtraction did not reach " + targetPhase);
+    }
+
+    function captureNextDestruction(frame, activate) {
+      const doc = frame.contentDocument;
+      const diagnostics = frame.contentWindow.NumberGarden.motionDiagnostics;
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          observer.disconnect();
+          reject(new Error("Timed out: destruction start capture"));
+        }, 3000);
+        const observer = new MutationObserver(() => {
+          if (doc.body.dataset.motionEvent !== "destruction-start") return;
+          const effect = doc.querySelector(".destruction-effect");
+          if (!effect) return;
+          clearTimeout(timeout);
+          observer.disconnect();
+          const fragment = effect.querySelector(".destruction-fragment");
+          resolve({
+            effect,
+            sourcePlace: effect.dataset.sourcePlace,
+            targetIndex: Number(effect.dataset.targetIndex),
+            fragmentCount: effect.querySelectorAll(".destruction-fragment").length,
+            sparkCount: effect.querySelectorAll(".destruction-spark").length,
+            ringCount: effect.querySelectorAll(".destruction-ring").length,
+            crackedCount: effect.querySelectorAll(".destruction-cracked").length,
+            fragmentFill: fragment ? frame.contentWindow.getComputedStyle(fragment).backgroundColor : null,
+            snapshot: diagnostics.snapshot()
+          });
+        });
+        observer.observe(doc.body, { attributes: true, attributeFilter: ["data-motion-event"] });
+        activate();
+      });
+    }
+
+    function destructionOverlap(events) {
+      let active = 0;
+      let maximum = 0;
+      events.forEach(event => {
+        if (event.type === "destruction-start") {
+          active += 1;
+          maximum = Math.max(maximum, active);
+        } else if (event.type === "destruction-complete") active = Math.max(0, active - 1);
+      });
+      return maximum;
+    }
+
+    function setSound(frame, enabled) {
+      const doc = frame.contentDocument;
+      doc.querySelector("#settingsButton").click();
+      const button = doc.querySelector("#settingsSoundButton");
+      if ((button.getAttribute("aria-pressed") === "true") !== enabled) button.click();
+      doc.querySelector("#closeSettings").click();
+    }
+
     function colorChannels(color) {
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = 1;
@@ -265,14 +331,19 @@
         "new profiles and the Settings control default to Standard");
       assert(Object.isFrozen(api.MOTION_TIMINGS) && api.MOTION_TIMINGS.BLOCK_FALL_LAND === 520 &&
         api.MOTION_TIMINGS.QUICK_DROP_STAGGER === 50 && api.MOTION_TIMINGS.QUICK_IMPACT === 320 &&
+        api.MOTION_TIMINGS.DESTRUCTION_COMMIT === 70 && api.MOTION_TIMINGS.DESTRUCTION_SCATTER === 360 &&
+        api.MOTION_TIMINGS.DESTRUCTION_REDUCED_HIGHLIGHT === 150 &&
         api.MOTION_TIMINGS.CARRY_FORMATION === 300 && api.MOTION_TIMINGS.CARRY_TRAVEL === 560 &&
         api.MOTION_TIMINGS.CARRY_LANDING === 140 && api.MOTION_TIMINGS.BEETLE_REACTION === 360 &&
         api.MOTION_TIMINGS.DICE_TUMBLE === 380 && api.MOTION_TIMINGS.DICE_CARD_POP === 150 &&
         api.MOTION_TIMINGS.DICE_CARD_STAGGER === 35 && api.MOTION_TIMINGS.DICE_REDUCED_HIGHLIGHT === 140 &&
         api.MOTION_TIMINGS.TUTORIAL_STAGE_PAUSE === 1000 && api.MOTION_TIMINGS.TUTORIAL_ANSWER_PAUSE === 2000 &&
         api.MOTION_TIMINGS.SOLVER_GAP === 70,
-        "production teaching-motion timings, including the two-second Tutorial answer pause, are frozen and exposed");
-      assert(Object.isFrozen(api.ACTIVE_MOTION_TIMINGS) && api.ACTIVE_MOTION_TIMINGS.BLOCK_FALL_LAND < api.MOTION_TIMINGS.BLOCK_FALL_LAND,
+        "production teaching-motion timings, including destruction and the Tutorial answer pause, are frozen and exposed");
+      assert(Object.isFrozen(api.ACTIVE_MOTION_TIMINGS) && api.ACTIVE_MOTION_TIMINGS.BLOCK_FALL_LAND < api.MOTION_TIMINGS.BLOCK_FALL_LAND &&
+        api.ACTIVE_MOTION_TIMINGS.DESTRUCTION_COMMIT < api.MOTION_TIMINGS.DESTRUCTION_COMMIT &&
+        api.ACTIVE_MOTION_TIMINGS.DESTRUCTION_SCATTER < api.MOTION_TIMINGS.DESTRUCTION_SCATTER &&
+        api.ACTIVE_MOTION_TIMINGS.DESTRUCTION_REDUCED_HIGHLIGHT < api.MOTION_TIMINGS.DESTRUCTION_REDUCED_HIGHLIGHT,
         "harness mode compresses durations without skipping the lifecycle");
       assert(api.constants.QUICK_PLAY_HOLD_DURATION === 3000 && api.constants.DEFAULT_QUICK_PLAY_SPEED === 2 &&
         api.motionDiagnostics.snapshot().quickPlaySpeed === 2 &&
@@ -1585,10 +1656,40 @@
       frame = await openGame("?op=subtraction&a=42&b=12&harness=1");
       let subtractionDoc = frame.contentDocument;
       let subtractionApi = frame.contentWindow.NumberGarden;
-      await finishSubtractionCounting(frame);
+      await advanceSubtractionToPhase(frame, "counting-subtrahend-ones");
+      setSound(frame, true);
+      const purpleTarget = subtractionDoc.querySelector('[data-motion-role="result"][data-place="ones"][data-index="1"]');
+      const purpleFill = frame.contentWindow.getComputedStyle(purpleTarget).backgroundColor;
+      const destructionSoundBaseline = subtractionApi.motionDiagnostics.snapshot().soundEffectCount;
+      subtractionApi.motionDiagnostics.clearEvents();
+      const oneDestruction = await captureNextDestruction(frame, () => subtractionDoc.querySelector(".unit.eligible").click());
+      assert(oneDestruction.fragmentCount === 5 && oneDestruction.sparkCount === 3 && oneDestruction.ringCount === 1 &&
+        oneDestruction.crackedCount === 0 && oneDestruction.fragmentFill === purpleFill && oneDestruction.snapshot.resultOnes === 2,
+        "a subtrahend One hides the intact purple target behind five matching shards, one coral ring, and three sparks before decrementing");
+      await waitFor(() => !subtractionApi.motionDiagnostics.snapshot().controlsLocked, "One destruction completion");
+      let destructionEvents = subtractionApi.motionDiagnostics.events();
+      const oneOrder = destructionEvents.map(event => event.type);
+      assert(oneOrder.indexOf("drop-impact") < oneOrder.indexOf("destruction-start") &&
+        oneOrder.indexOf("destruction-start") < oneOrder.indexOf("destruction-commit") &&
+        oneOrder.indexOf("destruction-commit") < oneOrder.indexOf("drop-landed") &&
+        oneOrder.indexOf("drop-landed") < oneOrder.indexOf("destruction-complete") &&
+        destructionEvents.find(event => event.type === "destruction-start").sourcePlace === "subtrahend-ones" &&
+        subtractionApi.motionDiagnostics.snapshot().resultOnes === 1 &&
+        subtractionApi.motionDiagnostics.snapshot().soundEffectCount > destructionSoundBaseline,
+        "One impact starts and commits destruction before the result decrement, completes afterward, and plays sound when enabled");
+
+      await advanceSubtractionToPhase(frame, "counting-subtrahend-tens");
+      subtractionApi.motionDiagnostics.clearEvents();
+      const tenDestruction = await captureNextDestruction(frame, () => subtractionDoc.querySelector(".unit.eligible").click());
+      assert(tenDestruction.fragmentCount === 6 && tenDestruction.sparkCount === 3 && tenDestruction.ringCount === 1 &&
+        tenDestruction.snapshot.resultTens === 4,
+        "a subtrahend Ten creates exactly six wider fragments before changing the difference");
+      await waitFor(() => subtractionApi.motionDiagnostics.snapshot().phase === "awaiting-answer" &&
+        !subtractionApi.motionDiagnostics.snapshot().controlsLocked, "Ten destruction completion");
       let subtractionSnapshot = subtractionApi.motionDiagnostics.snapshot();
       assert(subtractionSnapshot.phase === "awaiting-answer" && subtractionSnapshot.borrowCount === 0 &&
-        subtractionSnapshot.resultTens === 3 && subtractionSnapshot.resultOnes === 0,
+        subtractionSnapshot.resultTens === 3 && subtractionSnapshot.resultOnes === 0 &&
+        subtractionSnapshot.activeDestructionCount === 0 && !subtractionDoc.querySelector(".destruction-effect"),
         "42−12 follows the two-digit subtraction path without borrowing");
       assert(subtractionDoc.querySelector(".result-panel .digit-label"),
         "Easy exposes the running subtraction difference labels");
@@ -1640,16 +1741,35 @@
       const quickActions = await finishSubtractionCounting(frame, true);
       const quickSubtractionEvents = subtractionApi.motionDiagnostics.events();
       subtractionSnapshot = subtractionApi.motionDiagnostics.snapshot();
+      const borrowFormationIndex = quickSubtractionEvents.findIndex(event => event.type === "borrow-formation");
+      let activeBeforeBorrow = 0;
+      quickSubtractionEvents.slice(0, borrowFormationIndex).forEach(event => {
+        if (event.type === "destruction-start") activeBeforeBorrow += 1;
+        else if (event.type === "destruction-complete") activeBeforeBorrow -= 1;
+      });
       assert(quickActions === 4 && subtractionSnapshot.borrowCount === 1 && subtractionSnapshot.resultTens === 2 &&
         subtractionSnapshot.resultOnes === 5 &&
         JSON.stringify(quickSubtractionEvents.filter(event => event.type === "quick-drop-accepted").map(event => event.count)) ===
-          JSON.stringify([2, 4, 7, 1]) && quickSubtractionEvents.some(event => event.type === "borrow-landed"),
+          JSON.stringify([2, 4, 7, 1]) && quickSubtractionEvents.some(event => event.type === "borrow-landed") &&
+        destructionOverlap(quickSubtractionEvents) > 1 && activeBeforeBorrow === 0 &&
+        subtractionSnapshot.activeDestructionCount === 0 && !frame.contentDocument.querySelector(".destruction-effect"),
         "one quick-drop hold accepts the whole subtrahend Ones cell, crosses borrowing, and resumes automatically");
 
       frame = await openGame("?op=subtraction&a=40&b=7&harness=1");
       subtractionApi = frame.contentWindow.NumberGarden;
       assert(subtractionApi.motionDiagnostics.snapshot().phase === "counting-minuend-tens",
         "40−7 skips the empty minuend Ones phase");
+      await advanceSubtractionToPhase(frame, "counting-subtrahend-ones");
+      const borrowedTarget = frame.contentDocument.querySelector('[data-motion-role="result"][data-place="ones"][data-index="9"]');
+      const borrowedFill = frame.contentWindow.getComputedStyle(borrowedTarget).backgroundColor;
+      setSound(frame, false);
+      const silentDestructionBaseline = subtractionApi.motionDiagnostics.snapshot().soundEffectCount;
+      const borrowedDestruction = await captureNextDestruction(frame, () => frame.contentDocument.querySelector(".unit.eligible").click());
+      assert(borrowedDestruction.fragmentFill === borrowedFill && borrowedDestruction.fragmentCount === 5,
+        "borrowed gold Ones shatter into five fragments that preserve their computed fill");
+      await waitFor(() => !subtractionApi.motionDiagnostics.snapshot().controlsLocked, "borrowed One destruction");
+      assert(subtractionApi.motionDiagnostics.snapshot().soundEffectCount === silentDestructionBaseline,
+        "sound off gates both subtraction drop and destruction synthesis");
       await finishSubtractionCounting(frame);
       subtractionSnapshot = subtractionApi.motionDiagnostics.snapshot();
       assert(subtractionSnapshot.borrowCount === 1 && subtractionSnapshot.resultTens === 3 && subtractionSnapshot.resultOnes === 3,
@@ -1677,6 +1797,51 @@
         subtractionComplete[0][2].operand_a === 8 && subtractionComplete[0][2].operand_b === 8 && subtractionComplete[0][2].result === 0,
         "subtraction completion analytics carry operation-correct operands and result");
 
+      frame = await openGame("?op=subtraction&a=8&b=1&harness=1");
+      subtractionDoc = frame.contentDocument;
+      subtractionApi = frame.contentWindow.NumberGarden;
+      await advanceSubtractionToPhase(frame, "counting-subtrahend-ones");
+      subtractionApi.motionDiagnostics.clearEvents();
+      await captureNextDestruction(frame, () => subtractionDoc.querySelector(".unit.eligible").click());
+      subtractionDoc.querySelector("#resetCurrent").click();
+      await waitFor(() => subtractionApi.motionDiagnostics.snapshot().phase === "counting-minuend-ones" &&
+        subtractionApi.motionDiagnostics.snapshot().activeDestructionCount === 0, "reset destruction cleanup");
+      assert(subtractionApi.motionDiagnostics.snapshot().resultOnes === 0 && !subtractionDoc.querySelector(".destruction-effect") &&
+        subtractionApi.motionDiagnostics.events().some(event => event.type === "destruction-complete" && event.interrupted),
+        "Reset can abandon an in-flight shatter and centrally removes every destruction node");
+
+      frame = await openGame("?op=subtraction&a=8&b=1&harness=1");
+      subtractionDoc = frame.contentDocument;
+      subtractionApi = frame.contentWindow.NumberGarden;
+      await advanceSubtractionToPhase(frame, "counting-subtrahend-ones");
+      subtractionApi.motionDiagnostics.clearEvents();
+      await captureNextDestruction(frame, () => subtractionDoc.querySelector(".unit.eligible").click());
+      frame.contentWindow.dispatchEvent(new Event("resize"));
+      await waitFor(() => subtractionApi.motionDiagnostics.snapshot().phase === "awaiting-answer" &&
+        !subtractionApi.motionDiagnostics.snapshot().controlsLocked, "resize destruction settlement");
+      assert(subtractionApi.motionDiagnostics.snapshot().resultOnes === 7 &&
+        subtractionApi.motionDiagnostics.snapshot().activeDestructionCount === 0 && !subtractionDoc.querySelector(".destruction-effect") &&
+        subtractionApi.motionDiagnostics.events().some(event => event.type === "destruction-complete" && event.interrupted),
+        "Resize settles the pending arithmetic commit while cleaning up the interrupted shatter");
+
+      frame = await openGame("?op=subtraction&a=8&b=1&harness=1&reducedMotion=1");
+      subtractionDoc = frame.contentDocument;
+      subtractionApi = frame.contentWindow.NumberGarden;
+      await advanceSubtractionToPhase(frame, "counting-subtrahend-ones");
+      subtractionApi.motionDiagnostics.clearEvents();
+      const reducedDestruction = await captureNextDestruction(frame, () => subtractionDoc.querySelector(".unit.eligible").click());
+      assert(reducedDestruction.fragmentCount === 0 && reducedDestruction.crackedCount === 1 &&
+        reducedDestruction.ringCount === 0 && reducedDestruction.snapshot.resultOnes === 8,
+        "reduced motion shows a stationary cracked silhouette and coral highlight with no scattered fragments");
+      await waitFor(() => subtractionApi.motionDiagnostics.snapshot().phase === "awaiting-answer" &&
+        !subtractionApi.motionDiagnostics.snapshot().controlsLocked, "reduced destruction completion");
+      destructionEvents = subtractionApi.motionDiagnostics.events().filter(event => event.type.startsWith("destruction-"));
+      assert(JSON.stringify(destructionEvents.map(event => event.type)) ===
+          JSON.stringify(["destruction-start", "destruction-commit", "destruction-complete"]) &&
+        destructionEvents.every(event => event.reducedMotion && event.fragmentCount === 0) &&
+        subtractionApi.motionDiagnostics.snapshot().activeDestructionCount === 0,
+        "reduced destruction retains commit ordering and fully cleans up after its highlight");
+
       frame = await openGame("?op=subtraction&a=20&b=19&harness=1&reducedMotion=1");
       subtractionDoc = frame.contentDocument;
       subtractionApi = frame.contentWindow.NumberGarden;
@@ -1700,10 +1865,14 @@
       subtractionDoc.querySelector("#runSolverButton").click();
       await waitFor(() => subtractionApi.motionDiagnostics.snapshot().phase === "completed" &&
         !subtractionApi.motionDiagnostics.snapshot().solverRunning, "non-borrowing subtraction Tutorial", 20000);
+      const tutorialDestructionEvents = subtractionApi.motionDiagnostics.events()
+        .filter(event => event.type === "destruction-start" || event.type === "destruction-complete");
       assert(subtractionApi.motionDiagnostics.snapshot().borrowCount === 0 &&
         subtractionApi.motionDiagnostics.snapshot().resultTens === 3 && subtractionApi.motionDiagnostics.snapshot().resultOnes === 0 &&
-        subtractionDoc.querySelector("#scoreValue").textContent === noBorrowTutorialScore,
-        "Tutorial also completes subtraction without borrowing and awards no reward");
+        subtractionDoc.querySelector("#scoreValue").textContent === noBorrowTutorialScore &&
+        tutorialDestructionEvents.filter(event => event.type === "destruction-start").length === 3 &&
+        destructionOverlap(tutorialDestructionEvents) === 1 && subtractionApi.motionDiagnostics.snapshot().activeDestructionCount === 0,
+        "Tutorial waits for each full non-overlapping shatter, completes subtraction, and awards no reward");
 
       const levelThirteenProfile = { ...profileCookie(), currentLevel: 13, currentLevelSuccesses: 0, higherLevelSuccesses: 0,
         updatedAt: Date.now() + 1000000 };

@@ -880,6 +880,76 @@
       will-change: transform, opacity;
     }
 
+    .destruction-target-hidden { visibility: hidden !important; }
+
+    .destruction-effect {
+      position: fixed;
+      z-index: 92;
+      overflow: visible;
+      pointer-events: none;
+      transform-origin: 50% 50%;
+      contain: layout style;
+    }
+
+    .destruction-fragment,
+    .destruction-cracked {
+      position: absolute;
+      inset: 0;
+      border: 1px solid var(--fragment-border, rgba(50, 28, 82, .58));
+      border-radius: inherit;
+      background-color: var(--fragment-fill, #7656c9);
+      background-image: var(--fragment-image, none);
+      background-size: var(--fragment-background-size, auto);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.5), 0 1px 2px rgba(48,24,72,.22);
+      transform-origin: 50% 50%;
+      will-change: transform, opacity, filter;
+    }
+
+    .destruction-ring {
+      position: absolute;
+      z-index: -1;
+      inset: -6px;
+      border: 3px solid #e14a4f;
+      border-radius: 50%;
+      box-shadow: 0 0 8px rgba(225,74,79,.48);
+      opacity: 0;
+      will-change: transform, opacity;
+    }
+
+    .destruction-spark {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 5px;
+      height: 5px;
+      margin: -2.5px 0 0 -2.5px;
+      border-radius: 50%;
+      background: var(--spark-color, #f3a712);
+      box-shadow: 0 0 5px var(--spark-color, #f3a712);
+      will-change: transform, opacity;
+    }
+
+    .destruction-effect.reduced {
+      border-radius: 4px;
+      background: rgba(225,74,79,.18);
+      box-shadow: 0 0 0 5px rgba(225,74,79,.72), 0 0 18px 9px rgba(225,74,79,.36);
+    }
+
+    .destruction-effect.reduced .destruction-cracked {
+      filter: brightness(1.22) saturate(1.08);
+    }
+
+    .destruction-effect.reduced .destruction-cracked::after {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      background:
+        linear-gradient(118deg, transparent 0 45%, rgba(91,36,70,.88) 46% 49%, transparent 50%) 46% 0 / 42% 58% no-repeat,
+        linear-gradient(62deg, transparent 0 46%, rgba(91,36,70,.84) 47% 50%, transparent 51%) 55% 52% / 46% 52% no-repeat,
+        linear-gradient(142deg, transparent 0 46%, rgba(255,241,220,.92) 47% 49%, transparent 50%) 30% 50% / 44% 55% no-repeat;
+    }
+
     .quick-impact-wave {
       position: fixed;
       z-index: 89;
@@ -2007,6 +2077,9 @@
       BLOCK_FALL_LAND: 520,
       QUICK_DROP_STAGGER: 50,
       QUICK_IMPACT: 320,
+      DESTRUCTION_COMMIT: 70,
+      DESTRUCTION_SCATTER: 360,
+      DESTRUCTION_REDUCED_HIGHLIGHT: 150,
       CARRY_FORMATION: 300,
       CARRY_TRAVEL: 560,
       CARRY_LANDING: 140,
@@ -2023,6 +2096,9 @@
       BLOCK_FALL_LAND: 36,
       QUICK_DROP_STAGGER: 5,
       QUICK_IMPACT: 28,
+      DESTRUCTION_COMMIT: 8,
+      DESTRUCTION_SCATTER: 54,
+      DESTRUCTION_REDUCED_HIGHLIGHT: 26,
       CARRY_FORMATION: 24,
       CARRY_TRAVEL: 38,
       CARRY_LANDING: 18,
@@ -2111,6 +2187,7 @@
     let beetleReactionCount = 0;
     let soundEffectCount = 0;
     const activeAnimations = new Set();
+    const activeDestructions = new Set();
     const motionEvents = [];
     const curriculumPairCache = new Map();
     const lastPromptTemplateByKey = Object.create(null);
@@ -2823,6 +2900,40 @@
       playDropImpact(place, Math.max(0, durationMs / 1000 - .1));
     }
 
+    function playDestructionCrunch(place) {
+      if (!profile.sound) return;
+      const context = getAudioContext();
+      if (!context) return;
+      try {
+        const start = context.currentTime + .004;
+        const duration = .075;
+        const length = Math.max(1, Math.floor(context.sampleRate * duration));
+        const buffer = context.createBuffer(1, length, context.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let index = 0; index < length; index += 1) {
+          const progress = index / length;
+          const envelope = Math.pow(1 - progress, 2.6) * (.65 + .35 * Math.sin(progress * Math.PI * 7));
+          data[index] = (Math.random() * 2 - 1) * envelope;
+        }
+        const source = context.createBufferSource();
+        const filter = context.createBiquadFilter();
+        const gain = context.createGain();
+        source.buffer = buffer;
+        filter.type = "bandpass";
+        filter.Q.setValueAtTime(1.4, start);
+        filter.frequency.setValueAtTime(place === "ones" ? 1850 : 980, start);
+        filter.frequency.exponentialRampToValueAtTime(place === "ones" ? 780 : 430, start + duration);
+        gain.gain.setValueAtTime(.065, start);
+        gain.gain.exponentialRampToValueAtTime(.001, start + duration);
+        source.connect(filter).connect(gain).connect(context.destination);
+        source.start(start);
+        soundEffectCount += 1;
+      } catch (_) { /* Audio is optional. */ }
+      const low = place === "ones" ? 168 : 104;
+      playTone({ frequency: low, endFrequency: low * .55, duration: .09, volume: .055, type: "triangle" });
+      playTone({ frequency: low * 4.4, endFrequency: low * 2.8, duration: .052, delay: .012, volume: .025, type: "square" });
+    }
+
     function playQuickDropFinalImpact(place) {
       const base = place === "ones" ? 96 : place === "tens" ? 72 : 58;
       playTone({ frequency: base, endFrequency: base * .52, duration: .2, volume: .11, type: "triangle" });
@@ -3021,7 +3132,7 @@
     function isMotionDraining() {
       if (!state) return false;
       if (state.operation === "subtraction") {
-        return Boolean(state.animationState || state.dropQueue.length ||
+        return Boolean(state.animationState || state.dropQueue.length || activeDestructions.size ||
           state.minuendOnesAcceptedCursor !== state.minuendOnesCursor ||
           state.minuendTensAcceptedCursor !== state.minuendTensCursor ||
           state.subtrahendOnesAcceptedCursor !== state.subtrahendOnesCursor ||
@@ -3048,10 +3159,55 @@
       document.querySelectorAll(".tutorial-hand-cue").forEach(cue => cue.remove());
     }
 
+    function destructionEventDetail(record) {
+      return {
+        sourcePlace: record.sourcePlace,
+        targetIndex: record.targetIndex,
+        quickDrop: record.quickDrop,
+        reducedMotion: record.reducedMotion,
+        fragmentCount: record.fragmentCount
+      };
+    }
+
+    function finishDestructionCommit(record, interrupted = false) {
+      if (!record || record.committed) return;
+      record.committed = true;
+      clearTimeout(record.commitTimer);
+      record.resolveCommit();
+      recordMotion("destruction-commit", {
+        ...destructionEventDetail(record),
+        ...(interrupted ? { interrupted: true } : {})
+      });
+    }
+
+    function finishDestructionComplete(record, interrupted = false) {
+      if (!record || record.completed) return;
+      if (!record.committed) finishDestructionCommit(record, interrupted);
+      record.completed = true;
+      clearTimeout(record.completeTimer);
+      if (record.targetElement && record.targetElement.isConnected) {
+        record.targetElement.classList.remove("destruction-target-hidden");
+      }
+      if (record.root) record.root.remove();
+      activeDestructions.delete(record);
+      record.resolveComplete();
+      recordMotion("destruction-complete", {
+        ...destructionEventDetail(record),
+        ...(interrupted ? { interrupted: true } : {})
+      });
+    }
+
+    function cleanupDestructionEffects(interrupted = true) {
+      Array.from(activeDestructions).forEach(record => finishDestructionComplete(record, interrupted));
+      document.querySelectorAll(".destruction-effect").forEach(effect => effect.remove());
+      document.querySelectorAll(".destruction-target-hidden").forEach(target => target.classList.remove("destruction-target-hidden"));
+    }
+
     function settleActiveMotionImmediately() {
-      if (!isMotionDraining() && activeAnimations.size === 0) {
+      if (!isMotionDraining() && activeAnimations.size === 0 && activeDestructions.size === 0) {
         cleanupMotionOverlays();
         cleanupImpactEffects();
+        cleanupDestructionEffects();
         cleanupTutorialHandCues();
         return;
       }
@@ -3061,12 +3217,14 @@
       });
       cleanupMotionOverlays();
       cleanupImpactEffects();
+      cleanupDestructionEffects();
       cleanupTutorialHandCues();
     }
 
     function abandonActiveMotion() {
       cancelQuickPlayHold();
       motionSession += 1;
+      cleanupDestructionEffects();
       activeAnimations.forEach(animation => {
         try { animation.cancel(); } catch (_) { /* Animation may already be gone. */ }
       });
@@ -3114,6 +3272,183 @@
       const rect = element.getBoundingClientRect();
       if (!rect.width || !rect.height) return null;
       return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+    }
+
+    function snapshotDestructionTarget(element, targetPlace, targetIndex) {
+      const rect = rectSnapshot(element);
+      if (!rect) return null;
+      const style = getComputedStyle(element);
+      return {
+        element,
+        rect,
+        targetPlace,
+        targetIndex,
+        fill: style.backgroundColor,
+        image: style.backgroundImage,
+        backgroundSize: style.backgroundSize,
+        border: style.borderTopColor,
+        borderRadius: style.borderRadius,
+        opacity: Number(style.opacity) || 1
+      };
+    }
+
+    function makeDestructionPiece(className, snapshot) {
+      const piece = document.createElement("span");
+      piece.className = className;
+      piece.style.setProperty("--fragment-fill", snapshot.fill);
+      piece.style.setProperty("--fragment-image", snapshot.image === "none" ? "none" : snapshot.image);
+      piece.style.setProperty("--fragment-background-size", snapshot.backgroundSize || "auto");
+      piece.style.setProperty("--fragment-border", snapshot.border);
+      piece.style.opacity = String(snapshot.opacity);
+      return piece;
+    }
+
+    function destructionFragmentShapes(place) {
+      return place === "ones" ? [
+        "polygon(0 0,55% 0,47% 36%,0 48%)",
+        "polygon(55% 0,100% 0,100% 42%,68% 48%,47% 36%)",
+        "polygon(0 48%,47% 36%,53% 67%,20% 100%,0 100%)",
+        "polygon(47% 36%,68% 48%,100% 42%,100% 100%,72% 100%,53% 67%)",
+        "polygon(20% 100%,53% 67%,72% 100%)"
+      ] : [
+        "polygon(0 0,34% 0,29% 44%,0 35%)",
+        "polygon(34% 0,68% 0,61% 48%,29% 44%)",
+        "polygon(68% 0,100% 0,100% 42%,61% 48%)",
+        "polygon(0 35%,29% 44%,35% 100%,0 100%)",
+        "polygon(29% 44%,61% 48%,70% 100%,35% 100%)",
+        "polygon(61% 48%,100% 42%,100% 100%,70% 100%)"
+      ];
+    }
+
+    function destructionTrajectory(place, index) {
+      const ones = [
+        [-25, -23, -72], [22, -28, 84], [-30, 13, 58], [28, 17, -78], [2, 31, 112]
+      ];
+      const tens = [
+        [-47, -12, -38], [-34, 5, 28], [-18, -17, 54], [19, 15, -42], [35, -5, 32], [49, 12, 48]
+      ];
+      const values = (place === "ones" ? ones : tens)[index];
+      return { x: values[0], y: values[1], rotation: values[2] };
+    }
+
+    function startDestruction(item) {
+      const snapshot = item.destructionTarget;
+      const sourcePlace = item.place;
+      const targetIndex = snapshot ? snapshot.targetIndex : item.destructionTargetIndex;
+      const targetPlace = item.column || (sourcePlace.endsWith("ones") ? "ones" : "tens");
+      const liveTarget = resultUnit(targetPlace, targetIndex) || (snapshot && snapshot.element);
+      const currentSnapshot = snapshotDestructionTarget(liveTarget, targetPlace, targetIndex) || snapshot;
+      const fragmentCount = reduceMotion ? 0 : (targetPlace === "ones" ? 5 : 6);
+      let resolveCommit;
+      let resolveComplete;
+      const commitPromise = new Promise(resolve => { resolveCommit = resolve; });
+      const completePromise = new Promise(resolve => { resolveComplete = resolve; });
+      const record = {
+        sourcePlace,
+        targetIndex,
+        targetPlace,
+        quickDrop: Boolean(item.quickPlay),
+        reducedMotion: reduceMotion,
+        fragmentCount,
+        targetElement: liveTarget,
+        root: null,
+        committed: false,
+        completed: false,
+        commitTimer: 0,
+        completeTimer: 0,
+        resolveCommit,
+        resolveComplete,
+        commitPromise,
+        completePromise,
+        session: motionSession
+      };
+      activeDestructions.add(record);
+      if (!solverRunning && state && state.phase !== "completed") elements.reset.disabled = false;
+      if (liveTarget) liveTarget.classList.add("destruction-target-hidden");
+
+      if (currentSnapshot) {
+        const root = document.createElement("span");
+        root.className = "destruction-effect" + (reduceMotion ? " reduced" : "");
+        root.setAttribute("aria-hidden", "true");
+        root.dataset.sourcePlace = sourcePlace;
+        root.dataset.targetPlace = targetPlace;
+        root.dataset.targetIndex = String(targetIndex);
+        root.dataset.fragmentCount = String(fragmentCount);
+        root.dataset.fill = currentSnapshot.fill;
+        Object.assign(root.style, {
+          left: currentSnapshot.rect.left + "px",
+          top: currentSnapshot.rect.top + "px",
+          width: currentSnapshot.rect.width + "px",
+          height: currentSnapshot.rect.height + "px",
+          borderRadius: currentSnapshot.borderRadius
+        });
+        record.root = root;
+        document.body.append(root);
+
+        if (reduceMotion) {
+          root.append(makeDestructionPiece("destruction-cracked", currentSnapshot));
+        } else {
+          const animations = [];
+          const duration = activeMotionTimings.DESTRUCTION_SCATTER;
+          const commitOffset = Math.min(.32, activeMotionTimings.DESTRUCTION_COMMIT / duration);
+          const baseOpacity = currentSnapshot.opacity;
+          destructionFragmentShapes(targetPlace).forEach((clipPath, index) => {
+            const fragment = makeDestructionPiece("destruction-fragment", currentSnapshot);
+            fragment.style.clipPath = clipPath;
+            fragment.dataset.fragmentIndex = String(index);
+            root.append(fragment);
+            const trajectory = destructionTrajectory(targetPlace, index);
+            animations.push(animateTracked(fragment, [
+              { offset: 0, transform: "translate(0,0) rotate(0deg) scale(1)", opacity: baseOpacity, filter: "brightness(1)" },
+              { offset: commitOffset, transform: "translate(0,1px) rotate(0deg) scale(1.1,.76)", opacity: baseOpacity, filter: "brightness(1.22)" },
+              { offset: .54, transform: "translate(" + (trajectory.x * .58).toFixed(1) + "px," + (trajectory.y * .45 - 7).toFixed(1) + "px) rotate(" + (trajectory.rotation * .52).toFixed(1) + "deg) scale(.98)", opacity: baseOpacity * .92, filter: "brightness(1.08)" },
+              { transform: "translate(" + trajectory.x + "px," + (trajectory.y + 22) + "px) rotate(" + trajectory.rotation + "deg) scale(.78)", opacity: 0, filter: "brightness(.92)" }
+            ], { duration, easing: "cubic-bezier(.18,.7,.25,1)", fill: "forwards" }));
+          });
+
+          const ring = document.createElement("span");
+          ring.className = "destruction-ring";
+          root.append(ring);
+          animations.push(animateTracked(ring, [
+            { transform: "scale(.35)", opacity: .92 },
+            { offset: .42, transform: "scale(1.05)", opacity: .65 },
+            { transform: "scale(1.75)", opacity: 0 }
+          ], { duration: Math.round(duration * .72), easing: "ease-out", fill: "forwards" }));
+
+          [[-19, -24], [20, -19], [5, 26]].forEach((destination, index) => {
+            const spark = document.createElement("span");
+            spark.className = "destruction-spark";
+            spark.style.setProperty("--spark-color", index === 1 ? "#e14a4f" : "#f3a712");
+            spark.dataset.sparkIndex = String(index);
+            root.append(spark);
+            animations.push(animateTracked(spark, [
+              { transform: "translate(0,0) scale(.35)", opacity: 0 },
+              { offset: .18, transform: "translate(0,0) scale(1)", opacity: 1 },
+              { transform: "translate(" + destination[0] + "px," + destination[1] + "px) scale(.25)", opacity: 0 }
+            ], { duration: Math.round(duration * .68), delay: index * 8, easing: "ease-out", fill: "forwards" }));
+          });
+          Promise.all(animations).then(() => record.commitPromise).then(() => finishDestructionComplete(record));
+        }
+      }
+
+      recordMotion("destruction-start", destructionEventDetail(record));
+      playDestructionCrunch(targetPlace);
+      record.commitTimer = setTimeout(() => finishDestructionCommit(record), activeMotionTimings.DESTRUCTION_COMMIT);
+      if (reduceMotion || !currentSnapshot) {
+        const duration = reduceMotion
+          ? activeMotionTimings.DESTRUCTION_REDUCED_HIGHLIGHT
+          : activeMotionTimings.DESTRUCTION_COMMIT;
+        record.completeTimer = setTimeout(() => finishDestructionComplete(record), duration);
+      }
+      return record;
+    }
+
+    async function waitForActiveDestructions(session = motionSession) {
+      const pending = Array.from(activeDestructions)
+        .filter(record => record.session === session)
+        .map(record => record.completePromise);
+      if (pending.length) await Promise.all(pending);
+      return Boolean(state && session === motionSession);
     }
 
     function makeMotionOverlay(rect, className, metadata = {}) {
@@ -3246,7 +3581,7 @@
       setTimeout(() => element.classList.remove("motion-target-flash"), 280);
     }
 
-    function triggerQuickLandingImpact(place, index, position, total) {
+    function triggerQuickLandingImpact(place, index, position, total, suppressVisual = false) {
       const progress = state ? placeProgress(place) : null;
       const column = progress && progress.column ? progress.column : place;
       const target = problem && problem.operation === "subtraction"
@@ -3259,6 +3594,7 @@
         playQuickDropFinalImpact(column);
         vibrate([35, 28, 75]);
       }
+      if (suppressVisual) return;
       if (!panel) return;
       if (reduceMotion || typeof panel.animate !== "function") {
         flashMotionTarget(panel);
@@ -4111,7 +4447,8 @@
       elements.answer.disabled = state.phase === "completed" || motionLocked || (solverRunning && !solverNeedsAnswerControl);
       const resetCompleted = state.phase === "completed";
       elements.reset.hidden = resetCompleted;
-      elements.reset.disabled = resetCompleted || motionLocked || solverRunning;
+      elements.reset.disabled = resetCompleted || solverRunning || diceRefreshState !== "idle" ||
+        (motionLocked && activeDestructions.size === 0);
       elements.settings.disabled = motionLocked || solverRunning;
       elements.fullscreen.disabled = motionLocked || solverRunning;
       renderPrompt();
@@ -4353,14 +4690,21 @@
 
     async function animateDrop(item) {
       let targetIndex = item.index;
-      if (problem.operation === "subtraction" && item.place === "subtrahend-ones") targetIndex = state.resultOnes - 1;
+      if (Number.isInteger(item.destructionTargetIndex)) targetIndex = item.destructionTargetIndex;
+      else if (problem.operation === "subtraction" && item.place === "subtrahend-ones") targetIndex = state.resultOnes - 1;
       else if (problem.operation === "subtraction" && item.place === "subtrahend-tens") targetIndex = state.resultTens - 1;
       const target = resultUnit(item.column || item.place, targetIndex);
       const destination = rectSnapshot(target);
+      if (problem.operation === "subtraction" && item.place.startsWith("subtrahend-")) {
+        item.destructionTargetIndex = targetIndex;
+        item.destructionTarget = snapshotDestructionTarget(target, item.column, targetIndex);
+      }
       if (reduceMotion || motionSkipRequested || !item.origin || !destination) {
         playDropImpact(item.column || item.place);
         recordMotion("drop-static", { place: item.place, column: item.column || item.place, index: item.index });
         if (!item.origin || !destination) motionSkipRequested = true;
+        recordMotion("drop-impact", { place: item.place, column: item.column || item.place, index: item.index,
+          quickPlay: Boolean(item.quickPlay), reduced: reduceMotion });
         return true;
       }
       const overlay = makeMotionOverlay(item.origin,
@@ -4386,10 +4730,13 @@
       } finally {
         overlay.remove();
       }
+      recordMotion("drop-impact", { place: item.place, column: item.column || item.place, index: item.index,
+        quickPlay: Boolean(item.quickPlay), reduced: false });
       return false;
     }
 
     async function performBorrowForSubtraction(session = motionSession) {
+      if (!await waitForActiveDestructions(session)) return false;
       if (!state || state.operation !== "subtraction" || state.resultOnes > 0 || state.resultTens <= 0 ||
           state.subtrahendOnesCursor >= problem.digits.b.ones) return true;
       clearIdleHints();
@@ -4459,6 +4806,7 @@
 
     async function advanceSubtractionAfterPlace(place, session = motionSession) {
       if (!state || state.operation !== "subtraction" || session !== motionSession) return false;
+      if (!await waitForActiveDestructions(session)) return false;
       if (place === "subtrahend-ones" && state.subtrahendOnesCursor < problem.digits.b.ones) {
         if (state.resultOnes === 0) return performBorrowForSubtraction(session);
         return true;
@@ -4498,35 +4846,82 @@
       return true;
     }
 
-    async function drainQuickDropBatch(batch, session) {
-      const place = batch[0].place;
-      const batchId = batch[0].batchId;
-      state.animationState = "quick-drop";
-      recordMotion("quick-drop-start", { place, count: batch.length, batchId });
-      if (problem.operation === "subtraction") {
-        for (let position = 0; position < batch.length; position += 1) {
-          const item = batch[position];
-          if (item.place === "subtrahend-ones" && state.resultOnes === 0) {
-            if (!await performBorrowForSubtraction(session)) return false;
-            state.animationState = "quick-drop";
-          }
-          if (position) await pause(activeMotionTimings.QUICK_DROP_STAGGER);
-          const useStaticFlash = await animateDrop(item);
+    async function drainQuickSubtrahendBatch(batch, session) {
+      let batchPosition = 0;
+      while (batchPosition < batch.length) {
+        const first = batch[batchPosition];
+        if (first.place === "subtrahend-ones" && state.resultOnes === 0) {
+          if (!await waitForActiveDestructions(session) || !await performBorrowForSubtraction(session)) return false;
+          state.animationState = "quick-drop";
+        }
+
+        const available = first.place === "subtrahend-ones" ? state.resultOnes : state.resultTens;
+        const segmentLength = Math.min(batch.length - batchPosition, Math.max(1, available));
+        const segment = batch.slice(batchPosition, batchPosition + segmentLength);
+        segment.forEach((item, position) => {
+          item.destructionTargetIndex = available - position - 1;
+        });
+        const flights = segment.map((item, position) => (async () => {
+          if (position) await pause(position * activeMotionTimings.QUICK_DROP_STAGGER);
+          if (!state || session !== motionSession) return true;
+          return animateDrop(item);
+        })());
+
+        for (let position = 0; position < segment.length; position += 1) {
+          const item = segment[position];
+          const useStaticFlash = await flights[position];
+          if (!state || session !== motionSession) return false;
+          const destruction = startDestruction(item);
+          triggerQuickLandingImpact(item.place, item.index, batchPosition + position, batch.length, true);
+          await destruction.commitPromise;
           if (!state || session !== motionSession) return false;
           setLandedCursor(item.place, item.index + 1);
           applySubtractionLanding(item);
           state.tempCount = item.index + 1;
           recordMotion("drop-landed", {
             place: item.place, column: item.column, index: item.index, landed: item.index + 1,
-            quickPlay: true, batchId, resultOnes: state.resultOnes, resultTens: state.resultTens
+            quickPlay: true, batchId: item.batchId, resultOnes: state.resultOnes, resultTens: state.resultTens
           });
           render();
-          if (useStaticFlash) flashMotionTarget(elements.board.querySelector(".result-panel." + item.column));
-          triggerQuickLandingImpact(item.place, item.index, position, batch.length);
-          if (item.place === "subtrahend-ones" && state.resultOnes === 0 &&
-              state.subtrahendOnesCursor < problem.digits.b.ones) {
-            if (!await performBorrowForSubtraction(session)) return false;
-            state.animationState = "quick-drop";
+          if (useStaticFlash && !item.destructionTarget) {
+            flashMotionTarget(elements.board.querySelector(".result-panel." + item.column));
+          }
+        }
+
+        batchPosition += segment.length;
+        if (first.place === "subtrahend-ones" && state.resultOnes === 0 &&
+            state.subtrahendOnesCursor < problem.digits.b.ones) {
+          if (!await waitForActiveDestructions(session) || !await performBorrowForSubtraction(session)) return false;
+          state.animationState = "quick-drop";
+        }
+      }
+      return waitForActiveDestructions(session);
+    }
+
+    async function drainQuickDropBatch(batch, session) {
+      const place = batch[0].place;
+      const batchId = batch[0].batchId;
+      state.animationState = "quick-drop";
+      recordMotion("quick-drop-start", { place, count: batch.length, batchId });
+      if (problem.operation === "subtraction") {
+        if (place.startsWith("subtrahend-")) {
+          if (!await drainQuickSubtrahendBatch(batch, session)) return false;
+        } else {
+          for (let position = 0; position < batch.length; position += 1) {
+            const item = batch[position];
+            if (position) await pause(activeMotionTimings.QUICK_DROP_STAGGER);
+            const useStaticFlash = await animateDrop(item);
+            if (!state || session !== motionSession) return false;
+            setLandedCursor(item.place, item.index + 1);
+            applySubtractionLanding(item);
+            state.tempCount = item.index + 1;
+            recordMotion("drop-landed", {
+              place: item.place, column: item.column, index: item.index, landed: item.index + 1,
+              quickPlay: true, batchId, resultOnes: state.resultOnes, resultTens: state.resultTens
+            });
+            render();
+            if (useStaticFlash) flashMotionTarget(elements.board.querySelector(".result-panel." + item.column));
+            triggerQuickLandingImpact(item.place, item.index, position, batch.length);
           }
         }
         state.dropQueue.splice(0, batch.length);
@@ -4620,6 +5015,13 @@
         }
         const useStaticFlash = await animateDrop(item);
         if (!state || session !== motionSession) return;
+        const destruction = problem.operation === "subtraction" && item.place.startsWith("subtrahend-")
+          ? startDestruction(item)
+          : null;
+        if (destruction) {
+          await destruction.commitPromise;
+          if (!state || session !== motionSession) return;
+        }
         setLandedCursor(item.place, item.index + 1);
         if (problem.operation === "subtraction") applySubtractionLanding(item);
         state.tempCount = item.index + 1;
@@ -4647,11 +5049,18 @@
           await performCarry(carryKind, session);
           if (!state || session !== motionSession) return;
         } else {
-          state.animationState = state.dropQueue.length ? "drop" : null;
+          state.animationState = destruction ? "destruction" : (state.dropQueue.length ? "drop" : null);
           render();
-          if (useStaticFlash) flashMotionTarget(problem.operation === "subtraction"
+          if (useStaticFlash && !destruction) flashMotionTarget(problem.operation === "subtraction"
             ? elements.board.querySelector(".result-panel." + item.column)
             : resultUnit(item.place, item.index));
+        }
+
+        if (destruction) {
+          await destruction.completePromise;
+          if (!state || session !== motionSession) return;
+          state.animationState = state.dropQueue.length ? "drop" : null;
+          render();
         }
 
         if (!state.dropQueue.length) {
@@ -4960,7 +5369,8 @@
     }
 
     function resetCurrentProblem() {
-      if (state.phase === "completed" || isInteractionLocked()) return;
+      if (state.phase === "completed" || solverRunning || diceRefreshState !== "idle" || isDialogOpen()) return;
+      abandonActiveMotion();
       state = freshState(problem);
       render();
       noteActivity();
@@ -5330,6 +5740,7 @@
         diceFace,
         activeOverlayCount: document.querySelectorAll(".motion-overlay").length,
         activeImpactCount: document.querySelectorAll(".quick-impact-wave").length,
+        activeDestructionCount: activeDestructions.size,
         activeHandCueCount: document.querySelectorAll(".tutorial-hand-cue").length,
         quickPlayHolding: Boolean(quickPlayHold),
         quickPlaySpeed,
