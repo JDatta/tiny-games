@@ -3784,6 +3784,12 @@
       };
     }
 
+    function isQueuedItemInFlight(place, index) {
+      return Boolean(state && state.dropQueue.some(item =>
+        item.place === place && item.index === index && item.inFlight
+      ));
+    }
+
     function canAcceptPlaceUnit(place, allowSolver = false) {
       if (!state || state.phase === "completed") return false;
       const progress = placeProgress(place);
@@ -3853,7 +3859,7 @@
           const globalIndex = rowOffset + index;
           const eligible = canAcceptPlaceUnit("tens") && state.tensAcceptedCursor === globalIndex;
           const counted = state.tensCursor > globalIndex;
-          const queued = state.tensAcceptedCursor > globalIndex && !counted;
+          const queued = !counted && isQueuedItemInFlight("tens", globalIndex);
           grid.append(makeUnit(owner, counted, eligible, "Count the next ten. Hold for " + quickPlayHoldLabel + " to drop the rest of this addend cell.", false,
             { role: "source", place: "tens", index: globalIndex }, queued));
         } else grid.append(makeEmptyUnit());
@@ -3876,7 +3882,7 @@
           const globalIndex = rowOffset + index;
           const eligible = canAcceptPlaceUnit("ones") && state.onesAcceptedCursor === globalIndex;
           const counted = state.onesCursor > globalIndex;
-          const queued = state.onesAcceptedCursor > globalIndex && !counted;
+          const queued = !counted && isQueuedItemInFlight("ones", globalIndex);
           strip.append(makeUnit(owner, counted, eligible, "Count the next one. Hold for " + quickPlayHoldLabel + " to drop the rest of this addend cell.", false,
             { role: "source", place: "ones", index: globalIndex }, queued));
         } else strip.append(makeEmptyUnit());
@@ -3899,7 +3905,7 @@
         if (index < digit) {
           const eligible = canAcceptPlaceUnit(role) && progress.accepted === index;
           const counted = progress.landed > index;
-          const queued = progress.accepted > index && !counted;
+          const queued = !counted && isQueuedItemInFlight(role, index);
           const noun = owner === "a" ? "minuend" : "subtrahend";
           grid.append(makeUnit(owner, counted, eligible,
             "Drop the next " + noun + " ten. Hold for " + quickPlayHoldLabel + " to drop this whole operand cell.",
@@ -3924,7 +3930,7 @@
         if (index < digit) {
           const eligible = canAcceptPlaceUnit(role) && progress.accepted === index;
           const counted = progress.landed > index;
-          const queued = progress.accepted > index && !counted;
+          const queued = !counted && isQueuedItemInFlight(role, index);
           const noun = owner === "a" ? "minuend" : "subtrahend";
           strip.append(makeUnit(owner, counted, eligible,
             "Drop the next " + noun + " one. Hold for " + quickPlayHoldLabel + " to drop this whole operand cell.",
@@ -4628,6 +4634,7 @@
           index,
           owner: unit.dataset.owner || (place === "ones" ? ownerForOnes(index) : place === "tens" ? ownerForTens(index) : "carry"),
           origin: rectSnapshot(unit),
+          inFlight: false,
           quickPlay: true,
           batchId
         });
@@ -4652,7 +4659,8 @@
         column: progress.column || place,
         index,
         owner: unit.dataset.owner || (place === "ones" ? ownerForOnes(index) : place === "tens" ? ownerForTens(index) : "carry"),
-        origin: rectSnapshot(unit)
+        origin: rectSnapshot(unit),
+        inFlight: false
       };
       setAcceptedCursor(place, progress.accepted + 1);
       state.dropQueue.push(item);
@@ -4688,6 +4696,21 @@
       return promise;
     }
 
+    function markQueuedItemInFlight(item, session = motionSession) {
+      if (!state || session !== motionSession) return false;
+      item.inFlight = true;
+      render();
+      return Boolean(state && session === motionSession);
+    }
+
+    function launchQuickDropFlights(items, session) {
+      return items.map((item, position) => (async () => {
+        if (position) await pause(position * activeMotionTimings.QUICK_DROP_STAGGER);
+        if (!markQueuedItemInFlight(item, session)) return true;
+        return animateDrop(item);
+      })());
+    }
+
     async function animateDrop(item) {
       let targetIndex = item.index;
       if (Number.isInteger(item.destructionTargetIndex)) targetIndex = item.destructionTargetIndex;
@@ -4718,7 +4741,13 @@
       const scaleY = destination.height / item.origin.height;
       const translate = (x, y, xScale, yScale) =>
         "translate(" + x.toFixed(2) + "px," + y.toFixed(2) + "px) scale(" + xScale.toFixed(3) + "," + yScale.toFixed(3) + ")";
-      recordMotion("drop-start", { place: item.place, column: item.column || item.place, index: item.index });
+      recordMotion("drop-start", {
+        place: item.place,
+        column: item.column || item.place,
+        index: item.index,
+        quickPlay: Boolean(item.quickPlay),
+        batchId: item.batchId || null
+      });
       playDropSound(item.column || item.place, activeMotionTimings.BLOCK_FALL_LAND);
       try {
         await animateTracked(overlay, [
@@ -4861,11 +4890,7 @@
         segment.forEach((item, position) => {
           item.destructionTargetIndex = available - position - 1;
         });
-        const flights = segment.map((item, position) => (async () => {
-          if (position) await pause(position * activeMotionTimings.QUICK_DROP_STAGGER);
-          if (!state || session !== motionSession) return true;
-          return animateDrop(item);
-        })());
+        const flights = launchQuickDropFlights(segment, session);
 
         for (let position = 0; position < segment.length; position += 1) {
           const item = segment[position];
@@ -4907,10 +4932,10 @@
         if (place.startsWith("subtrahend-")) {
           if (!await drainQuickSubtrahendBatch(batch, session)) return false;
         } else {
+          const flights = launchQuickDropFlights(batch, session);
           for (let position = 0; position < batch.length; position += 1) {
             const item = batch[position];
-            if (position) await pause(activeMotionTimings.QUICK_DROP_STAGGER);
-            const useStaticFlash = await animateDrop(item);
+            const useStaticFlash = await flights[position];
             if (!state || session !== motionSession) return false;
             setLandedCursor(item.place, item.index + 1);
             applySubtractionLanding(item);
@@ -4932,11 +4957,7 @@
         if (!state.dropQueue.length) await advanceSubtractionAfterPlace(place, session);
         return true;
       }
-      const flights = batch.map((item, position) => (async () => {
-        if (position) await pause(position * activeMotionTimings.QUICK_DROP_STAGGER);
-        if (!state || session !== motionSession) return true;
-        return animateDrop(item);
-      })());
+      const flights = launchQuickDropFlights(batch, session);
 
       for (let position = 0; position < batch.length; position += 1) {
         const item = batch[position];
@@ -5013,6 +5034,7 @@
           if (!await performBorrowForSubtraction(session)) return;
           state.animationState = "drop";
         }
+        if (!markQueuedItemInFlight(item, session)) return;
         const useStaticFlash = await animateDrop(item);
         if (!state || session !== motionSession) return;
         const destruction = problem.operation === "subtraction" && item.place.startsWith("subtrahend-")

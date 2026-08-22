@@ -118,10 +118,9 @@
       }
     }
 
-    async function holdCurrentAddendCell(frame, input = "pointer") {
+    async function beginCurrentQuickDrop(frame, input = "pointer") {
       const doc = frame.contentDocument;
       const diagnostics = frame.contentWindow.NumberGarden.motionDiagnostics;
-      const completedBefore = diagnostics.events().filter(event => event.type === "quick-drop-complete").length;
       const unit = doc.querySelector(".unit.eligible");
       if (!unit) throw new Error("No eligible unit is available for quick play");
       const panel = unit.closest(".source-panel");
@@ -142,8 +141,83 @@
       } else {
         panel.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, button: 0 }));
       }
+    }
+
+    async function holdCurrentAddendCell(frame, input = "pointer") {
+      const diagnostics = frame.contentWindow.NumberGarden.motionDiagnostics;
+      const completedBefore = diagnostics.events().filter(event => event.type === "quick-drop-complete").length;
+      await beginCurrentQuickDrop(frame, input);
       await waitFor(() => diagnostics.events().filter(event => event.type === "quick-drop-complete").length > completedBefore,
         "quick-drop completion");
+    }
+
+    function captureQuickFlightFades(frame, place, indices, expectedStarts, trigger) {
+      const doc = frame.contentDocument;
+      const diagnostics = frame.contentWindow.NumberGarden.motionDiagnostics;
+      return new Promise((resolve, reject) => {
+        const snapshots = [];
+        let observedStarts = 0;
+        const timeout = setTimeout(() => {
+          observer.disconnect();
+          reject(new Error("Timed out: quick-drop flight fade capture"));
+        }, 5000);
+        const observer = new MutationObserver(() => {
+          const starts = diagnostics.events().filter(event =>
+            event.type === "drop-start" && event.quickPlay && event.place === place
+          );
+          while (observedStarts < starts.length && snapshots.length < expectedStarts) {
+            const event = starts[observedStarts++];
+            snapshots.push({
+              index: event.index,
+              sources: indices.map(index => {
+                const source = doc.querySelector(
+                  '[data-motion-role="source"][data-place="' + place + '"][data-index="' + index + '"]'
+                );
+                if (!source) throw new Error("Missing quick-drop source " + place + " " + index);
+                return {
+                  index,
+                  queued: source.classList.contains("queued"),
+                  opacity: frame.contentWindow.getComputedStyle(source).opacity
+                };
+              })
+            });
+          }
+          if (snapshots.length === expectedStarts) {
+            clearTimeout(timeout);
+            observer.disconnect();
+            resolve(snapshots);
+          }
+        });
+        observer.observe(doc.body, { attributes: true, attributeFilter: ["data-motion-event"] });
+        Promise.resolve(trigger()).catch(error => {
+          clearTimeout(timeout);
+          observer.disconnect();
+          reject(error);
+        });
+      });
+    }
+
+    function hasProgressiveQuickFlightFades(snapshots, startedIndices, sourceIndices = startedIndices) {
+      return snapshots.length === startedIndices.length && snapshots.every((snapshot, position) => {
+        const faded = snapshot.sources.filter(source => source.queued && source.opacity === "0.52").map(source => source.index);
+        const launched = startedIndices.slice(0, position + 1);
+        const unlaunched = snapshot.sources.filter(source => !launched.includes(source.index));
+        return JSON.stringify(snapshot.sources.map(source => source.index)) === JSON.stringify(sourceIndices) &&
+          snapshot.index === startedIndices[position] && JSON.stringify(faded) === JSON.stringify(launched) &&
+          unlaunched.every(source => !source.queued && source.opacity === "1");
+      });
+    }
+
+    function hasConcurrentQuickBatchLaunch(events, place, batchId, timings) {
+      const starts = events.filter(event => event.type === "drop-start" && event.quickPlay &&
+        event.place === place && event.batchId === batchId);
+      const firstLandingIndex = events.findIndex(event => event.type === "drop-landed" && event.quickPlay &&
+        event.place === place && event.batchId === batchId);
+      return starts.length > 1 && firstLandingIndex >= 0 && starts.every(event => events.indexOf(event) < firstLandingIndex) &&
+        starts.slice(1).every((event, index) => {
+          const delay = event.at - starts[index].at;
+          return delay >= timings.QUICK_DROP_STAGGER - 1 && delay < timings.BLOCK_FALL_LAND;
+        });
     }
 
     async function finishSubtractionCounting(frame, quick = false) {
@@ -799,7 +873,9 @@
       await waitFor(() => quickApi.snapshot().onesLandedCursor === 1 && !quickApi.snapshot().controlsLocked,
         "single tap before partial-cell quick play");
       quickApi.clearEvents();
-      await holdCurrentAddendCell(frame);
+      const additionOnesFadeSnapshots = await captureQuickFlightFades(
+        frame, "ones", [1, 2, 3], 3, () => beginCurrentQuickDrop(frame)
+      );
       await waitFor(() => quickApi.snapshot().onesLandedCursor === 4 && !quickApi.snapshot().controlsLocked,
         "remaining first addend cell quick drop");
       let quickEvents = quickApi.events();
@@ -809,6 +885,11 @@
         quickEvents.filter(event => event.type === "quick-impact").length === 3 &&
         quickStarts[quickStarts.length - 1].at < quickLandings[0].at,
         "a partial ones cell launches its three remaining blocks concurrently with a dramatic impact per landing");
+      const additionOnesBatchId = quickEvents.find(event => event.type === "quick-drop-accepted").batchId;
+      assert(hasProgressiveQuickFlightFades(additionOnesFadeSnapshots, [1, 2, 3]) &&
+        hasConcurrentQuickBatchLaunch(quickEvents, "ones", additionOnesBatchId,
+          frame.contentWindow.NumberGarden.ACTIVE_MOTION_TIMINGS),
+        "quick-drop Ones fade only as each staggered flight launches, before any batch landing");
       assert(quickEvents.find(event => event.type === "quick-drop-accepted").count === 3 &&
         quickLandings.every((event, index) => event.index === index + 1),
         "quick play accepts only the current cell's uncounted blocks and lands them in order");
@@ -826,7 +907,9 @@
       quickDoc = frame.contentDocument;
       quickApi = frame.contentWindow.NumberGarden.motionDiagnostics;
       quickApi.clearEvents();
-      await holdCurrentAddendCell(frame);
+      const additionTensFadeSnapshots = await captureQuickFlightFades(
+        frame, "tens", [0, 1, 2, 3], 4, () => beginCurrentQuickDrop(frame)
+      );
       await waitFor(() => quickApi.snapshot().tensLandedCursor === 4 && !quickApi.snapshot().controlsLocked,
         "tens-bar quick drop");
       quickEvents = quickApi.events();
@@ -834,6 +917,11 @@
         quickEvents.filter(event => event.type === "drop-start" && event.place === "tens").length === 4 &&
         quickEvents.filter(event => event.type === "quick-impact" && event.place === "tens").length === 4,
         "long-pressing a Tens addend cell gives every bar the staggered fall and heavy landing treatment");
+      const additionTensBatchId = quickEvents.find(event => event.type === "quick-drop-accepted").batchId;
+      assert(hasProgressiveQuickFlightFades(additionTensFadeSnapshots, [0, 1, 2, 3]) &&
+        hasConcurrentQuickBatchLaunch(quickEvents, "tens", additionTensBatchId,
+          frame.contentWindow.NumberGarden.ACTIVE_MOTION_TIMINGS),
+        "quick-drop Tens keep later bars fully colored until their own staggered flight begins");
 
       frame = await openGame("?a=7&b=5&harness=1");
       quickDoc = frame.contentDocument;
@@ -1738,10 +1826,32 @@
       frame = await openGame("?op=subtraction&a=42&b=17&harness=1");
       subtractionApi = frame.contentWindow.NumberGarden;
       subtractionApi.motionDiagnostics.clearEvents();
-      const quickActions = await finishSubtractionCounting(frame, true);
+      let completedQuickDrops = 0;
+      const minuendOnesFadeSnapshots = await captureQuickFlightFades(
+        frame, "minuend-ones", [0, 1], 2, () => beginCurrentQuickDrop(frame)
+      );
+      await waitFor(() => subtractionApi.motionDiagnostics.events().filter(event => event.type === "quick-drop-complete").length > completedQuickDrops,
+        "quick minuend Ones completion");
+      completedQuickDrops += 1;
+      const minuendTensFadeSnapshots = await captureQuickFlightFades(
+        frame, "minuend-tens", [0, 1, 2, 3], 4, () => beginCurrentQuickDrop(frame)
+      );
+      await waitFor(() => subtractionApi.motionDiagnostics.events().filter(event => event.type === "quick-drop-complete").length > completedQuickDrops,
+        "quick minuend Tens completion");
+      completedQuickDrops += 1;
+      const subtrahendOnesFadeSnapshots = await captureQuickFlightFades(
+        frame, "subtrahend-ones", [0, 1, 2, 3, 4, 5, 6], 2, () => beginCurrentQuickDrop(frame)
+      );
+      await waitFor(() => subtractionApi.motionDiagnostics.events().filter(event => event.type === "quick-drop-complete").length > completedQuickDrops,
+        "borrow-spanning quick subtrahend Ones completion", 10000);
+      completedQuickDrops += 1;
+      await holdCurrentAddendCell(frame);
+      const quickActions = completedQuickDrops + 1;
       const quickSubtractionEvents = subtractionApi.motionDiagnostics.events();
       subtractionSnapshot = subtractionApi.motionDiagnostics.snapshot();
       const borrowFormationIndex = quickSubtractionEvents.findIndex(event => event.type === "borrow-formation");
+      const quickMinuendBatches = quickSubtractionEvents.filter(event => event.type === "quick-drop-accepted" &&
+        event.place.startsWith("minuend-"));
       let activeBeforeBorrow = 0;
       quickSubtractionEvents.slice(0, borrowFormationIndex).forEach(event => {
         if (event.type === "destruction-start") activeBeforeBorrow += 1;
@@ -1752,8 +1862,14 @@
         JSON.stringify(quickSubtractionEvents.filter(event => event.type === "quick-drop-accepted").map(event => event.count)) ===
           JSON.stringify([2, 4, 7, 1]) && quickSubtractionEvents.some(event => event.type === "borrow-landed") &&
         destructionOverlap(quickSubtractionEvents) > 1 && activeBeforeBorrow === 0 &&
+        hasProgressiveQuickFlightFades(minuendOnesFadeSnapshots, [0, 1]) &&
+        hasProgressiveQuickFlightFades(minuendTensFadeSnapshots, [0, 1, 2, 3]) &&
+        hasProgressiveQuickFlightFades(subtrahendOnesFadeSnapshots, [0, 1], [0, 1, 2, 3, 4, 5, 6]) &&
+        quickMinuendBatches.length === 2 && quickMinuendBatches.every(batch =>
+          hasConcurrentQuickBatchLaunch(quickSubtractionEvents, batch.place, batch.batchId,
+            subtractionApi.ACTIVE_MOTION_TIMINGS)) &&
         subtractionSnapshot.activeDestructionCount === 0 && !frame.contentDocument.querySelector(".destruction-effect"),
-        "one quick-drop hold accepts the whole subtrahend Ones cell, crosses borrowing, and resumes automatically");
+        "subtraction quick drops stagger concurrent minuend flights, preserve source fades, and split shattering only for borrowing");
 
       frame = await openGame("?op=subtraction&a=40&b=7&harness=1");
       subtractionApi = frame.contentWindow.NumberGarden;
