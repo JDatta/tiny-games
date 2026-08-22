@@ -4,11 +4,11 @@
 
 ### Product
 
-Number Garden is a mobile-first learning game that teaches addition through visible ones, tens, hundreds, and regrouping. Nine persistent curriculum levels grow from single-digit sums to two-column carries. A learner counts the next highlighted unit in sequence and watches groups of ten carry into the next place. Organic problems may use addends from 1 through 99 and results through 198.
+Number Garden is a mobile-first learning game that teaches addition and subtraction through visible place-value units. Thirteen persistent levels grow from single-digit addition through two-column carries, then single- and two-digit subtraction with automatic borrowing, and finally mixed review. Addition uses Ones, Tens, and L6+ Hundreds; subtraction uses Ones and Tens only and never produces a negative difference.
 
 ### Implementation
 
-Number Garden is a client-only application implemented as one standalone HTML document with embedded CSS and JavaScript. It has no framework, package manager, build step, backend, or required network connection. The only remote resource is the optional Google Analytics tag; gameplay must remain fully functional if it cannot load. The app must continue to work both when `index.html` is opened directly and when the included Python static server serves it at `http://localhost:8080`.
+Number Garden is a client-only application implemented as one standalone HTML document with embedded CSS and JavaScript. It has no framework, backend, required build step, or required network connection. npm/Capacitor metadata is optional and `npm run build` only copies the standalone file into `dist`. The only remote resource is the optional Google Analytics tag; gameplay must remain fully functional if it cannot load. The app must continue to work both when `index.html` is opened directly and when the included Python static server serves it at `http://localhost:8080`.
 
 The runtime separates pure problem arithmetic (`problem`), temporary interaction progress (`state`), and durable browser data (`profile`). Rendering is derived from those values; the DOM and CSS classes are never the source of mathematical truth.
 
@@ -16,14 +16,24 @@ The runtime separates pure problem arithmetic (`problem`), temporary interaction
 
 | Term | Meaning |
 | --- | --- |
+| **operation** | Either `addition` or `subtraction`; it determines arithmetic, phase flow, language, theme, and visible columns. |
 | **addend** | Either number being added in a problem. |
-| **result** | The sum of the addends. |
-| **addend cells** | The table cells for an addend's Hundreds, Tens, and Ones places. Each addend row has up to three cells. |
+| **minuend** | The first subtraction operand: the amount built before any units are removed. |
+| **subtrahend** | The second subtraction operand: the amount removed from the minuend. |
+| **result** | The sum for addition or difference for subtraction. |
+| **difference** | The result of subtracting the subtrahend from the minuend. |
+| **borrowing** | Automatically trading one result Ten for ten Ones when subtraction needs more Ones. |
+| **operand cells** | The place-value cells belonging to either addend, the minuend, or the subtrahend. |
+| **addend cells** | The addition operand cells for an addend's Hundreds, Tens, and Ones places. |
 | **result cells** | The table cells for the result's Hundreds, Tens, and Ones places. The result row has up to three cells. |
 | **cell** | One place-value table cell—not an individual visual item. |
 | **block** or **unit** | An item in an Ones cell, worth 1. |
 | **bar** or **rod** | An item in a Tens cell, worth 10, or in a Hundreds cell, worth 100. |
 | **Guide beetle** | The speaking beetle that guides the learner through the game. |
+
+## State flows
+
+Addition follows `counting-ones` → optional Ones carry → `counting-tens` → optional Hundreds carry/count → `awaiting-answer` → `completed`. Subtraction follows `counting-minuend-ones` → `counting-minuend-tens` → `counting-subtrahend-ones` → optional `borrowing-to-ones` and resumed Ones removal → `counting-subtrahend-tens` → the shared answer flow. Empty places skip automatically. Accepted and landed cursors remain separate so ordinary drops, quick-drop batches, Tutorial, resets, animation interruption, and diagnostics all observe the same mathematical transitions.
 
 ## Files
 
@@ -60,14 +70,17 @@ The runtime separates pure problem arithmetic (`problem`), temporary interaction
 - Keep arithmetic in pure helpers such as `deriveProblem()`, transient interaction data in `state`, durable preferences and rewards in `profile`, and DOM construction in render helpers.
 - A new or changed phase must be handled consistently by prompts, enabled-unit selection, input locks, manual advancement, Solver, accessibility announcements, and rendering.
 - Only the next valid place-value item is interactive. Do not make rendered order, CSS state, or arbitrary tap order determine the count. See the glossary for the place-specific names: Ones blocks/units and Tens or Hundreds bars/rods.
-- Carry behavior is derived from the addends. Validate no-carry, ones-carry, tens-carry, and two-carry cases, including zero ones and a result of `198`.
-- Keep the nine curriculum predicates, generated `curriculumLevel` tags, and weighted sampler aligned. L8 intentionally overlaps L7/L9 arithmetic and distinguishes its 50/50 patterns with `curriculumPattern`.
-- Startup, Next, suggestions, alternative refresh, and dice alternatives must all use `sampleCurriculumProblem()` and preserve unordered recent-pair avoidance.
-- Use `?a=<1-99>&b=<1-99>` for deterministic browser checks. Query-forced problems are untagged and must not change advancement counters. Pure generation, selection, progression, profile, definitions, and constants are exposed through `window.NumberGarden`.
-- Tutorial resumes at the next unfinished unit, follows the same carry transitions as manual play, and reaches the real answer keypad through `awaiting-answer`; it must not become a separate arithmetic path.
+- Addition carry behavior is derived from the addends. Validate no-carry, ones-carry, tens-carry, and two-carry cases, including zero ones and `198`.
+- Subtraction state must build minuend Ones, build minuend Tens, remove subtrahend Ones, borrow only when empty with removals left, resume Ones, remove Tens, then enter `awaiting-answer`. Validate zero/equal differences, exact depletion, empty places, `40−7`, `42−17`, `20−19`, and reset mid-flow.
+- Keep all thirteen predicates, generated tags, and sampler gates aligned. L8 retains `curriculumPattern`; L9 cannot preview subtraction; L12 cannot preview L13; L13 retains `curriculumSourceLevel` and chooses addition below the exact 50% boundary.
+- Startup, Next, suggestions, alternative refresh, and dice alternatives use `sampleCurriculumProblem()`. Addition recent keys are unordered; subtraction keys preserve minuend/subtrahend order.
+- `?a=<1-99>&b=<1-99>` defaults to addition. Use `?op=subtraction&a=42&b=17` for subtraction. Forced problems are untagged; invalid/negative subtraction requests must not create negative models.
+- Tutorial resumes at the next unfinished unit, follows the same carry or borrow transitions as manual play, and reaches the real answer keypad through `awaiting-answer`; never create a separate arithmetic path.
 - Only a manually typed correct answer awards exactly 10 coins, one milestone, and eligible level credit once. Tutorial may celebrate and use the shared checker but must never change score, milestones, counters, or level or show a reward toast.
-- Profile schema v4 persists `launchChoiceMade` alongside the v3 difficulty and curriculum fields. V1–v3 migrations preserve established-player progress and skip the new launch choice. A confirmed progress reset returns to L1 with zero counters/rewards, keeps sound and difficulty, and requires the launch choice again.
-- Below L6 the board renders Labels/Tens/Ones. L6+ renders Hundreds too. Crossing upward into L6 through advancement or Settings announces and highlights the unlock once for that session; reloads must not replay it.
+- Profile schema v4 persists `launchChoiceMade` alongside difficulty and L1–L13 curriculum fields. Keep the schema number unchanged; v1–v3 migrations preserve established-player progress. Reset returns to L1 and keeps sound/difficulty.
+- Addition below L6 renders Labels/Tens/Ones and L6+ adds Hundreds. Subtraction always renders Labels/Tens/Ones, regardless of learner level. The L6 unlock still announces/highlights only when an addition board can show it.
+- Apply operation semantics everywhere: equation, keypad, row badges, suggestions, prompts, completion, analytics metadata, live announcements, and ARIA. Use minuend, subtrahend, and difference for subtraction.
+- Addition owns blue/green; subtraction owns lavender/deep purple with distinct operand colors; gold identifies regrouping; coral is reserved for shared eligible/hint/success emphasis.
 - Keep the bee and current-level badge visible on narrow/fullscreen layouts. Sound belongs in Settings.
 - Maintain touch targets, keyboard access, ARIA announcements, focus handling, and `prefers-reduced-motion` behavior whenever controls or animations change.
 - Do not edit `@poc-game.html` to implement product changes. Make shipped behavior changes in `index.html`.

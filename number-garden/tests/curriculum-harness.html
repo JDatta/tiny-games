@@ -90,7 +90,7 @@
       doc.querySelector("#answerButton").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
       return waitFor(() => doc.querySelector("#keypadDialog").open, "keypad open").then(() => {
         if (includeWrongAttempt) {
-          doc.querySelector('[data-key="0"]').click();
+          doc.querySelector('[data-key="' + (Number(answer) === 0 ? "1" : "0") + '"]').click();
           doc.querySelector("#checkAnswer").click();
         }
         String(answer).split("").forEach(digit => doc.querySelector('[data-key="' + digit + '"]').click());
@@ -144,6 +144,24 @@
       }
       await waitFor(() => diagnostics.events().filter(event => event.type === "quick-drop-complete").length > completedBefore,
         "quick-drop completion");
+    }
+
+    async function finishSubtractionCounting(frame, quick = false) {
+      const doc = frame.contentDocument;
+      const diagnostics = frame.contentWindow.NumberGarden.motionDiagnostics;
+      let actions = 0;
+      while (diagnostics.snapshot().phase !== "awaiting-answer" && actions < 40) {
+        await waitFor(() => doc.querySelector(".unit.eligible") && !diagnostics.snapshot().controlsLocked,
+          "next subtraction source unit", 10000);
+        if (quick) await holdCurrentAddendCell(frame);
+        else {
+          doc.querySelector(".unit.eligible").click();
+          await waitFor(() => !diagnostics.snapshot().controlsLocked, "subtraction unit landing", 10000);
+        }
+        actions += 1;
+      }
+      if (diagnostics.snapshot().phase !== "awaiting-answer") throw new Error("Subtraction counting did not reach the answer phase");
+      return actions;
     }
 
     function colorChannels(color) {
@@ -202,7 +220,7 @@
       assert(launchDoc.querySelector("#equationA").textContent + "+" + launchDoc.querySelector("#equationB").textContent === initialEquation,
         "Start keeps the already-generated level-based problem");
       let gameStartEvents = analyticsEntries(frame, "event", "game_start");
-      assert(gameStartEvents.length === 1 && gameStartEvents[0][2].game_version === "0.2a_a676b78",
+      assert(gameStartEvents.length === 1 && gameStartEvents[0][2].game_version === "2.0.0+62d794c",
         "the launch Start choice emits one versioned gameplay start event");
       launchDoc.querySelector(".unit.eligible").click();
       assert(analyticsEntries(frame, "event", "game_start").length === 1,
@@ -226,9 +244,9 @@
         "an established v3 profile migrates without showing the new launch dialog");
       const api = frame.contentWindow.NumberGarden;
 
-      assert(api.LEVEL_DEFINITIONS.length === 9, "nine level definitions are exposed");
+      assert(api.LEVEL_DEFINITIONS.length === 13, "all thirteen level definitions are exposed");
       assert(api.constants.PROFILE_SCHEMA_VERSION === 4, "profile schema v4 is exposed");
-      assert(api.constants.GAME_VERSION === "0.2a_a676b78" &&
+      assert(api.constants.GAME_VERSION === "2.0.0+62d794c" &&
         frame.contentDocument.querySelector("[data-version]").textContent === api.constants.GAME_VERSION,
         "analytics and the About view share the exposed game version");
       assert(Object.isFrozen(api.DIFFICULTY_MODES) && JSON.stringify(api.DIFFICULTY_MODES) === JSON.stringify(["standard", "easy"]),
@@ -320,7 +338,7 @@
         diceEvents.some(event => event.type === "dice-refresh-complete"),
         "rapid repeat activation is ignored and the complete dice-refresh lifecycle is diagnosed");
       assert(diceDoc.activeElement === rollingDice && !diceDoc.querySelector("#suggestionTray").hasAttribute("aria-busy") &&
-        !rollingDice.hasAttribute("aria-disabled") && rollingDice.getAttribute("aria-label") === "Refresh the three alternative sums" &&
+        !rollingDice.hasAttribute("aria-disabled") && rollingDice.getAttribute("aria-label") === "Refresh the three alternative problems" &&
         !diceSnapshot.controlsLocked && !diceDoc.querySelector("#settingsButton").disabled && !diceDoc.querySelector(".unit.eligible").disabled,
         "completion restores dice focus, accessible labels, and competing controls");
       assert(diceSnapshot.soundEffectCount > diceSoundBaseline,
@@ -343,13 +361,15 @@
         "queue-boundary helpers close at an unfinished trade and reopen afterward");
       const promptKeys = [
         "counting-ones", "counting-tens", "counting-tens-with-carry", "skip-zero-ones", "carrying-ones",
-        "carrying-hundreds", "awaiting-answer", "completed", "place-value-fallback"
+        "carrying-hundreds", "awaiting-answer", "completed", "place-value-fallback",
+        "subtraction-minuend-ones", "subtraction-minuend-tens", "subtraction-subtrahend-ones",
+        "subtraction-borrowing", "subtraction-subtrahend-tens", "subtraction-awaiting-answer", "subtraction-completed"
       ];
       assert(JSON.stringify(Object.keys(api.PROMPT_POOLS).sort()) === JSON.stringify(promptKeys.slice().sort()),
-        "all nine beetle prompt pools are exposed");
+        "all addition and subtraction beetle prompt pools are exposed");
       promptKeys.forEach(key => {
         const pool = api.PROMPT_POOLS[key];
-        assert(Object.isFrozen(pool) && pool.length === 24, key + " has 24 frozen prompt variants");
+        assert(Object.isFrozen(pool) && pool.length >= 4, key + " has frozen prompt variants");
         assert(new Set(pool).size === pool.length && pool.every(message => typeof message === "string" && message.trim() === message && message.length > 0),
           key + " contains unique non-empty prompt text");
         assert(pool.every(message => message.length <= 90), key + " prompts stay compact for the mobile layout");
@@ -357,9 +377,11 @@
           key + " uses only supported prompt placeholders");
       });
       assert(Object.isFrozen(api.PROMPT_POOLS), "the beetle prompt pool collection is frozen");
-      assert(api.PROMPT_POOLS.completed.every(message => message.includes("{a}") && message.includes("{b}") && message.includes("{result}")),
-        "every completion prompt includes the full equation");
-      assert(promptKeys.filter(key => key !== "completed").every(key => api.PROMPT_POOLS[key].every(message => !message.includes("{"))),
+      assert(["completed", "subtraction-completed"].every(key => api.PROMPT_POOLS[key].every(message =>
+        message.includes("{a}") && message.includes("{b}") && message.includes("{result}"))),
+        "every operation-specific completion prompt includes the full equation");
+      assert(promptKeys.filter(key => !["completed", "subtraction-completed"].includes(key)).every(key =>
+        api.PROMPT_POOLS[key].every(message => !message.includes("{"))),
         "only completion prompts contain dynamic placeholders");
       assert(api.selectPromptTemplate(["first", "second"], "first", sequence(0)) === "second",
         "prompt selection avoids the immediately previous template");
@@ -400,7 +422,7 @@
       assert(api.problemMatchesLevel(api.deriveProblem(50, 50), 8, "tens-only"), "L8 tags its tens-only pattern");
       assert(api.problemMatchesLevel(api.deriveProblem(55, 55), 8, "both-carries"), "L8 tags its both-carries pattern");
 
-      for (let level = 1; level <= 9; level += 1) {
+      for (let level = 1; level <= 13; level += 1) {
         let allValid = true;
         for (let index = 0; index < 40; index += 1) {
           const model = api.generateProblemForLevel(level);
@@ -418,6 +440,37 @@
       const l4Left = api.generateProblemForLevel(4, new Set(), sequence(0, .49));
       const l4Right = api.generateProblemForLevel(4, new Set(), sequence(0, .5));
       assert(l4Left.a < 10 && l4Right.b < 10, "L4 randomizes which side has the single-digit addend");
+      const l10 = api.generateProblemForLevel(10);
+      const l11 = api.generateProblemForLevel(11);
+      const l12 = api.generateProblemForLevel(12);
+      assert(l10.operation === "subtraction" && l10.a <= 9 && l10.b <= 9 && l10.a >= l10.b,
+        "L10 generates ordered single-digit subtraction");
+      assert(l11.operation === "subtraction" && l11.a >= 10 && l11.b <= 9 && l11.a >= l11.b,
+        "L11 generates a two-digit minuend and single-digit subtrahend");
+      assert(l12.operation === "subtraction" && l12.a >= 10 && l12.b >= 10 && l12.a >= l12.b,
+        "L12 generates ordered two-digit subtraction");
+      const l13Addition = api.generateProblemForLevel(13, new Set(), sequence(.4999, 0, 0, 0));
+      const l13Subtraction = api.generateProblemForLevel(13, new Set(), sequence(.5, 0, 0, 0));
+      assert(l13Addition.operation === "addition" && l13Addition.curriculumLevel === 13 && l13Addition.curriculumSourceLevel === 1,
+        "L13 selects addition just below the exact 50% boundary and records its review source");
+      assert(l13Subtraction.operation === "subtraction" && l13Subtraction.curriculumLevel === 13 && l13Subtraction.curriculumSourceLevel === 10,
+        "L13 selects subtraction at the exact 50% boundary and records its review source");
+      assert(api.sampleCurriculumProblem(13, new Set(), sequence(.4999, 0, 0, 0)).operation === "addition" &&
+        api.sampleCurriculumProblem(13, new Set(), sequence(.5, 0, 0, 0)).operation === "subtraction",
+        "the L13 sampler passes its first random boundary directly to operation selection");
+      assert(api.problemKey(4, 7, "addition") === api.problemKey(7, 4, "addition") &&
+        api.problemKey(9, 4, "subtraction") !== api.problemKey(4, 9, "subtraction"),
+        "recent-problem keys are unordered for addition and ordered for subtraction");
+      const excludedAddition = api.generateProblemForLevel(1, new Set([api.problemKey(1, 1, "addition")]), sequence(0, 0));
+      const excludedSubtraction = api.generateProblemForLevel(10, new Set([api.problemKey(1, 1, "subtraction")]), sequence(0));
+      assert(api.problemKey(excludedAddition) !== api.problemKey(1, 1, "addition") &&
+        api.problemKey(excludedSubtraction) !== api.problemKey(1, 1, "subtraction"),
+        "operation-aware exclusions remove matching generated addition and subtraction problems");
+      let negativeRejected = false;
+      try { api.deriveProblem(4, 9, "subtraction"); } catch (error) { negativeRejected = error.name === "RangeError"; }
+      assert(negativeRejected && api.deriveProblem(42, 42, "subtraction").result === 0 &&
+        api.deriveProblem(42, 17, "subtraction").needsBorrow && !api.deriveProblem(42, 12, "subtraction").needsBorrow,
+        "subtraction rejects negative requests, permits equality, and classifies borrowing");
 
       assert(api.selectCurriculumLevel(1, sequence(.7499)) === 1, "L1 roll below 75% selects L1");
       assert(api.selectCurriculumLevel(1, sequence(.75)) === 2, "L1 roll at 75% selects L2");
@@ -433,6 +486,13 @@
         const reviewRoll = (review - .5) / 8;
         assert(api.selectCurriculumLevel(9, sequence(.6, reviewRoll)) === review, "L9 review can select L" + review);
       }
+      assert(api.selectCurriculumLevel(10, sequence(.4999)) === 10 && api.selectCurriculumLevel(10, sequence(.5)) === 11,
+        "L10 retains the current/next sampling boundary");
+      assert(api.selectCurriculumLevel(11, sequence(.5)) === 12,
+        "L11 may sample the next subtraction level");
+      assert(api.selectCurriculumLevel(12, sequence(.5999)) === 12 && api.selectCurriculumLevel(12, sequence(.6, 0)) === 1 &&
+        api.selectCurriculumLevel(13, sequence(0)) === 13,
+        "L12 gates early mixed review while L13 samples its internal operation mix");
 
       function freshAt(level) {
         return { ...api.defaultProfile(), currentLevel: level, currentLevelSuccesses: 0, higherLevelSuccesses: 0 };
@@ -466,9 +526,19 @@
       progress = api.applyProgressForSuccess(progress, 9).profile;
       transition = api.applyProgressForSuccess(progress, 9);
       assert(transition.profile.currentLevel === 2, "higher-level credit never skips a level");
-      progress = freshAt(9);
-      transition = api.applyProgressForSuccess(progress, 9);
-      assert(!transition.advanced && transition.profile.currentLevel === 9 && transition.profile.currentLevelSuccesses === 0, "L9 is capped");
+      progress = freshAt(12);
+      transition = api.applyProgressForSuccess(progress, 13);
+      assert(transition.credit === "none" && transition.profile.higherLevelSuccesses === 0,
+        "L12 advances only through its current-level success path");
+      for (let level = 9; level <= 12; level += 1) {
+        progress = freshAt(level);
+        for (let success = 0; success < 4; success += 1) progress = api.applyProgressForSuccess(progress, level).profile;
+        assert(progress.currentLevel === level + 1 && progress.currentLevelSuccesses === 0 && progress.higherLevelSuccesses === 0,
+          "four current-level successes advance L" + level + " to L" + (level + 1));
+      }
+      progress = freshAt(13);
+      transition = api.applyProgressForSuccess(progress, 13);
+      assert(!transition.advanced && transition.profile.currentLevel === 13 && transition.profile.currentLevelSuccesses === 0, "L13 is capped");
 
       const migrated = api.validateProfile({ schemaVersion: 1, score: 70, emojiProgress: 7, sound: false, updatedAt: 123 });
       assert(migrated.schemaVersion === 4 && migrated.score === 70 && migrated.emojiProgress === 7 && !migrated.sound &&
@@ -496,6 +566,10 @@
       assert(validV4 && !validV4.launchChoiceMade && api.defaultProfile().launchChoiceMade === false &&
         api.validateProfile({ ...validEasyV3, schemaVersion: 4, launchChoiceMade: undefined }) === null,
         "v4 persists the required launchChoiceMade boolean and new profiles default it to false");
+      const validLevelThirteenV4 = api.validateProfile({ ...validV4, currentLevel: 13, currentLevelSuccesses: 3, higherLevelSuccesses: 1 });
+      assert(validLevelThirteenV4 && validLevelThirteenV4.schemaVersion === 4 && validLevelThirteenV4.currentLevel === 13 &&
+        validLevelThirteenV4.currentLevelSuccesses === 3 && validLevelThirteenV4.higherLevelSuccesses === 1,
+        "schema-v4 validation preserves established L13 profiles without migration");
 
       const modeDoc = frame.contentDocument;
       await countNextUnits(frame, 1);
@@ -1177,7 +1251,7 @@
         doc.querySelector("#settingsTitle").textContent === "About" && doc.activeElement === doc.querySelector("#settingsTitle"),
         "About replaces Settings inside the same dialog and focuses its title");
       const aboutValues = Array.from(doc.querySelectorAll(".about-details dd"), item => item.textContent);
-      assert(JSON.stringify(aboutValues) === JSON.stringify(["Joydip Datta", "0.2a_a676b78", "All rights reserved."]),
+      assert(JSON.stringify(aboutValues) === JSON.stringify(["Joydip Datta", "2.0.0+62d794c", "All rights reserved."]),
         "About shows the author, commit-stamped version, and license");
       assert(doc.querySelector("#settingsBackButton").getAttribute("aria-label") === "Back to settings",
         "About provides an accessible back arrow");
@@ -1507,6 +1581,155 @@
         gameCompleteEvents[0][2].score === 10 && gameCompleteEvents[0][2].questions_answered === 1 &&
         gameCompleteEvents[0][2].game_version === api.constants.GAME_VERSION,
         "manual success emits one completion with updated cumulative score, answer count, and version");
+
+      frame = await openGame("?op=subtraction&a=42&b=12&harness=1");
+      let subtractionDoc = frame.contentDocument;
+      let subtractionApi = frame.contentWindow.NumberGarden;
+      await finishSubtractionCounting(frame);
+      let subtractionSnapshot = subtractionApi.motionDiagnostics.snapshot();
+      assert(subtractionSnapshot.phase === "awaiting-answer" && subtractionSnapshot.borrowCount === 0 &&
+        subtractionSnapshot.resultTens === 3 && subtractionSnapshot.resultOnes === 0,
+        "42−12 follows the two-digit subtraction path without borrowing");
+      assert(subtractionDoc.querySelector(".result-panel .digit-label"),
+        "Easy exposes the running subtraction difference labels");
+      subtractionDoc.querySelector("#settingsButton").click();
+      subtractionDoc.querySelector("#difficultyStandard").click();
+      subtractionDoc.querySelector("#closeSettings").click();
+      assert(!subtractionDoc.querySelector(".result-panel .digit-label") &&
+        subtractionApi.motionDiagnostics.snapshot().resultTens === 3,
+        "Standard hides subtraction running labels without changing the settled difference");
+      assert(subtractionDoc.body.classList.contains("operation-subtraction") &&
+        subtractionDoc.querySelector("#equationOperator").textContent === "−" &&
+        !subtractionDoc.querySelector(".column-title.hundreds") &&
+        subtractionDoc.querySelector(".equation-card").getAttribute("aria-label").includes("42 minus 12") &&
+        subtractionDoc.querySelector(".addend-badge.first").getAttribute("aria-label") === "Minuend 42" &&
+        subtractionDoc.querySelector(".addend-badge.second").getAttribute("aria-label") === "Subtrahend 12" &&
+        subtractionDoc.querySelector(".addend-badge.result").getAttribute("aria-label") === "Difference not yet revealed",
+        "subtraction activates its purple theme, minus operator, hidden Hundreds, and semantic operand labels");
+
+      frame = await openGame("?op=subtraction&a=42&b=17&harness=1");
+      subtractionDoc = frame.contentDocument;
+      subtractionApi = frame.contentWindow.NumberGarden;
+      const eligibleCoral = frame.contentWindow.getComputedStyle(subtractionDoc.querySelector(".unit.eligible")).boxShadow;
+      subtractionApi.motionDiagnostics.clearEvents();
+      await finishSubtractionCounting(frame);
+      subtractionSnapshot = subtractionApi.motionDiagnostics.snapshot();
+      const borrowEvents = subtractionApi.motionDiagnostics.events().filter(event => event.type.startsWith("borrow-"));
+      assert(subtractionSnapshot.borrowCount === 1 && subtractionSnapshot.resultTens === 2 && subtractionSnapshot.resultOnes === 5 &&
+        JSON.stringify(borrowEvents.map(event => event.type)) === JSON.stringify(["borrow-formation", "borrow-travel", "borrow-landed"]),
+        "42−17 automatically borrows after exact Ones depletion and resumes individual subtraction");
+      assert(eligibleCoral.includes("225, 74, 79"),
+        "the eligible pulse uses coral rather than the subtraction theme's purple");
+
+      frame = await openGame("?op=subtraction&a=42&b=17&harness=1");
+      subtractionDoc = frame.contentDocument;
+      subtractionApi = frame.contentWindow.NumberGarden;
+      subtractionDoc.querySelector(".unit.eligible").click();
+      await waitFor(() => !subtractionApi.motionDiagnostics.snapshot().controlsLocked &&
+        subtractionApi.motionDiagnostics.snapshot().resultOnes === 1, "partial subtraction before reset");
+      subtractionDoc.querySelector("#resetCurrent").click();
+      subtractionSnapshot = subtractionApi.motionDiagnostics.snapshot();
+      assert(subtractionSnapshot.phase === "counting-minuend-ones" && subtractionSnapshot.resultOnes === 0 &&
+        subtractionSnapshot.resultTens === 0 && subtractionSnapshot.minuendOnesLandedCursor === 0 &&
+        subtractionSnapshot.subtrahendOnesLandedCursor === 0,
+        "reset during partial subtraction restores every source and difference cursor");
+
+      frame = await openGame("?op=subtraction&a=42&b=17&harness=1");
+      subtractionApi = frame.contentWindow.NumberGarden;
+      subtractionApi.motionDiagnostics.clearEvents();
+      const quickActions = await finishSubtractionCounting(frame, true);
+      const quickSubtractionEvents = subtractionApi.motionDiagnostics.events();
+      subtractionSnapshot = subtractionApi.motionDiagnostics.snapshot();
+      assert(quickActions === 4 && subtractionSnapshot.borrowCount === 1 && subtractionSnapshot.resultTens === 2 &&
+        subtractionSnapshot.resultOnes === 5 &&
+        JSON.stringify(quickSubtractionEvents.filter(event => event.type === "quick-drop-accepted").map(event => event.count)) ===
+          JSON.stringify([2, 4, 7, 1]) && quickSubtractionEvents.some(event => event.type === "borrow-landed"),
+        "one quick-drop hold accepts the whole subtrahend Ones cell, crosses borrowing, and resumes automatically");
+
+      frame = await openGame("?op=subtraction&a=40&b=7&harness=1");
+      subtractionApi = frame.contentWindow.NumberGarden;
+      assert(subtractionApi.motionDiagnostics.snapshot().phase === "counting-minuend-tens",
+        "40−7 skips the empty minuend Ones phase");
+      await finishSubtractionCounting(frame);
+      subtractionSnapshot = subtractionApi.motionDiagnostics.snapshot();
+      assert(subtractionSnapshot.borrowCount === 1 && subtractionSnapshot.resultTens === 3 && subtractionSnapshot.resultOnes === 3,
+        "40−7 borrows before the first subtrahend One and produces 33");
+
+      frame = await openGame("?op=subtraction&a=8&b=8&harness=1");
+      subtractionDoc = frame.contentDocument;
+      subtractionApi = frame.contentWindow.NumberGarden;
+      const zeroScoreBefore = Number(subtractionDoc.querySelector("#scoreValue").textContent);
+      await finishSubtractionCounting(frame);
+      subtractionDoc.querySelector("#answerButton").click();
+      await waitFor(() => subtractionDoc.querySelector("#keypadDialog").open, "zero-difference keypad semantics");
+      assert(subtractionDoc.querySelector("#keypadEquation").textContent === "8 − 8 =",
+        "the subtraction keypad renders the correct operator and operands");
+      subtractionDoc.querySelector("#cancelKeypad").click();
+      await enterAnswer(frame, 0, true);
+      assert(subtractionApi.motionDiagnostics.snapshot().phase === "completed" &&
+        subtractionDoc.querySelector("#answerButton").textContent === "0" &&
+        subtractionDoc.querySelector(".addend-badge.result").getAttribute("aria-label") === "Difference 0" &&
+        subtractionDoc.querySelector("#promptText").textContent.includes("8 − 8 = 0") &&
+        Number(subtractionDoc.querySelector("#scoreValue").textContent) === zeroScoreBefore + 10,
+        "single-digit zero difference accepts typed zero, recovers from a wrong answer, and awards one manual reward");
+      const subtractionComplete = analyticsEntries(frame, "event", "game_complete");
+      assert(subtractionComplete.length === 1 && subtractionComplete[0][2].operation === "subtraction" &&
+        subtractionComplete[0][2].operand_a === 8 && subtractionComplete[0][2].operand_b === 8 && subtractionComplete[0][2].result === 0,
+        "subtraction completion analytics carry operation-correct operands and result");
+
+      frame = await openGame("?op=subtraction&a=20&b=19&harness=1&reducedMotion=1");
+      subtractionDoc = frame.contentDocument;
+      subtractionApi = frame.contentWindow.NumberGarden;
+      const tutorialScoreBefore = subtractionDoc.querySelector("#scoreValue").textContent;
+      subtractionDoc.querySelector("#settingsButton").click();
+      subtractionDoc.querySelector("#runSolverButton").click();
+      await waitFor(() => subtractionApi.motionDiagnostics.snapshot().phase === "completed" &&
+        !subtractionApi.motionDiagnostics.snapshot().solverRunning, "reduced-motion borrowing Tutorial", 20000);
+      subtractionSnapshot = subtractionApi.motionDiagnostics.snapshot();
+      assert(subtractionSnapshot.reducedMotion && subtractionSnapshot.borrowCount === 1 &&
+        subtractionSnapshot.resultTens === 0 && subtractionSnapshot.resultOnes === 1 &&
+        subtractionDoc.querySelector("#scoreValue").textContent === tutorialScoreBefore &&
+        analyticsEntries(frame, "event", "game_complete").length === 0,
+        "reduced-motion Tutorial solves 20−19 with borrowing and grants no reward or analytics completion");
+
+      frame = await openGame("?op=subtraction&a=42&b=12&harness=1");
+      subtractionDoc = frame.contentDocument;
+      subtractionApi = frame.contentWindow.NumberGarden;
+      const noBorrowTutorialScore = subtractionDoc.querySelector("#scoreValue").textContent;
+      subtractionDoc.querySelector("#settingsButton").click();
+      subtractionDoc.querySelector("#runSolverButton").click();
+      await waitFor(() => subtractionApi.motionDiagnostics.snapshot().phase === "completed" &&
+        !subtractionApi.motionDiagnostics.snapshot().solverRunning, "non-borrowing subtraction Tutorial", 20000);
+      assert(subtractionApi.motionDiagnostics.snapshot().borrowCount === 0 &&
+        subtractionApi.motionDiagnostics.snapshot().resultTens === 3 && subtractionApi.motionDiagnostics.snapshot().resultOnes === 0 &&
+        subtractionDoc.querySelector("#scoreValue").textContent === noBorrowTutorialScore,
+        "Tutorial also completes subtraction without borrowing and awards no reward");
+
+      const levelThirteenProfile = { ...profileCookie(), currentLevel: 13, currentLevelSuccesses: 0, higherLevelSuccesses: 0,
+        updatedAt: Date.now() + 1000000 };
+      document.cookie = "numberGardenProgress=" + encodeURIComponent(JSON.stringify(levelThirteenProfile)) + "; Path=/; SameSite=Lax";
+      frame = await openGame("?op=subtraction&a=42&b=17&harness=1");
+      subtractionDoc = frame.contentDocument;
+      subtractionApi = frame.contentWindow.NumberGarden;
+      assert(subtractionDoc.querySelector("#levelBadge").textContent === "L13" &&
+        subtractionDoc.querySelectorAll("#levelSelect option").length === 13 && !subtractionDoc.querySelector(".column-title.hundreds"),
+        "Settings exposes L1–L13 and subtraction hides Hundreds even at L13");
+      let mixedOperators = false;
+      for (let attempt = 0; attempt < 8 && !mixedOperators; attempt += 1) {
+        const cards = Array.from(subtractionDoc.querySelectorAll(".suggestion"), card => card.textContent);
+        mixedOperators = cards.some(text => text.includes("+")) && cards.some(text => text.includes("−"));
+        if (!mixedOperators) {
+          subtractionDoc.querySelector(".dice").click();
+          await waitFor(() => subtractionApi.motionDiagnostics.snapshot().diceRefreshState === "idle", "L13 mixed refresh");
+        }
+      }
+      assert(mixedOperators, "L13 suggestions render a mixed set of operation-correct symbols");
+
+      frame = await openGame("?a=42&b=17&harness=1");
+      const revertedDoc = frame.contentDocument;
+      assert(revertedDoc.body.classList.contains("operation-addition") && !revertedDoc.body.classList.contains("operation-subtraction") &&
+        revertedDoc.querySelector("#equationOperator").textContent === "+" && revertedDoc.querySelector(".column-title.hundreds"),
+        "a subsequent addition reverts the blue/green theme and restores the unlocked Hundreds column");
 
       document.body.dataset.status = "passed";
       document.title = "PASS: Number Garden curriculum checks";

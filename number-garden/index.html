@@ -14,7 +14,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#dff4ff">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23e7f7dd'/%3E%3Cpath d='M51 82V42M50 55C30 54 22 42 21 27c18-2 31 7 30 28M51 43c4-17 16-25 31-24 1 17-10 28-31 28' fill='none' stroke='%232b9348' stroke-width='10' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <title>Number Garden — Place-Value Addition</title>
+  <title>Number Garden — Place-Value Addition and Subtraction</title>
   <style>
     :root {
       --ink: #17243f;
@@ -1391,11 +1391,130 @@
       .dice.rolling { animation: none; transform: none; }
       .suggestion.refresh-pop { animation: none; transform: none; }
     }
+
+    /* Coral is the shared action cue; it stays distinct from both operation themes. */
+    .unit.eligible {
+      box-shadow: 0 0 0 4px rgba(225,74,79,.34), 0 0 0 8px rgba(225,74,79,.12);
+    }
+    @keyframes next-unit-throb {
+      0%, 100% { transform: scale(1); filter: brightness(1); box-shadow: 0 0 0 4px rgba(225,74,79,.34), 0 0 0 8px rgba(225,74,79,.12); }
+      50% { transform: scale(1.12); filter: brightness(1.22); box-shadow: 0 0 0 7px rgba(225,74,79,.46), 0 0 0 15px rgba(225,74,79,.13), 0 0 18px 8px rgba(225,74,79,.24); }
+    }
+    .answer-button.static-hint,
+    .answer-button.answer-ready.motion-reduced { outline-color: #d83f49; }
+    .answer-button::before { background: conic-gradient(#e14a4f var(--hold-angle), transparent 0); }
+    .source-panel.quick-hold { border-color: #d83f49; box-shadow: 0 0 0 3px rgba(225,74,79,.2), 0 8px 18px rgba(133,41,48,.18); }
+    .source-panel.quick-hold::before { background: linear-gradient(90deg, #e14a4f, #f3a712, #e14a4f); box-shadow: 0 0 9px rgba(225,74,79,.48); }
+    .source-panel.quick-hold::after { border-color: rgba(225,74,79,.36); color: #9b2832; }
+    @keyframes solver-hint {
+      45% { transform: rotate(-7deg) scale(1.12); box-shadow: 0 0 0 7px rgba(225,74,79,.2); }
+      70% { transform: rotate(5deg) scale(1.06); }
+    }
+    @keyframes answer-ready-pulse {
+      0%, 100% { transform: translateY(0) scale(1); filter: brightness(1); box-shadow: 7px 0 0 -1px #fff3b5, -7px 0 0 -1px #fff3b5, 0 7px 0 -1px #fff3b5, 0 -7px 0 -1px #fff3b5, 0 0 0 4px rgba(225,74,79,.2), 0 5px 12px rgba(173,57,61,.2); }
+      48% { transform: translateY(-2px) scale(1.1); filter: brightness(1.12); box-shadow: 7px 0 0 -1px #fff3b5, -7px 0 0 -1px #fff3b5, 0 7px 0 -1px #fff3b5, 0 -7px 0 -1px #fff3b5, 0 0 0 9px rgba(225,74,79,.3), 0 9px 20px rgba(145,42,49,.28); }
+    }
+    @keyframes success-next-pulse {
+      0%, 100% { transform: translateY(0) scale(1); filter: brightness(1); box-shadow: 0 0 0 3px rgba(225,74,79,.2), 0 5px 12px rgba(145,42,49,.2); }
+      48% { transform: translateY(-2px) scale(1.055); filter: brightness(1.1); box-shadow: 0 0 0 7px rgba(225,74,79,.28), 0 8px 18px rgba(145,42,49,.3); }
+    }
+    @keyframes motion-target-flash {
+      0% { outline: 0 solid rgba(225,74,79,.68); filter: brightness(1.35); }
+      45% { outline: 7px solid rgba(225,74,79,.32); }
+      100% { outline: 0 solid transparent; filter: brightness(1); }
+    }
+
+    body.operation-subtraction {
+      background:
+        radial-gradient(circle at 8% 8%, rgba(255,255,255,.76) 0 3.5%, transparent 3.8%),
+        radial-gradient(circle at 91% 13%, rgba(255,255,255,.6) 0 4%, transparent 4.3%),
+        linear-gradient(165deg, #e8ddff 0%, #f5efff 52%, #eee5ff 100%);
+    }
+    body.operation-subtraction .equation-card,
+    body.operation-subtraction .board {
+      border-color: #c7afea;
+      background: rgba(253,250,255,.95);
+      box-shadow: 0 9px 24px rgba(72,42,119,.18);
+    }
+    body.operation-subtraction .equation-card { color: #321b55; }
+    body.operation-subtraction .first-number { color: #6041a7; }
+    body.operation-subtraction .second-number { color: #922f78; }
+    body.operation-subtraction .math-symbol { color: #4c267d; }
+    body.operation-subtraction .level-badge { border-color: #6238a1; color: #4d267e; background: #f1e9ff; }
+    body.operation-subtraction .column-title.tens { color: #55248a; background: #eadcff; }
+    body.operation-subtraction .column-title.ones { color: #6b246e; background: #f5dff3; }
+    body.operation-subtraction .place-panel.tens { border-color: #c8ace9; background: #faf6ff; }
+    body.operation-subtraction .place-panel.ones { border-color: #dfb6d9; background: #fff8fe; }
+    body.operation-subtraction .addend-badge.first { color: #4f278c; background: #eee5ff; border-color: #b99be6; }
+    body.operation-subtraction .addend-badge.second { color: #7b225f; background: #f9e4f3; border-color: #dba0c9; }
+    body.operation-subtraction .addend-badge.result { color: #4a2676; background: #f3eaff; border-color: #bda2e1; }
+    body.operation-subtraction .unit.owner-a { --unit-fill: #7656c9; border-color: #4d2b91; background-color: var(--unit-fill); }
+    body.operation-subtraction .unit.owner-b { --unit-fill: #c14a9d; border-color: #81265f; background-color: var(--unit-fill); }
+    .unit.owner-borrow {
+      --unit-fill: #ffc446;
+      border-color: #9b5b00;
+      background-color: var(--unit-fill);
+      background-image: repeating-linear-gradient(135deg, #ffc446 0 4px, #f0a000 4px 7px);
+    }
+    body.operation-subtraction .tray { border-color: #c4ace5; background: rgba(248,243,255,.95); }
+    body.operation-subtraction .suggestion.current { border-color: #6238a1; background: #eee5ff; color: #4b257c; }
+    .suggestion.operation-addition:not(.current) { border-left: 4px solid #2477df; }
+    .suggestion.operation-subtraction:not(.current) { border-left: 4px solid #7656c9; background: #faf6ff; color: #4f278c; }
+    body.operation-subtraction .reset-current { border-color: #bda4df; background: #f0e7ff; color: #57328d; }
+    body.operation-subtraction .icon-button { border-color: #bea8db; background: rgba(247,240,255,.94); color: #4f2a7d; }
+    body.operation-subtraction .answer-button { color: #7d2935; background: #ffe1dd; box-shadow: 7px 0 0 -1px #ffe1dd, -7px 0 0 -1px #ffe1dd, 0 7px 0 -1px #ffe1dd, 0 -7px 0 -1px #ffe1dd, 0 5px 12px rgba(132,55,91,.2); }
+    body.operation-subtraction .answer-button.answer-ready { animation-name: subtraction-answer-ready-pulse; }
+    body.operation-subtraction .next-button { border-color: #a982d2; background: #eee1ff; color: #4d267b; }
+    body.operation-subtraction .dice { border-color: #bda5df; background: #f6efff; color: #522b83; }
+    body.operation-subtraction .sheet-button.primary { border-color: #4b247c; background: #6238a1; }
+    body.operation-subtraction .speech { border-color: #c8a6e8; background: #f8efff; }
+    body.operation-subtraction .quick-impact-wave {
+      border-color: rgba(225,74,79,.76);
+      background: radial-gradient(circle at 50% 82%, rgba(255,198,193,.42), rgba(111,63,165,.1) 58%, transparent 72%);
+    }
+    .borrow-formation-token {
+      position: absolute;
+      z-index: 7;
+      left: 50%;
+      top: 50%;
+      width: min(54px, 58%);
+      height: 10px;
+      border: 2px solid #9b5b00;
+      border-radius: 6px;
+      background: repeating-linear-gradient(135deg, #ffc446 0 4px, #f0a000 4px 7px);
+      box-shadow: 0 0 0 4px rgba(255,196,70,.18), 0 3px 8px rgba(117,72,0,.2);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .borrow-callout {
+      position: absolute;
+      z-index: 5;
+      top: 2px;
+      right: 2px;
+      padding: 2px 5px;
+      border: 1px solid #e7ad19;
+      border-radius: 8px;
+      color: #724100;
+      background: #fff5bd;
+      font-size: 8px;
+      font-weight: 950;
+    }
+    @keyframes subtraction-answer-ready-pulse {
+      0%, 100% { transform: translateY(0) scale(1); filter: brightness(1); box-shadow: 7px 0 0 -1px #ffe1dd, -7px 0 0 -1px #ffe1dd, 0 7px 0 -1px #ffe1dd, 0 -7px 0 -1px #ffe1dd, 0 0 0 4px rgba(225,74,79,.2), 0 5px 12px rgba(132,55,91,.2); }
+      48% { transform: translateY(-2px) scale(1.1); filter: brightness(1.1); box-shadow: 7px 0 0 -1px #ffe1dd, -7px 0 0 -1px #ffe1dd, 0 7px 0 -1px #ffe1dd, 0 -7px 0 -1px #ffe1dd, 0 0 0 9px rgba(225,74,79,.3), 0 9px 20px rgba(99,45,128,.25); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .unit.eligible { outline-color: rgba(225,74,79,.78); }
+      .unit.eligible.next-unit-hint { outline-color: #d83f49; box-shadow: 0 0 0 7px rgba(225,74,79,.28), 0 0 16px 8px rgba(225,74,79,.18); }
+      .motion-target-flash { outline-color: rgba(225,74,79,.52); }
+      .next-button.success-next { outline-color: rgba(225,74,79,.58); box-shadow: 0 0 0 4px rgba(225,74,79,.2); }
+      .answer-button.answer-ready { outline-color: rgba(225,74,79,.72); }
+    }
   </style>
 </head>
 <body>
   <main class="app" aria-labelledby="gameTitle">
-    <h1 id="gameTitle" class="sr-only">Number Garden place-value addition game</h1>
+    <h1 id="gameTitle" class="sr-only">Number Garden place-value addition and subtraction game</h1>
 
     <header class="topbar">
       <div class="bee" aria-hidden="true">🐝</div>
@@ -1412,7 +1531,7 @@
 
     <section class="equation-card" aria-label="Current addition problem">
       <span id="equationA" class="first-number">58</span>
-      <span class="math-symbol" aria-hidden="true">+</span>
+      <span id="equationOperator" class="math-symbol" aria-hidden="true">+</span>
       <span id="equationB" class="second-number">47</span>
       <span class="math-symbol" aria-hidden="true">=</span>
       <button id="answerButton" class="answer-button" type="button" aria-label="Question mark. Tap to type the answer, or hold to start Tutorial">?</button>
@@ -1435,8 +1554,8 @@
       <!-- Rows are rendered by JavaScript. -->
     </section>
 
-    <section id="suggestionTray" class="tray" aria-label="Try another sum">
-      <p class="tray-title">Try another sum</p>
+    <section id="suggestionTray" class="tray" aria-label="Try another problem">
+      <p class="tray-title">Try another problem</p>
       <div id="suggestions" class="suggestions"></div>
     </section>
   </main>
@@ -1498,6 +1617,8 @@
             <option value="1">L1</option><option value="2">L2</option><option value="3">L3</option>
             <option value="4">L4</option><option value="5">L5</option><option value="6">L6</option>
             <option value="7">L7</option><option value="8">L8</option><option value="9">L9</option>
+            <option value="10">L10</option><option value="11">L11</option><option value="12">L12</option>
+            <option value="13">L13</option>
           </select>
         </div>
         <p id="levelHelp">Changing level starts a fresh problem and resets the two advancement counters.</p>
@@ -1765,6 +1886,48 @@
         "That sum is solved! {a} + {b} = {result}.",
         "Number power! {a} + {b} = {result}."
       ],
+      "subtraction-minuend-ones": [
+        "Build the minuend. Drop its Ones blocks first.",
+        "Start with the minuend Ones. Follow the coral glow.",
+        "Drop each minuend one into the difference row.",
+        "Build the top number, beginning in Ones."
+      ],
+      "subtraction-minuend-tens": [
+        "Now drop the minuend Tens bars.",
+        "Build the minuend Tens. Follow the coral glow.",
+        "Drop each minuend ten into the difference row.",
+        "Finish building the top number with its Tens."
+      ],
+      "subtraction-subtrahend-ones": [
+        "Take away the subtrahend Ones, one block at a time.",
+        "Drop each subtrahend one to remove one from the difference.",
+        "Subtract the Ones. Follow the coral glow.",
+        "Remove the subtrahend Ones from right to left."
+      ],
+      "subtraction-borrowing": [
+        "No Ones remain, so borrow 1 ten and make 10 ones.",
+        "Borrowing: trade one gold ten for ten Ones blocks.",
+        "Move one ten to Ones, where it becomes ten ones.",
+        "We need more Ones. Borrow one ten automatically."
+      ],
+      "subtraction-subtrahend-tens": [
+        "Take away the subtrahend Tens bars.",
+        "Subtract each ten from the difference.",
+        "Drop the subtrahend Tens to remove result bars.",
+        "Finish subtracting in the Tens column."
+      ],
+      "subtraction-awaiting-answer": [
+        "The difference is built. Tap ? and enter the answer.",
+        "Subtraction complete! Tap ? to type the difference.",
+        "All blocks are ready. Tap ? and give the difference.",
+        "What is the difference? Tap ? and enter it."
+      ],
+      "subtraction-completed": [
+        "Wonderful! {a} − {b} = {result}.",
+        "Great subtracting! {a} − {b} = {result}.",
+        "You found the difference! {a} − {b} = {result}.",
+        "Correct! {a} − {b} = {result}."
+      ],
       "place-value-fallback": [
         "Build the answer with place values.",
         "Use the ones, tens, and hundreds to find the answer.",
@@ -1794,7 +1957,7 @@
     }).map(([key, messages]) => [key, Object.freeze(messages)])));
 
     const CATEGORY_NAMES = ["No carry", "Ones-only carry", "Tens-only carry", "Two carries"];
-    const LEVEL_COUNT = 9;
+    const LEVEL_COUNT = 13;
     const STANDARD_CURRENT_LEVEL_MIX = 0.50;
     const STANDARD_HIGHER_LEVEL_MIX = 0.25;
     const STANDARD_LOWER_LEVEL_MIX = 0.25;
@@ -1802,12 +1965,15 @@
     const LEVEL_ONE_HIGHER_MIX = 0.25;
     const LEVEL_NINE_CURRENT_MIX = 0.60;
     const LEVEL_NINE_REVIEW_MIX = 0.40;
+    const LEVEL_TWELVE_CURRENT_MIX = 0.60;
+    const LEVEL_TWELVE_REVIEW_MIX = 0.40;
+    const LEVEL_THIRTEEN_ADDITION_MIX = 0.50;
     const LEVEL_EIGHT_TENS_ONLY_MIX = 0.50;
     const LEVEL_EIGHT_BOTH_CARRIES_MIX = 0.50;
     const CURRENT_LEVEL_ADVANCEMENT_TARGET = 4;
     const HIGHER_LEVEL_ADVANCEMENT_TARGET = 2;
     const HUNDREDS_UNLOCK_LEVEL = 6;
-    const GAME_VERSION = "0.2a_a676b78";
+    const GAME_VERSION = "2.0.0+62d794c";
     const PROFILE_SCHEMA_VERSION = 4;
     const DIFFICULTY_MODES = Object.freeze(["standard", "easy"]);
     const LEVEL_DEFINITIONS = Object.freeze([
@@ -1819,7 +1985,11 @@
       { level: 6, label: "Two two-digit numbers with an ones carry and a two-digit result" },
       { level: 7, label: "Two two-digit numbers with a tens-only carry" },
       { level: 8, label: "Three-digit results with tens-only or both-column carries" },
-      { level: 9, label: "Two two-digit numbers with carries in both columns" }
+      { level: 9, label: "Two two-digit numbers with carries in both columns" },
+      { level: 10, label: "Single-digit subtraction without negative differences" },
+      { level: 11, label: "A two-digit minuend minus a single-digit subtrahend" },
+      { level: 12, label: "Two-digit subtraction without negative differences" },
+      { level: 13, label: "Mixed addition and subtraction review" }
     ]);
     const DB_NAME = "numberGarden";
     const DB_VERSION = 1;
@@ -1886,7 +2056,8 @@
     const elements = {
       journey: $("#journey"), levelBadge: $("#levelBadge"), score: $("#scoreValue"), settings: $("#settingsButton"),
       fullscreen: $("#fullscreenButton"), fullscreenIconPath: $("#fullscreenIconPath"),
-      equationA: $("#equationA"), equationB: $("#equationB"), answer: $("#answerButton"), reset: $("#resetCurrent"),
+      equationA: $("#equationA"), equationB: $("#equationB"), equationOperator: $("#equationOperator"),
+      equationCard: $(".equation-card"), answer: $("#answerButton"), reset: $("#resetCurrent"),
       promptRow: $("#promptRow"), prompt: $("#promptText"), next: $("#nextButton"), board: $("#board"),
       launchDialog: $("#launchDialog"), launchStart: $("#launchStartButton"), launchTutorial: $("#launchTutorialButton"),
       tray: $("#suggestionTray"), suggestions: $("#suggestions"), keypad: $("#keypadDialog"), keypadForm: $("#keypadForm"),
@@ -1948,7 +2119,8 @@
       if (gameStartTracked || typeof window.gtag !== "function") return;
       gameStartTracked = true;
       window.gtag("event", "game_start", {
-        game_version: GAME_VERSION
+        game_version: GAME_VERSION,
+        operation: problem ? problem.operation : "addition"
       });
     }
 
@@ -1957,7 +2129,11 @@
       window.gtag("event", "game_complete", {
         score,
         questions_answered: questionsAnswered,
-        game_version: GAME_VERSION
+        game_version: GAME_VERSION,
+        operation: problem.operation,
+        operand_a: problem.a,
+        operand_b: problem.b,
+        result: problem.result
       });
     }
 
@@ -2008,14 +2184,29 @@
       return String.fromCodePoint(...code.split("-").map(part => parseInt(part, 16)));
     }
 
-    function deriveProblem(a, b) {
+    function deriveProblem(a, b, operation = "addition") {
+      if (operation !== "addition" && operation !== "subtraction") {
+        throw new RangeError("Operation must be addition or subtraction.");
+      }
       if (!Number.isInteger(a) || !Number.isInteger(b) || a < 1 || a > 99 || b < 1 || b > 99) {
-        throw new RangeError("Addends must be integers from 1 through 99.");
+        throw new RangeError("Operands must be integers from 1 through 99.");
+      }
+      if (operation === "subtraction" && a < b) {
+        throw new RangeError("Subtraction requires a minuend greater than or equal to the subtrahend.");
       }
       const digits = {
         a: { hundreds: 0, tens: Math.floor(a / 10), ones: a % 10 },
         b: { hundreds: 0, tens: Math.floor(b / 10), ones: b % 10 }
       };
+      if (operation === "subtraction") {
+        const result = a - b;
+        const resultDigits = { hundreds: 0, tens: Math.floor(result / 10), ones: result % 10 };
+        return {
+          operation, a, b, digits, resultDigits, result,
+          needsBorrow: digits.a.ones < digits.b.ones,
+          category: digits.a.ones < digits.b.ones ? 1 : 0
+        };
+      }
       const onesTotal = digits.a.ones + digits.b.ones;
       const carryToTens = Math.floor(onesTotal / 10);
       const onesRemainder = onesTotal % 10;
@@ -2024,15 +2215,52 @@
       const carryToHundreds = Math.floor(tensTotal / 10);
       const tensRemainder = tensTotal % 10;
       const category = carryToTens ? (carryToHundreds ? 3 : 1) : (carryToHundreds ? 2 : 0);
+      const result = a + b;
       return {
-        a, b, digits, onesTotal, carryToTens, onesRemainder, originalTensTotal, tensTotal,
-        carryToHundreds, tensRemainder, hundreds: carryToHundreds, result: a + b, category
+        operation, a, b, digits, onesTotal, carryToTens, onesRemainder, originalTensTotal, tensTotal,
+        carryToHundreds, tensRemainder, hundreds: carryToHundreds, result,
+        resultDigits: { hundreds: Math.floor(result / 100), tens: Math.floor(result / 10) % 10, ones: result % 10 },
+        needsBorrow: false, category
       };
     }
 
     function freshState(model) {
+      if (model.operation === "subtraction") {
+        const phase = model.digits.a.ones > 0 ? "counting-minuend-ones" : "counting-minuend-tens";
+        return {
+          operation: "subtraction",
+          phase,
+          minuendOnesAcceptedCursor: 0,
+          minuendOnesCursor: 0,
+          minuendTensAcceptedCursor: 0,
+          minuendTensCursor: 0,
+          subtrahendOnesAcceptedCursor: 0,
+          subtrahendOnesCursor: 0,
+          subtrahendTensAcceptedCursor: 0,
+          subtrahendTensCursor: 0,
+          resultOnes: 0,
+          resultTens: 0,
+          borrowedOnesRemaining: 0,
+          borrowCount: 0,
+          borrowPhase: null,
+          animationState: null,
+          dropQueue: [],
+          tempCount: 0,
+          solverUsed: false,
+          rewardAwarded: false,
+          skipMessage: model.digits.a.ones === 0,
+          promptKey: null,
+          promptTemplate: "",
+          // Addition diagnostics remain present for consumers that read a common snapshot.
+          onesAcceptedCursor: 0, onesCursor: 0, tensAcceptedCursor: 0, tensCursor: 0,
+          hundredsAcceptedCursor: 0, hundredsCursor: 0,
+          visibleOnesCarry: false, visibleHundredsCarry: false,
+          carryPhase: null, carryKind: null
+        };
+      }
       const skipOnes = model.onesTotal === 0;
       return {
+        operation: "addition",
         phase: skipOnes ? "counting-tens" : "counting-ones",
         onesAcceptedCursor: 0,
         onesCursor: 0,
@@ -2066,7 +2294,15 @@
       return Number(accepted) < nextQueueBoundary(landed, total, carryNeeded, carryVisible);
     }
 
-    function pairKey(a, b) { return [Math.min(a, b), Math.max(a, b)].join("+"); }
+    function problemKey(aOrModel, b, operation = "addition") {
+      const model = aOrModel && typeof aOrModel === "object" ? aOrModel : { a: aOrModel, b, operation };
+      const op = model.operation || "addition";
+      return op === "subtraction"
+        ? model.a + "−" + model.b
+        : [Math.min(model.a, model.b), Math.max(model.a, model.b)].join("+");
+    }
+
+    function pairKey(a, b, operation = "addition") { return problemKey(a, b, operation); }
 
     function curriculumPattern(model) {
       if (model.category === 2) return "tens-only";
@@ -2075,6 +2311,14 @@
     }
 
     function problemMatchesLevel(model, level, pattern = null) {
+      if (!model || (model.operation || "addition") === "subtraction") {
+        if (!model || model.operation !== "subtraction" || model.a < model.b) return false;
+        if (level === 10) return model.a <= 9 && model.b <= 9;
+        if (level === 11) return model.a >= 10 && model.b <= 9;
+        if (level === 12) return model.a >= 10 && model.b >= 10;
+        if (level === 13) return [10, 11, 12].some(source => problemMatchesLevel(model, source));
+        return false;
+      }
       const bothSingle = model.a < 10 && model.b < 10;
       const bothDouble = model.a >= 10 && model.b >= 10;
       const mixedDigits = (model.a < 10) !== (model.b < 10);
@@ -2090,6 +2334,7 @@
           return bothDouble && model.result >= 100 &&
             (pattern ? curriculumPattern(model) === pattern : model.category === 2 || model.category === 3);
         case 9: return bothDouble && model.category === 3;
+        case 13: return true;
         default: return false;
       }
     }
@@ -2111,11 +2356,11 @@
 
     function selectCurriculumLevel(currentLevel, random = Math.random) {
       const level = clampLevel(currentLevel);
+      if (level === 13) return 13;
       const roll = normalizedRandom(random);
       if (level === 1) return roll < LEVEL_ONE_CURRENT_MIX ? 1 : 2;
-      if (level === LEVEL_COUNT) {
-        return roll < LEVEL_NINE_CURRENT_MIX ? LEVEL_COUNT : uniformlySelectLevel(1, LEVEL_COUNT - 1, random);
-      }
+      if (level === 9) return roll < LEVEL_NINE_CURRENT_MIX ? 9 : uniformlySelectLevel(1, 8, random);
+      if (level === 12) return roll < LEVEL_TWELVE_CURRENT_MIX ? 12 : uniformlySelectLevel(1, 11, random);
       if (roll < STANDARD_CURRENT_LEVEL_MIX) return level;
       if (roll < STANDARD_CURRENT_LEVEL_MIX + STANDARD_HIGHER_LEVEL_MIX) return level + 1;
       return uniformlySelectLevel(1, level - 1, random);
@@ -2125,9 +2370,12 @@
       const key = level + ":" + (pattern || "all");
       if (curriculumPairCache.has(key)) return curriculumPairCache.get(key);
       const pairs = [];
+      const operation = level >= 10 ? "subtraction" : "addition";
       for (let a = 1; a <= 99; a += 1) {
-        for (let b = a; b <= 99; b += 1) {
-          const model = deriveProblem(a, b);
+        const firstB = operation === "subtraction" ? 1 : a;
+        const lastB = operation === "subtraction" ? a : 99;
+        for (let b = firstB; b <= lastB; b += 1) {
+          const model = deriveProblem(a, b, operation);
           if (problemMatchesLevel(model, level, pattern)) pairs.push([a, b]);
         }
       }
@@ -2137,16 +2385,25 @@
 
     function generateProblemForLevel(level, exclusions = new Set(), random = Math.random) {
       const curriculumLevel = clampLevel(level);
+      if (curriculumLevel === 13) {
+        const addition = normalizedRandom(random) < LEVEL_THIRTEEN_ADDITION_MIX;
+        const sourceLevel = addition
+          ? uniformlySelectLevel(1, 9, random)
+          : uniformlySelectLevel(10, 12, random);
+        const review = generateProblemForLevel(sourceLevel, exclusions, random);
+        return { ...review, curriculumLevel: 13, curriculumSourceLevel: sourceLevel };
+      }
       const pattern = curriculumLevel === 8
         ? (normalizedRandom(random) < LEVEL_EIGHT_TENS_ONLY_MIX ? "tens-only" : "both-carries")
         : null;
       const allPairs = curriculumPairs(curriculumLevel, pattern);
-      const available = allPairs.filter(pair => !exclusions.has(pairKey(pair[0], pair[1])));
+      const operation = curriculumLevel >= 10 ? "subtraction" : "addition";
+      const available = allPairs.filter(pair => !exclusions.has(pairKey(pair[0], pair[1], operation)));
       const pool = available.length ? available : allPairs;
       if (!pool.length) throw new Error("No problems are defined for level " + curriculumLevel + ".");
       const pair = pool[Math.floor(normalizedRandom(random) * pool.length)];
-      const swap = pair[0] !== pair[1] && normalizedRandom(random) >= 0.5;
-      const model = deriveProblem(swap ? pair[1] : pair[0], swap ? pair[0] : pair[1]);
+      const swap = operation === "addition" && pair[0] !== pair[1] && normalizedRandom(random) >= 0.5;
+      const model = deriveProblem(swap ? pair[1] : pair[0], swap ? pair[0] : pair[1], operation);
       return { ...model, curriculumLevel, curriculumPattern: pattern || curriculumPattern(model) };
     }
 
@@ -2164,7 +2421,7 @@
         if (sampledLevel === level) {
           next.currentLevelSuccesses += 1;
           credit = "current";
-        } else if (sampledLevel > level) {
+        } else if (sampledLevel > level && level !== 12) {
           next.higherLevelSuccesses += 1;
           credit = "higher";
         }
@@ -2181,11 +2438,11 @@
 
     function makeTray(current) {
       const exclusions = new Set(recentPairs);
-      exclusions.add(pairKey(current.a, current.b));
+      exclusions.add(problemKey(current));
       const alternatives = [];
       for (let index = 0; index < 3; index += 1) {
         const candidate = sampleCurriculumProblem(profile.currentLevel, exclusions);
-        exclusions.add(pairKey(candidate.a, candidate.b));
+        exclusions.add(problemKey(candidate));
         alternatives.push(candidate);
       }
       return [current, ...alternatives];
@@ -2204,8 +2461,8 @@
         dice.classList.toggle("rolling", !reduceMotion);
         dice.setAttribute("aria-disabled", "true");
         dice.setAttribute("aria-label", reduceMotion
-          ? "Refreshing the three alternative sums"
-          : "Rolling the die for three new alternative sums");
+          ? "Refreshing the three alternative problems"
+          : "Rolling the die for three new alternative problems");
         return;
       }
       if (diceRefreshDisabledState) {
@@ -2220,7 +2477,7 @@
       elements.tray.removeAttribute("aria-busy");
       dice.classList.remove("rolling");
       dice.removeAttribute("aria-disabled");
-      dice.setAttribute("aria-label", "Refresh the three alternative sums");
+      dice.setAttribute("aria-label", "Refresh the three alternative problems");
     }
 
     async function animateDiceTumble(dice) {
@@ -2296,13 +2553,13 @@
         motionSkipRequested = false;
         setDiceRefreshControlsLocked(false, dice);
         recordMotion("dice-refresh-complete", { reduced: reduceMotion, refreshCount: diceRefreshCount });
-        announce("Three new alternative sums are ready.");
+        announce("Three new alternative problems are ready.");
         if (dice.isConnected) dice.focus({ preventScroll: true });
       }
     }
 
     function rememberProblem(model) {
-      const key = pairKey(model.a, model.b);
+      const key = problemKey(model);
       recentPairs = recentPairs.filter(item => item !== key);
       recentPairs.push(key);
       if (recentPairs.length > 6) recentPairs.shift();
@@ -2311,6 +2568,7 @@
     function startProblem(model, options = {}) {
       abandonActiveMotion();
       problem = model;
+      if (model.operation === "subtraction") hundredsUnlockPending = false;
       state = freshState(model);
       solverRunning = false;
       tutorialControlActivation = null;
@@ -2321,7 +2579,9 @@
       if (options.keepTray) tray[0] = model;
       render();
       noteActivity();
-      if (state.skipMessage) announce("There are zero ones, so we skip to tens.");
+      if (state.skipMessage) announce(model.operation === "subtraction"
+        ? "The minuend has zero Ones, so begin by building its Tens."
+        : "There are zero ones, so we skip to tens.");
     }
 
     function startWeightedProblem() {
@@ -2759,9 +3019,17 @@
     function isDialogOpen() { return elements.launchDialog.open || elements.keypad.open || elements.settingsDialog.open; }
 
     function isMotionDraining() {
-      return Boolean(state && (state.animationState || state.dropQueue.length ||
+      if (!state) return false;
+      if (state.operation === "subtraction") {
+        return Boolean(state.animationState || state.dropQueue.length ||
+          state.minuendOnesAcceptedCursor !== state.minuendOnesCursor ||
+          state.minuendTensAcceptedCursor !== state.minuendTensCursor ||
+          state.subtrahendOnesAcceptedCursor !== state.subtrahendOnesCursor ||
+          state.subtrahendTensAcceptedCursor !== state.subtrahendTensCursor);
+      }
+      return Boolean(state.animationState || state.dropQueue.length ||
         state.onesAcceptedCursor !== state.onesCursor || state.tensAcceptedCursor !== state.tensCursor ||
-        state.hundredsAcceptedCursor !== state.hundredsCursor));
+        state.hundredsAcceptedCursor !== state.hundredsCursor);
     }
 
     function isInteractionLocked() {
@@ -2979,12 +3247,16 @@
     }
 
     function triggerQuickLandingImpact(place, index, position, total) {
-      const target = resultUnit(place, index);
+      const progress = state ? placeProgress(place) : null;
+      const column = progress && progress.column ? progress.column : place;
+      const target = problem && problem.operation === "subtraction"
+        ? elements.board.querySelector(".result-panel." + column)
+        : resultUnit(column, index);
       const panel = target && target.closest(".result-panel");
       const isFinal = position === total - 1;
       recordMotion("quick-impact", { place, index, position, total, final: isFinal, reduced: reduceMotion });
       if (isFinal) {
-        playQuickDropFinalImpact(place);
+        playQuickDropFinalImpact(column);
         vibrate([35, 28, 75]);
       }
       if (!panel) return;
@@ -3132,6 +3404,20 @@
     }
 
     function placeProgress(place) {
+      if (state.operation === "subtraction") {
+        const definitions = {
+          "minuend-ones": ["minuendOnesAcceptedCursor", "minuendOnesCursor", problem.digits.a.ones, "counting-minuend-ones", "ones"],
+          "minuend-tens": ["minuendTensAcceptedCursor", "minuendTensCursor", problem.digits.a.tens, "counting-minuend-tens", "tens"],
+          "subtrahend-ones": ["subtrahendOnesAcceptedCursor", "subtrahendOnesCursor", problem.digits.b.ones, "counting-subtrahend-ones", "ones"],
+          "subtrahend-tens": ["subtrahendTensAcceptedCursor", "subtrahendTensCursor", problem.digits.b.tens, "counting-subtrahend-tens", "tens"]
+        };
+        const definition = definitions[place];
+        if (!definition) return { accepted: 0, landed: 0, total: 0, carryNeeded: false, carryVisible: true, phase: "unknown", column: place };
+        return {
+          accepted: state[definition[0]], landed: state[definition[1]], total: definition[2],
+          carryNeeded: false, carryVisible: true, phase: definition[3], column: definition[4]
+        };
+      }
       if (place === "ones") {
         return {
           accepted: state.onesAcceptedCursor,
@@ -3167,6 +3453,33 @@
       const progress = placeProgress(place);
       return state.phase === progress.phase && (allowSolver || !solverRunning) &&
         canQueuePlaceUnit(progress.accepted, progress.landed, progress.total, progress.carryNeeded, progress.carryVisible);
+    }
+
+    function setAcceptedCursor(place, value) {
+      const fields = {
+        ones: "onesAcceptedCursor", tens: "tensAcceptedCursor", hundreds: "hundredsAcceptedCursor",
+        "minuend-ones": "minuendOnesAcceptedCursor", "minuend-tens": "minuendTensAcceptedCursor",
+        "subtrahend-ones": "subtrahendOnesAcceptedCursor", "subtrahend-tens": "subtrahendTensAcceptedCursor"
+      };
+      if (fields[place]) state[fields[place]] = value;
+    }
+
+    function setLandedCursor(place, value) {
+      const fields = {
+        ones: "onesCursor", tens: "tensCursor", hundreds: "hundredsCursor",
+        "minuend-ones": "minuendOnesCursor", "minuend-tens": "minuendTensCursor",
+        "subtrahend-ones": "subtrahendOnesCursor", "subtrahend-tens": "subtrahendTensCursor"
+      };
+      if (fields[place]) state[fields[place]] = value;
+    }
+
+    function applySubtractionLanding(item) {
+      if (item.place === "minuend-ones") state.resultOnes += 1;
+      else if (item.place === "minuend-tens") state.resultTens += 1;
+      else if (item.place === "subtrahend-ones") {
+        state.resultOnes = Math.max(0, state.resultOnes - 1);
+        if (state.borrowedOnesRemaining > 0) state.borrowedOnesRemaining -= 1;
+      } else if (item.place === "subtrahend-tens") state.resultTens = Math.max(0, state.resultTens - 1);
     }
 
     function decorateSourcePanel(panel, place, start, end) {
@@ -3238,6 +3551,56 @@
       label.setAttribute("aria-label", digit + " ones out of 10 positions");
       panel.append(strip, label);
       return decorateSourcePanel(panel, "ones", rowOffset, rowOffset + digit);
+    }
+
+    function subtractionSourceTens(owner, digit, role) {
+      const panel = document.createElement("div");
+      panel.className = "place-panel tens";
+      const grid = document.createElement("div");
+      grid.className = "tens-grid";
+      const progress = placeProgress(role);
+      for (let index = 0; index < 10; index += 1) {
+        if (index < digit) {
+          const eligible = canAcceptPlaceUnit(role) && progress.accepted === index;
+          const counted = progress.landed > index;
+          const queued = progress.accepted > index && !counted;
+          const noun = owner === "a" ? "minuend" : "subtrahend";
+          grid.append(makeUnit(owner, counted, eligible,
+            "Drop the next " + noun + " ten. Hold for " + quickPlayHoldLabel + " to drop this whole operand cell.",
+            false, { role: "source", place: role, index }, queued));
+        } else grid.append(makeEmptyUnit());
+      }
+      const label = document.createElement("span");
+      label.className = "digit-label";
+      label.textContent = digit;
+      label.setAttribute("aria-label", digit + " " + (owner === "a" ? "minuend" : "subtrahend") + " tens");
+      panel.append(grid, label);
+      return decorateSourcePanel(panel, role, 0, digit);
+    }
+
+    function subtractionSourceOnes(owner, digit, role) {
+      const panel = document.createElement("div");
+      panel.className = "place-panel ones";
+      const strip = document.createElement("div");
+      strip.className = "ones-strip";
+      const progress = placeProgress(role);
+      for (let index = 0; index < 10; index += 1) {
+        if (index < digit) {
+          const eligible = canAcceptPlaceUnit(role) && progress.accepted === index;
+          const counted = progress.landed > index;
+          const queued = progress.accepted > index && !counted;
+          const noun = owner === "a" ? "minuend" : "subtrahend";
+          strip.append(makeUnit(owner, counted, eligible,
+            "Drop the next " + noun + " one. Hold for " + quickPlayHoldLabel + " to drop this whole operand cell.",
+            false, { role: "source", place: role, index }, queued));
+        } else strip.append(makeEmptyUnit());
+      }
+      const label = document.createElement("span");
+      label.className = "digit-label";
+      label.textContent = digit;
+      label.setAttribute("aria-label", digit + " " + (owner === "a" ? "minuend" : "subtrahend") + " ones");
+      panel.append(strip, label);
+      return decorateSourcePanel(panel, role, 0, digit);
     }
 
     function resultHundreds() {
@@ -3438,7 +3801,123 @@
       return grid;
     }
 
+    function subtractionResultOnes() {
+      const panel = document.createElement("div");
+      panel.className = "place-panel ones result-panel";
+      const groups = document.createElement("div");
+      groups.className = "result-groups";
+      const strip = document.createElement("div");
+      strip.className = "ones-strip" + (state.borrowPhase === "formation" ? " trade-group carry-forming" : "");
+      const count = state.phase === "completed" ? problem.resultDigits.ones : state.resultOnes;
+      const borrowed = state.borrowCount > 0 || state.borrowPhase;
+      for (let index = 0; index < 10; index += 1) {
+        const metadata = { role: "result", place: "ones", index };
+        if (index < count) strip.append(makeUnit(borrowed ? "borrow" : "a", true, false, "", borrowed, metadata));
+        else strip.append(makeEmptyUnit(metadata));
+      }
+      groups.append(strip);
+      panel.append(groups);
+      if (state.borrowPhase === "landing" || state.borrowPhase === "formation") {
+        const callout = document.createElement("span");
+        callout.className = "borrow-callout";
+        callout.textContent = "1 ten → 10 ones";
+        panel.append(callout);
+      }
+      if (state.phase === "completed" || profile.difficultyMode === "easy") {
+        const label = document.createElement("span");
+        label.className = "digit-label";
+        label.textContent = count;
+        label.setAttribute("aria-label", count + (state.phase === "completed" ? " ones in the difference" : " ones currently in the difference"));
+        panel.append(label);
+      }
+      return panel;
+    }
+
+    function subtractionResultTens() {
+      const panel = document.createElement("div");
+      panel.className = "place-panel tens result-panel";
+      const groups = document.createElement("div");
+      groups.className = "result-groups";
+      const grid = document.createElement("div");
+      grid.className = "tens-grid";
+      const count = state.phase === "completed" ? problem.resultDigits.tens : state.resultTens;
+      for (let index = 0; index < 10; index += 1) {
+        const metadata = { role: "result", place: "tens", index };
+        if (index < count) grid.append(makeUnit("a", true, false, "", false, metadata));
+        else grid.append(makeEmptyUnit(metadata));
+      }
+      groups.append(grid);
+      panel.append(groups);
+      if (state.borrowPhase === "formation") {
+        const token = document.createElement("span");
+        token.className = "borrow-formation-token";
+        token.dataset.borrowOrigin = "tens";
+        token.setAttribute("aria-hidden", "true");
+        panel.append(token);
+      }
+      if (state.phase === "completed" || profile.difficultyMode === "easy") {
+        const label = document.createElement("span");
+        label.className = "digit-label";
+        label.textContent = count;
+        label.setAttribute("aria-label", count + (state.phase === "completed" ? " tens in the difference" : " tens currently in the difference"));
+        panel.append(label);
+      }
+      return panel;
+    }
+
+    function renderSubtractionBoard() {
+      elements.board.className = "board compact subtraction-board";
+      elements.board.replaceChildren();
+      const emptyHeader = document.createElement("span");
+      emptyHeader.setAttribute("aria-hidden", "true");
+      elements.board.append(emptyHeader);
+      ["Tens", "Ones"].forEach(name => {
+        const title = document.createElement("div");
+        title.className = "column-title " + name.toLowerCase();
+        title.textContent = name;
+        elements.board.append(title);
+      });
+      [
+        { sign: "", badge: problem.a, badgeClass: "first", owner: "a", noun: "Minuend", tensRole: "minuend-tens", onesRole: "minuend-ones" },
+        { sign: "−", badge: problem.b, badgeClass: "second", owner: "b", noun: "Subtrahend", tensRole: "subtrahend-tens", onesRole: "subtrahend-ones" }
+      ].forEach(row => {
+        const rowLabel = document.createElement("div");
+        rowLabel.className = "row-label";
+        const sign = document.createElement("span");
+        sign.className = "row-sign";
+        sign.textContent = row.sign;
+        sign.setAttribute("aria-hidden", "true");
+        const badge = document.createElement("div");
+        badge.className = "addend-badge " + row.badgeClass;
+        badge.textContent = row.badge;
+        badge.setAttribute("aria-label", row.noun + " " + row.badge);
+        rowLabel.append(sign, badge);
+        elements.board.append(rowLabel,
+          subtractionSourceTens(row.owner, problem.digits[row.owner].tens, row.tensRole),
+          subtractionSourceOnes(row.owner, problem.digits[row.owner].ones, row.onesRole));
+      });
+      const resultLabel = document.createElement("div");
+      resultLabel.className = "row-label";
+      const equals = document.createElement("span");
+      equals.className = "row-sign";
+      equals.textContent = "=";
+      equals.setAttribute("aria-hidden", "true");
+      const badge = document.createElement("div");
+      badge.className = "addend-badge result";
+      badge.textContent = state.phase === "completed" ? problem.result : "?";
+      badge.setAttribute("aria-label", state.phase === "completed" ? "Difference " + problem.result : "Difference not yet revealed");
+      resultLabel.append(equals, badge);
+      elements.board.append(resultLabel, subtractionResultTens(), subtractionResultOnes());
+      elements.board.querySelectorAll(".source-panel").forEach(panel => {
+        panel.classList.toggle("quick-play-ready", quickDropCellIsCurrent(panel));
+      });
+    }
+
     function renderBoard() {
+      if (problem.operation === "subtraction") {
+        renderSubtractionBoard();
+        return;
+      }
       const showHundreds = profile.currentLevel >= HUNDREDS_UNLOCK_LEVEL;
       elements.board.className = "board" + (showHundreds ? "" : " compact") + (hundredsUnlockPending ? " unlocking" : "");
       elements.board.replaceChildren();
@@ -3501,6 +3980,15 @@
     }
 
     function promptKeyForState(currentState) {
+      if (currentState.operation === "subtraction") {
+        if (currentState.phase === "completed") return "subtraction-completed";
+        if (currentState.phase === "awaiting-answer") return "subtraction-awaiting-answer";
+        if (currentState.phase === "borrowing-to-ones" || currentState.borrowPhase) return "subtraction-borrowing";
+        if (currentState.phase === "counting-minuend-ones") return "subtraction-minuend-ones";
+        if (currentState.phase === "counting-minuend-tens") return "subtraction-minuend-tens";
+        if (currentState.phase === "counting-subtrahend-ones") return "subtraction-subtrahend-ones";
+        if (currentState.phase === "counting-subtrahend-tens") return "subtraction-subtrahend-tens";
+      }
       if (currentState.phase === "completed") return "completed";
       if (currentState.phase === "awaiting-answer") return "awaiting-answer";
       if (currentState.animationState === "ones" || currentState.phase === "carrying-to-tens") return "carrying-ones";
@@ -3556,9 +4044,14 @@
     function createSuggestionButton(item, index) {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = "suggestion" + (index === 0 ? " current" : "");
-      button.innerHTML = item.a + "<br>+ " + item.b;
-      button.setAttribute("aria-label", item.a + " plus " + item.b + ", " + CATEGORY_NAMES[item.category]);
+      button.className = "suggestion operation-" + item.operation + (index === 0 ? " current" : "");
+      button.dataset.operation = item.operation;
+      const subtraction = item.operation === "subtraction";
+      const symbol = subtraction ? "−" : "+";
+      button.innerHTML = item.a + "<br>" + symbol + " " + item.b;
+      button.setAttribute("aria-label", subtraction
+        ? item.a + " minus " + item.b + ", " + (item.needsBorrow ? "with borrowing" : "without borrowing")
+        : item.a + " plus " + item.b + ", " + CATEGORY_NAMES[item.category]);
       if (index === 0) {
         button.disabled = true;
         button.setAttribute("aria-current", "true");
@@ -3590,7 +4083,7 @@
       dice.type = "button";
       dice.className = "dice";
       dice.textContent = diceFace;
-      dice.setAttribute("aria-label", "Refresh the three alternative sums");
+      dice.setAttribute("aria-label", "Refresh the three alternative problems");
       dice.disabled = isMotionDraining() || solverRunning;
       dice.addEventListener("click", refreshAlternatives);
       elements.suggestions.append(dice);
@@ -3598,8 +4091,17 @@
 
     function render() {
       const motionLocked = isMotionDraining() || diceRefreshState !== "idle";
+      const subtraction = problem.operation === "subtraction";
+      document.body.classList.toggle("operation-subtraction", subtraction);
+      document.body.classList.toggle("operation-addition", !subtraction);
+      document.querySelector(".app").classList.toggle("operation-subtraction", subtraction);
+      document.querySelector(".app").classList.toggle("operation-addition", !subtraction);
+      document.querySelector('meta[name="theme-color"]').content = subtraction ? "#e8ddff" : "#dff4ff";
       elements.equationA.textContent = problem.a;
       elements.equationB.textContent = problem.b;
+      elements.equationOperator.textContent = subtraction ? "−" : "+";
+      elements.equationCard.setAttribute("aria-label", "Current " + problem.operation + " problem: " + problem.a +
+        (subtraction ? " minus " : " plus ") + problem.b + ", answer " + (state.phase === "completed" ? problem.result : "hidden"));
       elements.answer.textContent = state.phase === "completed" ? problem.result : "?";
       const answerReady = state.phase === "awaiting-answer";
       elements.answer.classList.toggle("answer-ready", answerReady);
@@ -3785,6 +4287,7 @@
         if (!unit) return null;
         items.push({
           place,
+          column: progress.column || place,
           index,
           owner: unit.dataset.owner || (place === "ones" ? ownerForOnes(index) : place === "tens" ? ownerForTens(index) : "carry"),
           origin: rectSnapshot(unit),
@@ -3793,9 +4296,7 @@
         });
       }
       if (!items.length) return null;
-      if (place === "ones") state.onesAcceptedCursor = end;
-      else if (place === "tens") state.tensAcceptedCursor = end;
-      else state.hundredsAcceptedCursor = end;
+      setAcceptedCursor(place, end);
       state.dropQueue.push(...items);
       state.animationState = "quick-drop";
       recordMotion("quick-drop-accepted", { place, start, end, count: items.length, batchId });
@@ -3811,13 +4312,12 @@
       if (!unit || index !== progress.accepted) return null;
       const item = {
         place,
+        column: progress.column || place,
         index,
         owner: unit.dataset.owner || (place === "ones" ? ownerForOnes(index) : place === "tens" ? ownerForTens(index) : "carry"),
         origin: rectSnapshot(unit)
       };
-      if (place === "ones") state.onesAcceptedCursor += 1;
-      else if (place === "tens") state.tensAcceptedCursor += 1;
-      else state.hundredsAcceptedCursor += 1;
+      setAcceptedCursor(place, progress.accepted + 1);
       state.dropQueue.push(item);
       state.animationState = "drop";
       recordMotion("drop-accepted", { place, index, accepted: index + 1 });
@@ -3826,9 +4326,12 @@
     }
 
     function acceptNextPlaceUnitForSolver() {
-      const place = state.phase === "counting-ones" ? "ones"
-        : state.phase === "counting-tens" ? "tens"
-          : state.phase === "counting-hundreds" ? "hundreds" : null;
+      const placesByPhase = {
+        "counting-ones": "ones", "counting-tens": "tens", "counting-hundreds": "hundreds",
+        "counting-minuend-ones": "minuend-ones", "counting-minuend-tens": "minuend-tens",
+        "counting-subtrahend-ones": "subtrahend-ones", "counting-subtrahend-tens": "subtrahend-tens"
+      };
+      const place = placesByPhase[state.phase] || null;
       if (!place || !canAcceptPlaceUnit(place, true)) return null;
       const progress = placeProgress(place);
       const unit = sourceUnit(place, progress.accepted);
@@ -3849,11 +4352,14 @@
     }
 
     async function animateDrop(item) {
-      const target = resultUnit(item.place, item.index);
+      let targetIndex = item.index;
+      if (problem.operation === "subtraction" && item.place === "subtrahend-ones") targetIndex = state.resultOnes - 1;
+      else if (problem.operation === "subtraction" && item.place === "subtrahend-tens") targetIndex = state.resultTens - 1;
+      const target = resultUnit(item.column || item.place, targetIndex);
       const destination = rectSnapshot(target);
       if (reduceMotion || motionSkipRequested || !item.origin || !destination) {
-        playDropImpact(item.place);
-        recordMotion("drop-static", { place: item.place, index: item.index });
+        playDropImpact(item.column || item.place);
+        recordMotion("drop-static", { place: item.place, column: item.column || item.place, index: item.index });
         if (!item.origin || !destination) motionSkipRequested = true;
         return true;
       }
@@ -3868,8 +4374,8 @@
       const scaleY = destination.height / item.origin.height;
       const translate = (x, y, xScale, yScale) =>
         "translate(" + x.toFixed(2) + "px," + y.toFixed(2) + "px) scale(" + xScale.toFixed(3) + "," + yScale.toFixed(3) + ")";
-      recordMotion("drop-start", { place: item.place, index: item.index });
-      playDropSound(item.place, activeMotionTimings.BLOCK_FALL_LAND);
+      recordMotion("drop-start", { place: item.place, column: item.column || item.place, index: item.index });
+      playDropSound(item.column || item.place, activeMotionTimings.BLOCK_FALL_LAND);
       try {
         await animateTracked(overlay, [
           { offset: 0, transform: translate(0, 0, 1, 1), opacity: 1, easing: "cubic-bezier(.55,.02,.82,.45)" },
@@ -3883,11 +4389,154 @@
       return false;
     }
 
+    async function performBorrowForSubtraction(session = motionSession) {
+      if (!state || state.operation !== "subtraction" || state.resultOnes > 0 || state.resultTens <= 0 ||
+          state.subtrahendOnesCursor >= problem.digits.b.ones) return true;
+      clearIdleHints();
+      state.phase = "borrowing-to-ones";
+      state.animationState = "borrow-formation";
+      state.borrowPhase = "formation";
+      render();
+      announce("The Ones are empty. Borrow 1 ten and regroup it as 10 ones.");
+      recordMotion("borrow-formation", { from: "tens", to: "ones", resultTens: state.resultTens });
+      playGroupingSound("ones");
+      if (solverRunning && !await pausePendingTutorialStage(session)) return false;
+
+      const token = elements.board.querySelector("[data-borrow-origin='tens']");
+      const origin = rectSnapshot(token);
+      const destinationElement = elements.board.querySelector(".result-panel.ones");
+      const destination = rectSnapshot(destinationElement);
+      let overlay = null;
+      if (!reduceMotion && !motionSkipRequested && origin && destination) {
+        await animateTracked(token, [
+          { transform: "translate(-50%,-50%) scale(.35)", opacity: .2 },
+          { transform: "translate(-50%,-50%) scale(1)", opacity: 1 }
+        ], { duration: activeMotionTimings.CARRY_FORMATION, fill: "forwards", easing: "ease-out" });
+        overlay = makeMotionOverlay(origin, "carry-token ten-token", { motionKind: "borrow", carryKind: "borrow" });
+      }
+      if (!state || session !== motionSession) { if (overlay) overlay.remove(); return false; }
+
+      state.borrowPhase = "travel";
+      state.animationState = "borrow-travel";
+      recordMotion("borrow-travel", { from: "tens", to: "ones" });
+      playCarrySwoosh(activeMotionTimings.CARRY_TRAVEL);
+      if (overlay && destination) {
+        const deltaX = destination.left + destination.width / 2 - (origin.left + origin.width / 2);
+        const deltaY = destination.top + destination.height / 2 - (origin.top + origin.height / 2);
+        await animateTracked(overlay, [
+          { transform: "translate(0,0) scale(1)", opacity: 1 },
+          { offset: .55, transform: "translate(" + (deltaX * .55).toFixed(2) + "px," + (deltaY * .55 - 12).toFixed(2) + "px) scale(.92)", opacity: 1 },
+          { transform: "translate(" + deltaX.toFixed(2) + "px," + deltaY.toFixed(2) + "px) scale(.78)", opacity: 1 }
+        ], { duration: activeMotionTimings.CARRY_TRAVEL, fill: "forwards", easing: "cubic-bezier(.35,.05,.25,1)" });
+      } else await pause(reduceMotion ? 0 : activeMotionTimings.CARRY_TRAVEL);
+      if (!state || session !== motionSession) { if (overlay) overlay.remove(); return false; }
+
+      state.resultTens -= 1;
+      state.resultOnes = 10;
+      state.borrowedOnesRemaining = 10;
+      state.borrowCount += 1;
+      state.borrowPhase = "landing";
+      state.animationState = "borrow-landing";
+      render();
+      playCarryLanding("ones");
+      recordMotion("borrow-landed", { resultTens: state.resultTens, resultOnes: state.resultOnes, borrowCount: state.borrowCount });
+      if (overlay) {
+        await animateTracked(overlay, [
+          { opacity: 1, filter: "brightness(1)" },
+          { opacity: .75, filter: "brightness(1.35)" },
+          { opacity: 0, filter: "brightness(1)" }
+        ], { duration: activeMotionTimings.CARRY_LANDING, fill: "forwards", easing: "ease-out" });
+        overlay.remove();
+      } else flashMotionTarget(destinationElement);
+      if (!state || session !== motionSession) return false;
+      state.borrowPhase = null;
+      state.animationState = null;
+      state.phase = "counting-subtrahend-ones";
+      render();
+      announce("Borrow complete. Ten Ones are ready; keep subtracting the subtrahend Ones.");
+      return true;
+    }
+
+    async function advanceSubtractionAfterPlace(place, session = motionSession) {
+      if (!state || state.operation !== "subtraction" || session !== motionSession) return false;
+      if (place === "subtrahend-ones" && state.subtrahendOnesCursor < problem.digits.b.ones) {
+        if (state.resultOnes === 0) return performBorrowForSubtraction(session);
+        return true;
+      }
+      if (placeProgress(place).landed < placeProgress(place).total) return true;
+
+      let nextPhase = place === "minuend-ones" ? "counting-minuend-tens"
+        : place === "minuend-tens" ? "counting-subtrahend-ones"
+          : place === "subtrahend-ones" ? "counting-subtrahend-tens"
+            : "awaiting-answer";
+      while (nextPhase !== "awaiting-answer") {
+        state.phase = nextPhase;
+        const nextPlace = {
+          "counting-minuend-tens": "minuend-tens",
+          "counting-subtrahend-ones": "subtrahend-ones",
+          "counting-subtrahend-tens": "subtrahend-tens"
+        }[nextPhase];
+        const progress = placeProgress(nextPlace);
+        if (progress.total > progress.landed) {
+          state.animationState = null;
+          state.tempCount = 0;
+          render();
+          if (nextPlace === "subtrahend-ones" && state.resultOnes === 0) {
+            return performBorrowForSubtraction(session);
+          }
+          const label = nextPlace === "minuend-tens" ? "Build the minuend Tens."
+            : nextPlace === "subtrahend-ones" ? "Now subtract the subtrahend Ones."
+              : "Now subtract the subtrahend Tens.";
+          announce(label);
+          return true;
+        }
+        state.skipMessage = true;
+        nextPhase = nextPlace === "minuend-tens" ? "counting-subtrahend-ones"
+          : nextPlace === "subtrahend-ones" ? "counting-subtrahend-tens" : "awaiting-answer";
+      }
+      enterAwaitingAnswer();
+      return true;
+    }
+
     async function drainQuickDropBatch(batch, session) {
       const place = batch[0].place;
       const batchId = batch[0].batchId;
       state.animationState = "quick-drop";
       recordMotion("quick-drop-start", { place, count: batch.length, batchId });
+      if (problem.operation === "subtraction") {
+        for (let position = 0; position < batch.length; position += 1) {
+          const item = batch[position];
+          if (item.place === "subtrahend-ones" && state.resultOnes === 0) {
+            if (!await performBorrowForSubtraction(session)) return false;
+            state.animationState = "quick-drop";
+          }
+          if (position) await pause(activeMotionTimings.QUICK_DROP_STAGGER);
+          const useStaticFlash = await animateDrop(item);
+          if (!state || session !== motionSession) return false;
+          setLandedCursor(item.place, item.index + 1);
+          applySubtractionLanding(item);
+          state.tempCount = item.index + 1;
+          recordMotion("drop-landed", {
+            place: item.place, column: item.column, index: item.index, landed: item.index + 1,
+            quickPlay: true, batchId, resultOnes: state.resultOnes, resultTens: state.resultTens
+          });
+          render();
+          if (useStaticFlash) flashMotionTarget(elements.board.querySelector(".result-panel." + item.column));
+          triggerQuickLandingImpact(item.place, item.index, position, batch.length);
+          if (item.place === "subtrahend-ones" && state.resultOnes === 0 &&
+              state.subtrahendOnesCursor < problem.digits.b.ones) {
+            if (!await performBorrowForSubtraction(session)) return false;
+            state.animationState = "quick-drop";
+          }
+        }
+        state.dropQueue.splice(0, batch.length);
+        recordMotion("quick-drop-complete", { place, count: batch.length, batchId, landed: placeProgress(place).landed });
+        announce("Quick drop. " + batch.length + " " + (batch.length === 1 ? "block" : "blocks") + " processed.");
+        state.animationState = state.dropQueue.length ? (state.dropQueue[0].quickPlay ? "quick-drop" : "drop") : null;
+        render();
+        if (!state.dropQueue.length) await advanceSubtractionAfterPlace(place, session);
+        return true;
+      }
       const flights = batch.map((item, position) => (async () => {
         if (position) await pause(position * activeMotionTimings.QUICK_DROP_STAGGER);
         if (!state || session !== motionSession) return true;
@@ -3965,19 +4614,29 @@
           if (!await drainQuickDropBatch(batch, session)) return;
           continue;
         }
+        if (problem.operation === "subtraction" && item.place === "subtrahend-ones" && state.resultOnes === 0) {
+          if (!await performBorrowForSubtraction(session)) return;
+          state.animationState = "drop";
+        }
         const useStaticFlash = await animateDrop(item);
         if (!state || session !== motionSession) return;
-        if (item.place === "ones") state.onesCursor = item.index + 1;
-        else if (item.place === "tens") state.tensCursor = item.index + 1;
-        else state.hundredsCursor = item.index + 1;
+        setLandedCursor(item.place, item.index + 1);
+        if (problem.operation === "subtraction") applySubtractionLanding(item);
         state.tempCount = item.index + 1;
         state.dropQueue.shift();
-        recordMotion("drop-landed", { place: item.place, index: item.index, landed: item.index + 1 });
-        announce(item.place === "hundreds" ? "Count 1 hundred." : "Count " + state.tempCount + " " + item.place + ".");
+        recordMotion("drop-landed", {
+          place: item.place, column: item.column || item.place, index: item.index, landed: item.index + 1,
+          ...(problem.operation === "subtraction" ? { resultOnes: state.resultOnes, resultTens: state.resultTens } : {})
+        });
+        if (problem.operation === "subtraction") {
+          const verb = item.place.startsWith("minuend") ? "built" : "subtracted";
+          announce("" + state.tempCount + " " + (item.column === "ones" ? "one" : "ten") +
+            (state.tempCount === 1 ? " " : "s ") + verb + ".");
+        } else announce(item.place === "hundreds" ? "Count 1 hundred." : "Count " + state.tempCount + " " + item.place + ".");
 
-        const carryKind = item.place === "ones" && state.onesCursor === 10 && problem.carryToTens && !state.visibleOnesCarry
+        const carryKind = problem.operation === "addition" && item.place === "ones" && state.onesCursor === 10 && problem.carryToTens && !state.visibleOnesCarry
           ? "ones"
-          : item.place === "tens" && state.tensCursor === 10 && problem.carryToHundreds && !state.visibleHundredsCarry
+          : problem.operation === "addition" && item.place === "tens" && state.tensCursor === 10 && problem.carryToHundreds && !state.visibleHundredsCarry
             ? "hundreds"
             : null;
         if (carryKind) {
@@ -3990,12 +4649,16 @@
         } else {
           state.animationState = state.dropQueue.length ? "drop" : null;
           render();
-          if (useStaticFlash) flashMotionTarget(resultUnit(item.place, item.index));
+          if (useStaticFlash) flashMotionTarget(problem.operation === "subtraction"
+            ? elements.board.querySelector(".result-panel." + item.column)
+            : resultUnit(item.place, item.index));
         }
 
         if (!state.dropQueue.length) {
           const progress = placeProgress(item.place);
-          if (progress.landed >= progress.total) {
+          if (problem.operation === "subtraction") {
+            await advanceSubtractionAfterPlace(item.place, session);
+          } else if (progress.landed >= progress.total) {
             if (item.place === "ones") finishOnesPlace();
             else if (item.place === "tens") finishTensPlace();
             else finishHundredsPlace();
@@ -4174,19 +4837,28 @@
     function completeProblem(method) {
       if (state.phase === "completed") return;
       state.phase = "completed";
-      state.onesAcceptedCursor = problem.onesTotal;
-      state.onesCursor = problem.onesTotal;
-      state.tensAcceptedCursor = problem.tensTotal;
-      state.tensCursor = problem.tensTotal;
-      state.hundredsAcceptedCursor = problem.hundreds;
-      state.hundredsCursor = problem.hundreds;
+      if (problem.operation === "subtraction") {
+        state.minuendOnesAcceptedCursor = state.minuendOnesCursor = problem.digits.a.ones;
+        state.minuendTensAcceptedCursor = state.minuendTensCursor = problem.digits.a.tens;
+        state.subtrahendOnesAcceptedCursor = state.subtrahendOnesCursor = problem.digits.b.ones;
+        state.subtrahendTensAcceptedCursor = state.subtrahendTensCursor = problem.digits.b.tens;
+        state.resultOnes = problem.resultDigits.ones;
+        state.resultTens = problem.resultDigits.tens;
+      } else {
+        state.onesAcceptedCursor = problem.onesTotal;
+        state.onesCursor = problem.onesTotal;
+        state.tensAcceptedCursor = problem.tensTotal;
+        state.tensCursor = problem.tensTotal;
+        state.hundredsAcceptedCursor = problem.hundreds;
+        state.hundredsCursor = problem.hundreds;
+      }
       state.dropQueue.length = 0;
       state.animationState = null;
       state.carryPhase = null;
       state.carryKind = null;
       state.visibleOnesCarry = Boolean(problem.carryToTens);
       state.visibleHundredsCarry = Boolean(problem.carryToHundreds);
-      state.tempCount = problem.tensTotal;
+      state.tempCount = problem.operation === "subtraction" ? problem.result : problem.tensTotal;
       if (method !== "solver") solverRunning = false;
       pendingTutorialStagePromptKey = null;
       if (method !== "solver") cleanupTutorialHandCues();
@@ -4216,10 +4888,12 @@
       if (isManual) {
         const levelMessage = advanced ? " You advanced to level " + profile.currentLevel + "." : "";
         const unlockMessage = unlockedHundreds ? " The Hundreds column is now unlocked." : "";
-        announce("Correct. " + problem.a + " plus " + problem.b + " equals " + problem.result + ". You earned 10 coins." + levelMessage + unlockMessage);
+        announce("Correct. " + problem.a + (problem.operation === "subtraction" ? " minus " : " plus ") + problem.b +
+          " equals " + problem.result + ". You earned 10 coins." + levelMessage + unlockMessage);
         showToast(advanced ? "+10 coins · Welcome to L" + profile.currentLevel + "!" : "+10 coins · New milestone earned!");
       } else {
-        announce("Tutorial complete. " + problem.a + " plus " + problem.b + " equals " + problem.result + ". No coins or level progress were awarded.");
+        announce("Tutorial complete. " + problem.a + (problem.operation === "subtraction" ? " minus " : " plus ") + problem.b +
+          " equals " + problem.result + ". No coins or level progress were awarded.");
       }
     }
 
@@ -4256,7 +4930,8 @@
           if (!await runTutorialAnswerSequence(session)) return;
           continue;
         }
-        if (state.phase === "counting-ones" || state.phase === "counting-tens" || state.phase === "counting-hundreds") {
+        if (["counting-ones", "counting-tens", "counting-hundreds", "counting-minuend-ones", "counting-minuend-tens",
+          "counting-subtrahend-ones", "counting-subtrahend-tens"].includes(state.phase)) {
           if (!await pausePendingTutorialStage(session)) return;
           const drain = acceptNextPlaceUnitForSolver();
           if (drain) await drain;
@@ -4298,7 +4973,7 @@
       clearIdleHints();
       typedAnswer = "";
       updateTypedValue();
-      elements.keypadEquation.textContent = problem.a + " + " + problem.b + " =";
+      elements.keypadEquation.textContent = problem.a + (problem.operation === "subtraction" ? " − " : " + ") + problem.b + " =";
       elements.keypad.showModal();
       requestAnimationFrame(() => elements.keypad.querySelector('[data-key="1"]').focus());
     }
@@ -4485,17 +5160,19 @@
     function handleLevelChange() {
       const chosenLevel = clampLevel(Number(elements.levelSelect.value));
       const previousLevel = profile.currentLevel;
-      const unlockedHundreds = previousLevel < HUNDREDS_UNLOCK_LEVEL && chosenLevel >= HUNDREDS_UNLOCK_LEVEL;
+      const crossedHundredsLevel = previousLevel < HUNDREDS_UNLOCK_LEVEL && chosenLevel >= HUNDREDS_UNLOCK_LEVEL;
       profile = {
         ...profile,
         currentLevel: chosenLevel,
         currentLevelSuccesses: 0,
         higherLevelSuccesses: 0
       };
-      hundredsUnlockPending = unlockedHundreds;
       saveProfile();
       elements.settingsDialog.close();
-      startWeightedProblem();
+      const nextModel = sampleCurriculumProblem(profile.currentLevel, new Set(recentPairs));
+      const unlockedHundreds = crossedHundredsLevel && nextModel.operation === "addition";
+      hundredsUnlockPending = unlockedHundreds;
+      startProblem(nextModel);
       if (unlockedHundreds) playHundredsUnlockSound();
       announce("Practice level changed to level " + chosenLevel + ". Advancement counters reset." +
         (unlockedHundreds ? " The Hundreds column is now unlocked." : ""));
@@ -4520,7 +5197,8 @@
       const rawB = params.get("b");
       if (!/^\d+$/.test(rawA) || !/^\d+$/.test(rawB)) return null;
       const a = Number(rawA), b = Number(rawB);
-      try { return deriveProblem(a, b); } catch (_) { return null; }
+      const operation = params.get("op") || "addition";
+      try { return deriveProblem(a, b, operation); } catch (_) { return null; }
     }
 
     function bindEvents() {
@@ -4602,6 +5280,9 @@
 
     function getMotionSnapshot() {
       return state ? {
+        operation: problem.operation,
+        curriculumLevel: problem.curriculumLevel,
+        curriculumSourceLevel: problem.curriculumSourceLevel,
         phase: state.phase,
         onesAcceptedCursor: state.onesAcceptedCursor,
         onesLandedCursor: state.onesCursor,
@@ -4609,12 +5290,33 @@
         tensLandedCursor: state.tensCursor,
         hundredsAcceptedCursor: state.hundredsAcceptedCursor,
         hundredsLandedCursor: state.hundredsCursor,
+        minuendOnesAcceptedCursor: state.minuendOnesAcceptedCursor || 0,
+        minuendOnesLandedCursor: state.minuendOnesCursor || 0,
+        minuendTensAcceptedCursor: state.minuendTensAcceptedCursor || 0,
+        minuendTensLandedCursor: state.minuendTensCursor || 0,
+        subtrahendOnesAcceptedCursor: state.subtrahendOnesAcceptedCursor || 0,
+        subtrahendOnesLandedCursor: state.subtrahendOnesCursor || 0,
+        subtrahendTensAcceptedCursor: state.subtrahendTensAcceptedCursor || 0,
+        subtrahendTensLandedCursor: state.subtrahendTensCursor || 0,
+        resultOnes: state.resultOnes ?? null,
+        resultTens: state.resultTens ?? null,
+        borrowCount: state.borrowCount || 0,
+        borrowPhase: state.borrowPhase || null,
+        needsBorrow: Boolean(problem.needsBorrow),
         queueLength: state.dropQueue.length,
-        queueBoundary: state.phase === "counting-ones"
-          ? nextQueueBoundary(state.onesCursor, problem.onesTotal, Boolean(problem.carryToTens), state.visibleOnesCarry)
-          : state.phase === "counting-hundreds"
-            ? nextQueueBoundary(state.hundredsCursor, problem.hundreds, false, true)
-            : nextQueueBoundary(state.tensCursor, problem.tensTotal, Boolean(problem.carryToHundreds), state.visibleHundredsCarry),
+        queueBoundary: problem.operation === "subtraction"
+          ? (() => {
+              const phasePlace = {
+                "counting-minuend-ones": "minuend-ones", "counting-minuend-tens": "minuend-tens",
+                "counting-subtrahend-ones": "subtrahend-ones", "counting-subtrahend-tens": "subtrahend-tens"
+              }[state.phase];
+              return phasePlace ? placeProgress(phasePlace).total : 0;
+            })()
+          : state.phase === "counting-ones"
+            ? nextQueueBoundary(state.onesCursor, problem.onesTotal, Boolean(problem.carryToTens), state.visibleOnesCarry)
+            : state.phase === "counting-hundreds"
+              ? nextQueueBoundary(state.hundredsCursor, problem.hundreds, false, true)
+              : nextQueueBoundary(state.tensCursor, problem.tensTotal, Boolean(problem.carryToHundreds), state.visibleHundredsCarry),
         animationState: state.animationState,
         carryPhase: state.carryPhase,
         carryKind: state.carryKind,
@@ -4651,6 +5353,7 @@
 
     window.NumberGarden = {
       deriveProblem,
+      problemKey,
       problemMatchesLevel,
       selectCurriculumLevel,
       generateProblemForLevel,
@@ -4679,6 +5382,9 @@
         LEVEL_ONE_HIGHER_MIX,
         LEVEL_NINE_CURRENT_MIX,
         LEVEL_NINE_REVIEW_MIX,
+        LEVEL_TWELVE_CURRENT_MIX,
+        LEVEL_TWELVE_REVIEW_MIX,
+        LEVEL_THIRTEEN_ADDITION_MIX,
         LEVEL_EIGHT_TENS_ONLY_MIX,
         LEVEL_EIGHT_BOTH_CARRIES_MIX,
         CURRENT_LEVEL_ADVANCEMENT_TARGET,

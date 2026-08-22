@@ -2,64 +2,56 @@
 
 ## Product summary
 
-Number Garden is a short, mobile-first learning game for children practicing addition and place value. It turns addition into a visible sequence: count ones, trade ten ones for a ten, count tens, and eventually trade ten tens for a hundred. Nine persistent levels introduce those ideas progressively.
-
-## Audience and learning goal
-
-The primary audience is early elementary learners, with a parent or teacher available when needed. The game aims to connect written addition with concrete ones, tens, and hundreds while making regrouping understandable rather than presenting it as a memorized rule.
+Number Garden is a short, mobile-first place-value game for early elementary learners. Thirteen persistent levels move from addition and regrouping into subtraction and automatic borrowing. The board keeps the arithmetic concrete: Ones are blocks, Tens are bars, and addition Hundreds are visible from L6 onward.
 
 ## Core experience
 
-1. The game samples a practice or review problem around the learner’s current L1–L9 level.
-2. The child taps the single glowing next block, counting both addends in order. An accustomed player can instead hold the current addend cell or any block in it for 1.5 seconds to drop that cell's remaining blocks in a fast staggered batch.
-3. At ten units, the game groups and carries them into the next place.
-4. After counting, the child enters the total with a large keypad.
-5. A manually entered correct answer reveals the result, celebrates, awards 10 coins, advances the milestone journey, and may contribute to level advancement.
-6. The child chooses the next suggested sum or refreshes the choices.
+The game samples a practice or review problem near the learner's level. Only the next valid source item is actionable. A tap processes one item; holding its operand cell for 1.5 seconds quick-drops that cell's remaining items while preserving the same arithmetic transitions. Standard difficulty hides running result labels; Easy shows them. Both retain the same blocks, announcements, phases, animations, rewards, and completed result.
 
-Holding the `?` button starts Tutorial from the child’s current position. Tutorial demonstrates the same counting and carry sequence instead of only revealing the answer. When counting finishes, Tutorial shows the normal hidden-answer prompt for two seconds, then visibly taps the real `?`, result digits, and `Check Answer` controls in order. It can keep its completion celebration and sounds, but awards no coins, milestone, or level progress and shows no reward toast. A genuinely new or reset profile first requires a `Start` or `Tutorial` choice: `Start` keeps the generated level-based problem, while `Tutorial` teaches the fixed untagged `28 + 47` example and finishes with `Start Game`.
+Addition counts both addends in Ones, Tens, and—when visible—Hundreds. A complete group of ten visibly carries to the next place. Subtraction first drops the minuend Ones and Tens into the difference row, then drops each subtrahend One to destroy the rightmost result block. If Ones are empty while more must be removed, the game automatically turns one gold result Ten into ten gold Ones and resumes. Subtrahend Tens then remove result bars. Empty places skip automatically, exact depletion borrows only when another subtrahend One remains, and results are never negative.
 
-The “Try another sum” die refreshes only the three alternative cards; the current-problem card stays fixed. A refresh plays a short tumbling die with changing faces and an optional dry rattle/landing sound, then gives the new cards a staggered colored pop. While that sequence runs, counting and other problem-changing controls are locked and the tray exposes its busy state to assistive technology. Keyboard focus returns to the die when the new choices are ready.
+After either operation, the answer remains hidden until the learner uses the keypad. A manually typed correct answer celebrates, awards 10 coins and one milestone, and may contribute level credit. Holding `?` starts Tutorial from the unfinished step. Tutorial uses the same source cells, carry/borrow transitions, hidden-answer pause, real keypad, and checker, but grants no rewards, analytics completion, or level progress. New and reset profiles retain the fixed untagged `28 + 47` launch Tutorial.
 
-Number Garden has two difficulty modes. **Standard**, the default, asks learners to infer the running place totals from the landed blocks: temporary Ones, Tens, and Hundreds result labels stay hidden during counting, and idle help waits longer. **Easy** keeps the running result labels visible and offers the same hints sooner. Both modes retain the same blocks, carry sequence, spoken count announcements, arithmetic, animation speed, rewards, and completed place-value labels.
+The “Try another problem” tray shows the current problem plus three alternatives. Its die refreshes only the alternatives, locks competing controls during motion, announces its busy state, and returns focus when finished. At L13 the cards may mix `+` and `−` and always expose operation-correct labels.
 
 ## Curriculum and sampling
 
 | Level | Generated problems |
 | --- | --- |
-| L1 | Two addends from 1–9; sum at most 9 |
-| L2 | One 1–9 addend and one 10–99 addend; no carry |
-| L3 | Two 1–9 addends; sum at least 10 |
-| L4 | One 1–9 addend and one 10–99 addend; ones carry and a two-digit result |
-| L5 | Two 10–99 addends; no carry |
-| L6 | Two 10–99 addends; ones carry only and a two-digit result |
-| L7 | Two 10–99 addends; tens carry only and a three-digit result |
-| L8 | Two 10–99 addends and a three-digit result; evenly split between tens-only and both-column carries |
-| L9 | Two 10–99 addends; both columns carry and the result has three digits |
+| L1 | Addition: two 1–9 addends; sum at most 9 |
+| L2 | Addition: one 1–9 and one 10–99 addend; no carry |
+| L3 | Addition: two 1–9 addends; sum at least 10 |
+| L4 | Addition: mixed digit lengths; Ones carry and two-digit result |
+| L5 | Addition: two 10–99 addends; no carry |
+| L6 | Addition: two 10–99 addends; Ones carry only and two-digit result |
+| L7 | Addition: two 10–99 addends; Tens-only carry |
+| L8 | Addition: three-digit result; even split between Tens-only and both carries |
+| L9 | Addition: two 10–99 addends with carries in both columns |
+| L10 | Subtraction: operands 1–9; minuend at least subtrahend |
+| L11 | Subtraction: minuend 10–99; subtrahend 1–9 |
+| L12 | Subtraction: both operands 10–99; minuend at least subtrahend |
+| L13 | 50% addition review from uniform L1–L9; 50% subtraction review from uniform L10–L12 |
 
-At L2–L8, organic selection is 50% current level, 25% the next level, and 25% a uniformly selected lower level. L1 is 75% L1 and 25% L2. L9 is 60% L9 and 40% uniform review across L1–L8. Startup, Next, suggestions, and both kinds of alternative refresh use this same sampler and avoid recent unordered pairs.
+L1 samples 75% current and 25% next. L2–L8 and L10–L11 sample 50% current, 25% next, and 25% uniform lower review. L9 is gated to 60% L9 and 40% uniform L1–L8 so subtraction cannot appear early. L12 is similarly gated to 60% L12 and 40% uniform L1–L11 so L13 mixing cannot appear early. L13 always emits `curriculumLevel: 13` and also records `curriculumSourceLevel`.
 
-Generated models keep their sampled curriculum level; this matters because L8 overlaps L7 and L9 arithmetically. A current problem may be forced with `?a=<1–99>&b=<1–99>` for teaching or testing. Forced problems are untagged and never affect level progress.
+Recent addition keys treat `a+b` and `b+a` as the same problem. Subtraction keys preserve minuend/subtrahend order. Generated problems keep their sampled curriculum tag; forced query problems remain untagged and do not affect level counters.
 
-## Experience principles
+## Presentation and accessibility
 
-- The mathematical blocks are the visual focus; decorative garden elements stay secondary.
-- Blue and green distinguish addends, while labels, position, and state changes ensure color is not the only cue.
-- Only the next valid block or its containing addend cell is actionable, preventing accidental or out-of-order counting. A quick-drop batch preserves source order and the normal carry lifecycle.
-- The beetle varies its kid-friendly instructions when the learning step changes, while keeping the chosen message stable during that step; important updates are announced precisely to assistive technology.
-- Controls are touch-friendly, keyboard accessible, and compatible with reduced-motion preferences. With reduced motion, the die updates the alternatives immediately and uses a brief non-moving card highlight instead of tumbling or staggered pops.
-- Audio is optional and never required to understand the game.
+Addition retains the blue/green garden theme. Subtraction applies a lavender and deep-purple page, equation, board, badge, control, and accent palette, with distinct minuend and subtrahend colors. Gold remains the carry/borrow regrouping cue. The shared next-action, hint, and success emphasis is high-contrast coral so it does not merge with either theme. Subtraction never renders Hundreds, even for an L13 learner.
 
-## Progress, board unlocks, and settings
+Labels, position, text, and state changes ensure color is never the only cue. The equation, keypad, board badges, suggestion cards, completion prompt, analytics metadata, live announcements, and ARIA labels use the correct operator and the terms addend/sum or minuend/subtrahend/difference. Touch, pointer, Space-key quick drop, dialogs, focus, and `prefers-reduced-motion` remain supported. Reduced motion removes travel but retains the pedagogical Tutorial stage and hidden-answer pauses.
 
-A correct typed answer on the current sampled level increments the current-level counter; four such successes advance one level. A correct typed answer on any higher sampled level increments a separate higher-level counter; two such successes advance one level. The alternatives are independent, both reset on advancement, levels never skip, and L9 is capped. Lower-level and diagnostic problems give no level credit. Earlier incorrect attempts do not prevent credit for the later correct answer.
+## Progress and persistence
 
-The top bar always shows the learner’s current level immediately after the bee. Below L6, the board contains Labels, Tens, and Ones. L6 previews the Hundreds column before L7 first requires it. Crossing upward into L6 through organic advancement or Settings animates or statically highlights the new column, announces it, and optionally sounds it; ordinary reloads do not replay the unlock.
+Four current-level typed successes or two eligible higher-level typed successes advance exactly one level and reset both counters. L12 receives no higher-level credit because its sampler intentionally excludes L13; L13 is capped. Lower-level and diagnostic problems receive no level credit. Incorrect attempts do not prevent the later correct reward.
 
-Score, milestones, level, two advancement counters, sound preference, difficulty mode, and the completed launch choice persist when browser storage permits. Settings provides an accessible Standard/Easy selector with short mode descriptions alongside the L1–L9 override, sound, Tutorial, Reset Progress, and an in-dialog About view with the app's author, version, and license. A difficulty change applies immediately to the current problem without changing its counting state, curriculum progress, or sampled problem. A manual level selection starts a new weighted problem and clears both counters. Confirmed reset returns to L1 with zero coins, milestones, and counters while retaining sound and difficulty, then requires the launch choice again. Supported browsers also receive a fullscreen control.
+Profile schema v4 persists score, milestones, L1–L13 level, both counters, sound, difficulty, launch choice, and timestamp. Existing v1–v4 profiles are preserved and validated without a schema bump. Settings can override L1–L13, and reset returns to L1 while retaining sound and difficulty.
 
-Idle help uses fixed mode-specific delays: Easy highlights the next block after 3 seconds, first suggests Tutorial after 20 seconds, and repeats the Tutorial hint after 5 seconds; Standard uses 9, 60, and 15 seconds respectively. Standard delays are exactly three times Easy delays. Tutorial waits one second at entry and after each counting-message change, then uses a dedicated two-second wait at the hidden-answer step instead of adding it to the ordinary message wait. Reduced motion keeps these pedagogical waits and replaces the animated automatic-tap hand with a brief static cue.
+## Diagnostics and testing
 
-## Scope and non-goals
+`?a=<1–99>&b=<1–99>` forces addition. `?op=subtraction&a=42&b=17` forces subtraction; invalid operations, out-of-range operands, and negative-result requests fall back to an organic problem. `?harness=1` compresses motion without skipping phases, and `?reducedMotion=1` forces reduced motion in harness mode. The deterministic browser harness covers all curriculum definitions, sampler boundaries, progression/migration, addition carries, subtraction borrowing and zero differences, quick drop, Tutorial, themes, semantics, rewards, analytics, Settings, persistence, launch, dice, fullscreen, and reduced motion.
 
-The product is a single-player curriculum-guided practice activity, not an assessment platform or competitive game. It has aggregate Google Analytics page-view and manual gameplay engagement events, but no login, backend, advertising, multiplayer features, cloud sync, learner-level reporting, or assessment reporting. Subtraction, zero/negative addends, and more than two addends remain outside scope.
+## Scope
+
+Number Garden is single-player curriculum-guided practice, not an assessment platform. It has no account, backend, advertising, multiplayer, cloud sync, learner report, or negative-number curriculum. The optional Google Analytics tag records aggregate manual engagement only; gameplay remains functional offline.
