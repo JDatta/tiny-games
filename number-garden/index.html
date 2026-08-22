@@ -968,6 +968,10 @@
       box-shadow: 0 0 11px rgba(255,190,40,.8);
     }
 
+    .motion-overlay.carry-token.ten-token {
+      border-radius: 6px;
+    }
+
     .motion-overlay.carry-token.hundred-token {
       border-radius: 7px;
     }
@@ -1571,80 +1575,78 @@
     body.operation-multiplication .unit.owner-a { --unit-fill: #176f46; border-color: #0d5132; background-color: var(--unit-fill); }
     body.operation-multiplication .unit.owner-b { --unit-fill: #55ad78; border-color: #217348; background-color: var(--unit-fill); }
     body.operation-multiplication .unit.owner-product { --unit-fill: #26965d; border-color: #12673e; background-color: var(--unit-fill); }
+    body.operation-multiplication .addend-badge.first { color: #105b38; background: #e3f6eb; border-color: #87c9a5; }
+    body.operation-multiplication .addend-badge.second { color: #17613d; background: #edf9f2; border-color: #93cbae; }
+    body.operation-multiplication .addend-badge.result { color: #185b3b; background: #e9f8ef; border-color: #79bd98; }
     body.operation-multiplication .answer-button { color: #7d2935; background: #ffe1dd; box-shadow: 7px 0 0 -1px #ffe1dd, -7px 0 0 -1px #ffe1dd, 0 7px 0 -1px #ffe1dd, 0 -7px 0 -1px #ffe1dd, 0 5px 12px rgba(80,112,88,.2); }
     body.operation-multiplication .answer-button.answer-ready { animation-name: subtraction-answer-ready-pulse; }
 
-    .multiplication-board {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      grid-template-rows: minmax(0, 1fr);
-      gap: 6px;
-      padding: 6px;
-    }
-    .multiplication-column {
-      min-width: 0;
-      min-height: 0;
-      padding: 5px;
-      display: grid;
-      grid-template-rows: auto auto minmax(0, 1fr);
-      align-content: stretch;
-      gap: 4px;
-      border: 1px solid #9bcfb4;
-      border-radius: 15px;
-      background: #f8fdf9;
-    }
-    .multiplication-column.multiplier { background: #f1fbf5; border-color: #7fbd9c; }
-    .multiplication-column.product { border: 2px dashed #65ad86; background: #fbfffc; }
-    .multiplication-role-title {
-      min-height: 26px;
-      display: grid;
-      place-items: center;
-      border-radius: 9px;
-      color: #104d31;
-      background: #d8f2e4;
-      font-size: clamp(9px, 2.6vw, 12px);
-      font-weight: 950;
-    }
-    .multiplication-value {
-      min-height: 32px;
-      display: grid;
-      place-items: center;
-      border: 1px solid #91c8aa;
-      border-radius: 9px;
-      color: #105b38;
-      background: white;
-      font-size: clamp(16px, 4vw, 21px);
-      font-weight: 950;
-      font-variant-numeric: tabular-nums;
-    }
-    .multiplication-places { min-height: 0; display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 4px; }
+    .multiplication-column { display: contents; }
     .multiplication-place {
-      position: relative;
-      min-width: 0;
-      min-height: 0;
-      padding: 17px 3px 4px;
+      border-color: #b6dbc7;
+      background: rgba(248,253,249,.9);
+    }
+    .multiplication-place.hundreds { border-color: #bfaee0; background: #fbf9ff; }
+    .multiplication-place.tens { border-color: #e5c98f; background: #fffdf7; }
+    .multiplication-place.ones { border-color: #a7d6c3; background: #f8fefd; }
+    .multiplication-place .result-groups { gap: 2px; }
+    .multiplication-place .tens-grid { max-width: 96px; }
+    .multiplication-place .ones-strip { max-width: 180px; }
+    .multiplication-place.hundreds .result-groups { height: 100%; align-items: center; }
+    .multiplication-place .hundreds-strip {
+      width: min(58px, 100%);
+      height: 100%;
+      min-height: 42px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 2px;
-      border: 1px solid #b6dbc7;
-      border-radius: 10px;
-      background: rgba(255,255,255,.82);
+      gap: 4px;
     }
-    .multiplication-place::before {
-      content: attr(data-place-label);
-      position: absolute;
-      top: 2px;
-      left: 4px;
-      color: #35664d;
+    .multiplication-place .hundred-slot {
+      position: relative;
+      flex: 0 0 auto;
+      width: 31px;
+      height: 31px;
+      margin: 0;
       font-size: 8px;
-      font-weight: 950;
+      transform: rotate(var(--hundred-tilt, 0deg));
+      transform-origin: 50% 70%;
     }
-    .multiplication-place .result-groups { gap: 2px; }
-    .multiplication-place .tens-grid { max-width: 96px; }
-    .multiplication-place .ones-strip { max-width: 180px; }
-    .multiplication-place.hundreds .hundreds-strip { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
-    .multiplication-place.hundreds .hundred-slot { width: 100%; max-width: 30px; height: auto; aspect-ratio: 1; justify-self: center; font-size: 8px; }
+    .multiplication-place .hundreds-strip.stacked-many {
+      position: relative;
+      height: min(92px, 100%);
+      display: block;
+    }
+    .multiplication-place .hundreds-strip.stacked-many .hundred-slot {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      margin-top: -15.5px;
+      margin-left: -15.5px;
+      transform: translateY(var(--hundred-compact-shift-wide, 0px)) rotate(var(--hundred-tilt, 0deg));
+    }
+    .multiplication-place .hundreds-strip.stacked-many .hundred-slot { font-size: 0; }
+    .multiplication-place.hundreds.hundreds-compacted .digit-label { display: none; }
+    .hundreds-stack-count {
+      position: absolute;
+      z-index: 12;
+      right: -2px;
+      bottom: 0;
+      min-width: 24px;
+      padding: 2px 5px;
+      border: 1px solid #8d5700;
+      border-radius: 999px;
+      color: #704100;
+      background: #fff2b5;
+      box-shadow: 0 2px 5px rgba(88,55,0,.2);
+      font-size: 10px;
+      font-weight: 950;
+      line-height: 1;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+    .hundreds-stack-count[hidden] { display: none; }
     .multiplication-place .digit-label { right: 3px; bottom: 3px; min-width: 20px; padding: 2px 4px; font-size: 12px; }
     .multiplication-place.quick-hold::after { content: "Hold to Pull All"; }
     .multiplication-static { pointer-events: none; }
@@ -1664,9 +1666,18 @@
     .multiplier-conversion-target { outline: 3px solid rgba(243,167,18,.48); outline-offset: -3px; }
 
     @media (max-width: 379px) {
-      .multiplication-board { gap: 3px; padding: 4px; }
-      .multiplication-column { padding: 3px; gap: 3px; }
       .multiplication-place { padding-left: 2px; padding-right: 2px; }
+      .multiplication-place .hundreds-strip { width: min(50px, 100%); }
+      .multiplication-place .hundred-slot {
+        width: 27px;
+        height: 27px;
+        font-size: 7px;
+      }
+      .multiplication-place .hundreds-strip.stacked-many .hundred-slot {
+        margin-top: -13.5px;
+        margin-left: -13.5px;
+        transform: translateY(var(--hundred-compact-shift-narrow, 0px)) rotate(var(--hundred-tilt, 0deg));
+      }
     }
     .borrow-formation-token {
       position: absolute;
@@ -2513,6 +2524,7 @@
           productOnes: 0,
           productTens: 0,
           productHundreds: 0,
+          highlightedProductTenIndex: null,
           multiplicationQueue: [],
           pullPhase: null,
           regroupPhase: null,
@@ -3542,6 +3554,16 @@
       return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
     }
 
+    function centeredMotionRect(container, width, height) {
+      if (!container) return null;
+      return {
+        left: container.left + (container.width - width) / 2,
+        top: container.top + (container.height - height) / 2,
+        width,
+        height
+      };
+    }
+
     function snapshotDestructionTarget(element, targetPlace, targetIndex) {
       const rect = rectSnapshot(element);
       if (!rect) return null;
@@ -4526,7 +4548,7 @@
     function appendMultiplicationUnits(panel, place, count, owner, role, options = {}) {
       const groups = document.createElement("div");
       groups.className = "result-groups";
-      const capacity = place === "hundreds" ? 9 : place === "tens" ? Math.max(10, Math.ceil(count / 10) * 10) : Math.max(10, Math.ceil(count / 10) * 10);
+      const capacity = place === "hundreds" ? Math.max(1, count) : Math.max(10, Math.ceil(count / 10) * 10);
       if (place === "hundreds") {
         const strip = document.createElement("div");
         strip.className = "hundreds-strip";
@@ -4540,7 +4562,22 @@
             unit.classList.add("filled");
             unit.textContent = "100";
           }
+          const position = index - (capacity - 1) / 2;
+          const wideShift = position * (count <= 1 ? 0 : 5);
+          const narrowShift = position * (count <= 1 ? 0 : 4.5);
+          const tilt = count ? ((index % 3) - 1) * 2 : 0;
+          unit.style.setProperty("--hundred-compact-shift-wide", wideShift.toFixed(1) + "px");
+          unit.style.setProperty("--hundred-compact-shift-narrow", narrowShift.toFixed(1) + "px");
+          unit.style.setProperty("--hundred-tilt", tilt + "deg");
           strip.append(unit);
+        }
+        if (count >= 2) {
+          const stackCount = document.createElement("span");
+          stackCount.className = "hundreds-stack-count";
+          stackCount.textContent = "×" + count;
+          stackCount.setAttribute("aria-label", count + " product Hundreds");
+          stackCount.hidden = true;
+          strip.append(stackCount);
         }
         groups.append(strip);
       } else {
@@ -4552,8 +4589,12 @@
           for (let local = 0; local < 10; local += 1) {
             const index = group * 10 + local;
             const metadata = { role, place, index };
-            if (index < count) container.append(makeUnit(owner, true, false, "", options.traded && group === 0, metadata));
-            else container.append(makeEmptyUnit(metadata));
+            if (index < count) {
+              const highlighted = place === "tens" && index === options.highlightedIndex;
+              const unit = makeUnit(highlighted ? "carry" : owner, true, false, "", options.traded && group === 0, metadata);
+              if (highlighted) unit.classList.add("newly-regrouped");
+              container.append(unit);
+            } else container.append(makeEmptyUnit(metadata));
           }
           groups.append(container);
         }
@@ -4563,11 +4604,11 @@
 
     function makeMultiplicationPlace(place, count, owner, role, options = {}) {
       const panel = document.createElement("div");
-      panel.className = "multiplication-place " + place + (options.static ? " multiplication-static" : "") +
+      panel.className = "place-panel multiplication-place " + place + (options.static ? " multiplication-static" : "") +
         (options.product ? " result-panel" : "");
       panel.dataset.placeLabel = place[0].toUpperCase() + place.slice(1);
       appendMultiplicationUnits(panel, place, count, owner, role, options);
-      if (options.showLabel) {
+      if (options.showLabel && !(place === "hundreds" && count >= 6)) {
         const label = document.createElement("span");
         label.className = "digit-label";
         label.textContent = count;
@@ -4583,9 +4624,31 @@
       return panel;
     }
 
+    function updateMultiplicationHundredsLayout() {
+      if (!elements.board.classList.contains("multiplication-board")) return;
+      elements.board.querySelectorAll(".multiplication-place.hundreds").forEach(panel => {
+        const strip = panel.querySelector(".hundreds-strip");
+        if (!strip) return;
+        const units = Array.from(strip.querySelectorAll(".unit"));
+        const badge = strip.querySelector(".hundreds-stack-count");
+        strip.classList.remove("stacked-many");
+        panel.classList.remove("hundreds-compacted");
+        if (badge) badge.hidden = true;
+        if (units.length < 2) return;
+        const panelStyle = getComputedStyle(panel);
+        const availableHeight = panel.clientHeight - parseFloat(panelStyle.paddingTop) - parseFloat(panelStyle.paddingBottom);
+        const unitHeight = units[0].offsetHeight;
+        const separatedHeight = units.length * unitHeight + (units.length - 1) * 4;
+        const compacted = units.length >= 6 || separatedHeight > availableHeight + .5;
+        strip.classList.toggle("stacked-many", compacted);
+        panel.classList.toggle("hundreds-compacted", compacted);
+        if (badge) badge.hidden = !compacted;
+      });
+    }
+
     function makeMultiplierTensPlace() {
       const panel = document.createElement("div");
-      panel.className = "multiplication-place tens multiplier-tens-place";
+      panel.className = "place-panel multiplication-place tens multiplier-tens-place";
       panel.dataset.placeLabel = "Tens";
       const grid = document.createElement("div");
       grid.className = "tens-grid";
@@ -4612,7 +4675,7 @@
 
     function makeMultiplierOnesPlace() {
       const panel = document.createElement("div");
-      panel.className = "multiplication-place ones multiplier-ones-place";
+      panel.className = "place-panel multiplication-place ones multiplier-ones-place";
       panel.dataset.placeLabel = "Ones";
       const strip = document.createElement("div");
       strip.className = "ones-strip";
@@ -4643,68 +4706,88 @@
       elements.board.className = "board multiplication-board";
       elements.board.replaceChildren();
 
+      const emptyHeader = document.createElement("span");
+      emptyHeader.setAttribute("aria-hidden", "true");
+      elements.board.append(emptyHeader);
+      ["Hundreds", "Tens", "Ones"].forEach(name => {
+        const title = document.createElement("div");
+        title.className = "column-title " + name.toLowerCase();
+        title.textContent = name;
+        elements.board.append(title);
+      });
+
       const multiplicand = document.createElement("section");
-      multiplicand.className = "multiplication-column multiplicand";
+      multiplicand.className = "multiplication-column multiplication-places multiplicand";
       multiplicand.setAttribute("aria-label", "Multiplicand " + problem.a + ", stationary");
-      const multiplicandTitle = document.createElement("div");
-      multiplicandTitle.className = "multiplication-role-title";
-      multiplicandTitle.textContent = "Multiplicand";
-      const multiplicandValue = document.createElement("div");
-      multiplicandValue.className = "multiplication-value";
-      multiplicandValue.textContent = problem.a;
-      const multiplicandPlaces = document.createElement("div");
-      multiplicandPlaces.className = "multiplication-places";
-      multiplicandPlaces.append(
+      const multiplicandLabel = document.createElement("div");
+      multiplicandLabel.className = "row-label";
+      const multiplicandSign = document.createElement("span");
+      multiplicandSign.className = "row-sign";
+      multiplicandSign.setAttribute("aria-hidden", "true");
+      const multiplicandBadge = document.createElement("div");
+      multiplicandBadge.className = "addend-badge first";
+      multiplicandBadge.textContent = problem.a;
+      multiplicandBadge.setAttribute("aria-label", "Multiplicand " + problem.a);
+      multiplicandLabel.append(multiplicandSign, multiplicandBadge);
+      multiplicand.append(
+        multiplicandLabel,
         makeMultiplicationPlace("hundreds", 0, "a", "multiplicand", { static: true }),
         makeMultiplicationPlace("tens", problem.digits.a.tens, "a", "multiplicand", { static: true }),
         makeMultiplicationPlace("ones", problem.digits.a.ones, "a", "multiplicand", { static: true })
       );
-      multiplicand.append(multiplicandTitle, multiplicandValue, multiplicandPlaces);
 
       const multiplier = document.createElement("section");
-      multiplier.className = "multiplication-column multiplier";
+      multiplier.className = "multiplication-column multiplication-places multiplier";
       multiplier.setAttribute("aria-label", "Multiplier " + problem.b + ", consumable");
-      const multiplierTitle = document.createElement("div");
-      multiplierTitle.className = "multiplication-role-title";
-      multiplierTitle.textContent = "Multiplier";
-      const multiplierValue = document.createElement("div");
-      multiplierValue.className = "multiplication-value";
-      multiplierValue.textContent = problem.b;
-      const multiplierPlaces = document.createElement("div");
-      multiplierPlaces.className = "multiplication-places";
-      multiplierPlaces.append(
+      const multiplierLabel = document.createElement("div");
+      multiplierLabel.className = "row-label";
+      const multiplierSign = document.createElement("span");
+      multiplierSign.className = "row-sign";
+      multiplierSign.textContent = "×";
+      multiplierSign.setAttribute("aria-hidden", "true");
+      const multiplierBadge = document.createElement("div");
+      multiplierBadge.className = "addend-badge second";
+      multiplierBadge.textContent = problem.b;
+      multiplierBadge.setAttribute("aria-label", "Multiplier " + problem.b);
+      multiplierLabel.append(multiplierSign, multiplierBadge);
+      multiplier.append(
+        multiplierLabel,
         makeMultiplicationPlace("hundreds", 0, "b", "source", { static: true }),
         makeMultiplierTensPlace(),
         makeMultiplierOnesPlace()
       );
-      multiplier.append(multiplierTitle, multiplierValue, multiplierPlaces);
 
       const product = document.createElement("section");
-      product.className = "multiplication-column product";
+      product.className = "multiplication-column multiplication-places multiplication-product product";
       product.setAttribute("aria-label", state.phase === "completed" ? "Product " + problem.result : "Product being built");
-      const productTitle = document.createElement("div");
-      productTitle.className = "multiplication-role-title";
-      productTitle.textContent = "Product";
-      const productValue = document.createElement("div");
-      productValue.className = "multiplication-value";
-      productValue.textContent = state.phase === "completed" ? problem.result : "?";
-      const productPlaces = document.createElement("div");
-      productPlaces.className = "multiplication-places multiplication-product";
+      const productLabel = document.createElement("div");
+      productLabel.className = "row-label";
+      const productSign = document.createElement("span");
+      productSign.className = "row-sign";
+      productSign.textContent = "=";
+      productSign.setAttribute("aria-hidden", "true");
+      const productBadge = document.createElement("div");
+      productBadge.className = "addend-badge result";
+      productBadge.textContent = state.phase === "completed" ? problem.result : "?";
+      productBadge.setAttribute("aria-label", state.phase === "completed" ? "Product " + problem.result : "Product not yet revealed");
+      productLabel.append(productSign, productBadge);
       const showLabels = state.phase === "completed" || profile.difficultyMode === "easy";
-      productPlaces.append(
+      product.append(
+        productLabel,
         makeMultiplicationPlace("hundreds", state.productHundreds, "product", "result", {
           product: true, showLabel: showLabels, regrouping: state.regroupPhase === "tens"
         }),
         makeMultiplicationPlace("tens", state.productTens, "product", "result", {
-          product: true, showLabel: showLabels, regrouping: state.regroupPhase === "tens", traded: state.regroupPhase === "tens"
+          product: true, showLabel: showLabels, regrouping: state.regroupPhase === "tens",
+          traded: state.regroupPhase === "tens", highlightedIndex: state.highlightedProductTenIndex
         }),
         makeMultiplicationPlace("ones", state.productOnes, "product", "result", {
           product: true, showLabel: showLabels, regrouping: state.regroupPhase === "ones", traded: state.regroupPhase === "ones"
         })
       );
-      product.append(productTitle, productValue, productPlaces);
 
       elements.board.append(multiplicand, multiplier, product);
+      updateMultiplicationHundredsLayout();
       const onesPanel = elements.board.querySelector(".multiplier-ones-place");
       if (onesPanel) onesPanel.classList.toggle("quick-play-ready", quickDropCellIsCurrent(onesPanel));
       if (state.animationState === "multiplier-ten-conversion") {
@@ -5035,7 +5118,7 @@
       state.totalMultiplierUnitsConsumed += 1;
       state.tempCount = state.totalMultiplierUnitsConsumed;
       render();
-      flashMotionTarget(elements.board.querySelector(".multiplication-column.product"));
+      flashMotionTarget(elements.board.querySelector(".multiplication-product .multiplication-place.ones"));
       playDropImpact("ones");
       recordMotion("multiplication-pull-landed", {
         group: item.group, index: item.index, quickPlay: Boolean(item.pullAll),
@@ -5059,20 +5142,25 @@
       if (!state || session !== motionSession) return false;
       const origin = rectSnapshot(elements.board.querySelector(".multiplication-product .multiplication-place." + sourcePlace));
       const destination = rectSnapshot(elements.board.querySelector(".multiplication-product .multiplication-place." + destinationPlace));
+      const tokenWidth = kind === "ones" ? Math.min(54, Math.max(30, destination ? destination.width * .58 : 42))
+        : Math.min(34, Math.max(27, destination ? Math.min(destination.width, destination.height) * .42 : 31));
+      const tokenHeight = kind === "ones" ? 10 : tokenWidth;
+      const tokenOrigin = centeredMotionRect(origin, tokenWidth, tokenHeight);
+      const tokenDestination = centeredMotionRect(destination, tokenWidth, tokenHeight);
       let overlay = null;
-      if (!reduceMotion && !motionSkipRequested && origin && destination) {
-        overlay = makeMotionOverlay(origin, "carry-token " + (kind === "ones" ? "ten-token" : "hundred-token"), {
+      if (!reduceMotion && !motionSkipRequested && tokenOrigin && tokenDestination) {
+        overlay = makeMotionOverlay(tokenOrigin, "carry-token " + (kind === "ones" ? "ten-token" : "hundred-token"), {
           motionKind: "multiplication-regroup", carryKind: kind
         });
       }
       recordMotion("multiplication-regroup-travel", { kind, destination: destinationPlace });
-      if (overlay && destination) {
-        const deltaX = destination.left - origin.left;
-        const deltaY = destination.top - origin.top;
+      if (overlay && tokenDestination) {
+        const deltaX = tokenDestination.left - tokenOrigin.left;
+        const deltaY = tokenDestination.top - tokenOrigin.top;
         await animateTracked(overlay, [
-          { transform: "translate(0,0) scale(.55)", opacity: .9 },
-          { offset: .5, transform: "translate(" + (deltaX * .5).toFixed(2) + "px," + (deltaY * .5 - 10).toFixed(2) + "px) scale(.8)", opacity: 1 },
-          { transform: "translate(" + deltaX.toFixed(2) + "px," + deltaY.toFixed(2) + "px) scale(.7)", opacity: .9 }
+          { transform: "translate(0,0) scale(.62)", opacity: .9 },
+          { offset: .5, transform: "translate(" + (deltaX * .5).toFixed(2) + "px," + (deltaY * .5 - 10).toFixed(2) + "px) scale(1.08)", opacity: 1 },
+          { transform: "translate(" + deltaX.toFixed(2) + "px," + deltaY.toFixed(2) + "px) scale(1)", opacity: 1 }
         ], { duration: activeMotionTimings.CARRY_TRAVEL, fill: "forwards", easing: "ease-in-out" });
         overlay.remove();
       }
@@ -5080,9 +5168,15 @@
       if (kind === "ones") {
         state.productOnes -= 10;
         state.productTens += 1;
+        state.highlightedProductTenIndex = state.productTens - 1;
       } else {
         state.productTens -= 10;
         state.productHundreds += 1;
+        if (state.highlightedProductTenIndex !== null) {
+          state.highlightedProductTenIndex = state.highlightedProductTenIndex >= 10
+            ? state.highlightedProductTenIndex - 10
+            : null;
+        }
       }
       state.regroupPhase = null;
       state.pullPhase = "regroup-landed";
@@ -6050,6 +6144,9 @@
         state.productOnes = problem.resultDigits.ones;
         state.productTens = problem.resultDigits.tens;
         state.productHundreds = problem.resultDigits.hundreds;
+        if (state.highlightedProductTenIndex !== null && state.highlightedProductTenIndex >= state.productTens) {
+          state.highlightedProductTenIndex = null;
+        }
         state.multiplicationQueue.length = 0;
         state.pullPhase = null;
         state.regroupPhase = null;
@@ -6485,6 +6582,7 @@
         } else noteActivity();
       });
       window.addEventListener("resize", settleActiveMotionImmediately, { passive: true });
+      window.addEventListener("resize", () => requestAnimationFrame(updateMultiplicationHundredsLayout), { passive: true });
     }
 
     async function init() {

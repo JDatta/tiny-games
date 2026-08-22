@@ -317,6 +317,64 @@
       });
     }
 
+    function captureNextMultiplicationRegroupOverlay(frame, activate) {
+      const doc = frame.contentDocument;
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          observer.disconnect();
+          reject(new Error("Timed out: multiplication regroup overlay capture"));
+        }, 3000);
+        const observer = new MutationObserver(() => {
+          if (doc.body.dataset.motionEvent !== "multiplication-regroup-travel") return;
+          const overlay = doc.querySelector('.motion-overlay[data-motion-kind="multiplication-regroup"][data-carry-kind="ones"]');
+          if (!overlay) return;
+          clearTimeout(timeout);
+          observer.disconnect();
+          const rect = overlay.getBoundingClientRect();
+          const style = frame.contentWindow.getComputedStyle(overlay);
+          resolve({
+            width: rect.width,
+            height: rect.height,
+            borderRadius: style.borderRadius,
+            borderColor: style.borderTopColor,
+            backgroundImage: style.backgroundImage
+          });
+        });
+        observer.observe(doc.body, { attributes: true, attributeFilter: ["data-motion-event"] });
+        activate();
+      });
+    }
+
+    async function multiplicationHundredsLayout(frame, width, height = 900) {
+      frame.style.width = width + "px";
+      frame.style.height = height + "px";
+      frame.contentWindow.dispatchEvent(new Event("resize"));
+      await new Promise(resolve => frame.contentWindow.requestAnimationFrame(() =>
+        frame.contentWindow.requestAnimationFrame(resolve)));
+      const cell = frame.contentDocument.querySelector(".multiplication-product .hundreds");
+      const cellRect = cell.getBoundingClientRect();
+      const units = Array.from(cell.querySelectorAll(".unit"));
+      const unitRects = units.map(unit => unit.getBoundingClientRect());
+      const centersX = unitRects.map(rect => rect.left + rect.width / 2);
+      const centersY = unitRects.map(rect => rect.top + rect.height / 2);
+      const badge = cell.querySelector(".hundreds-stack-count");
+      const badgeVisible = Boolean(badge && !badge.hidden);
+      const visibleRects = badgeVisible ? [...unitRects, badge.getBoundingClientRect()] : unitRects;
+      const verticalOrder = [...unitRects].sort((left, right) => left.top - right.top);
+      const digitLabel = cell.querySelector(".digit-label");
+      return {
+        count: units.length,
+        compacted: cell.classList.contains("hundreds-compacted"),
+        verticallyAligned: !centersX.length || Math.max(...centersX) - Math.min(...centersX) < 5,
+        distinctVerticalPositions: new Set(centersY.map(value => Math.round(value))).size,
+        separated: verticalOrder.every((rect, index) => index === 0 || rect.top >= verticalOrder[index - 1].bottom),
+        contained: visibleRects.every(rect => rect.left >= cellRect.left - .5 && rect.right <= cellRect.right + .5 &&
+          rect.top >= cellRect.top - .5 && rect.bottom <= cellRect.bottom + .5),
+        badgeText: badgeVisible ? badge.textContent : null,
+        digitLabelVisible: Boolean(digitLabel && frame.contentWindow.getComputedStyle(digitLabel).display !== "none")
+      };
+    }
+
     function destructionOverlap(events) {
       let active = 0;
       let maximum = 0;
@@ -2148,15 +2206,68 @@
       const multiplicandMarkup = multiplicationDoc.querySelector(".multiplication-column.multiplicand").textContent;
       const multiplicationForeground = getComputedStyle(multiplicationDoc.querySelector(".first-number")).color;
       const multiplicationBackground = getComputedStyle(multiplicationDoc.querySelector(".equation-card")).backgroundColor;
+      const multiplicationRowText = Array.from(multiplicationDoc.querySelectorAll(".multiplication-board .row-label"), row =>
+        row.textContent.replace(/\s/g, ""));
       assert(multiplicationSnapshot.phase === "multiplication-consuming-ones" &&
         multiplicationDoc.body.classList.contains("operation-multiplication") &&
         !multiplicationDoc.body.classList.contains("operation-addition") && !multiplicationDoc.body.classList.contains("operation-subtraction") &&
         multiplicationDoc.querySelector("#equationOperator").textContent === "×" &&
-        JSON.stringify(Array.from(multiplicationDoc.querySelectorAll(".multiplication-role-title"), title => title.textContent)) ===
-          JSON.stringify(["Multiplicand", "Multiplier", "Product"]) &&
+        JSON.stringify(Array.from(multiplicationDoc.querySelectorAll(".multiplication-board .column-title"), title => title.textContent)) ===
+          JSON.stringify(["Hundreds", "Tens", "Ones"]) &&
+        JSON.stringify(multiplicationRowText) === JSON.stringify(["4", "×3", "=?"]) &&
+        !multiplicationDoc.querySelector(".multiplication-role-title") &&
+        multiplicationDoc.querySelector(".multiplicand").getAttribute("aria-label").includes("Multiplicand 4") &&
+        multiplicationDoc.querySelector(".multiplier").getAttribute("aria-label").includes("Multiplier 3") &&
+        multiplicationDoc.querySelector(".product").getAttribute("aria-label").includes("Product") &&
+        multiplicationDoc.querySelector(".addend-badge.first").getAttribute("aria-label") === "Multiplicand 4" &&
+        multiplicationDoc.querySelector(".addend-badge.second").getAttribute("aria-label") === "Multiplier 3" &&
+        multiplicationDoc.querySelector(".addend-badge.result").getAttribute("aria-label") === "Product not yet revealed" &&
         multiplicationDoc.querySelector(".equation-card").getAttribute("aria-label").includes("4 times 3") &&
         colorContrast(multiplicationForeground, multiplicationBackground) >= 4.5,
-        "multiplication activates an accessible forest/mint theme, times semantics, and its three-role board");
+        "multiplication uses a visible number-and-place grid while retaining accessible role and times semantics");
+      assert(Array.from(multiplicationDoc.querySelectorAll(".multiplicand .hundreds, .multiplier .hundreds"), cell =>
+          cell.querySelectorAll(".hundred-slot").length === 1 &&
+          cell.querySelectorAll(".hundred-slot.filled").length === 0).every(Boolean) &&
+        multiplicationDoc.querySelectorAll(".multiplication-product .result-panel").length === 3,
+        "empty operand Hundreds stay aligned with one flat placeholder and all three Product cells stay dashed");
+
+      const additionTracks = new Map([[320, [62, 50, 78]], [360, [62, 50, 78]], [480, [64, 54, 82]], [760, [90, 80, 150]]]);
+      for (const [viewport, expectedTracks] of additionTracks) {
+        frame.style.width = viewport + "px";
+        frame.style.height = "900px";
+        await new Promise(resolve => frame.contentWindow.requestAnimationFrame(() =>
+          frame.contentWindow.requestAnimationFrame(resolve)));
+        const board = multiplicationDoc.querySelector(".multiplication-board");
+        const boardRect = board.getBoundingClientRect();
+        const tracks = frame.contentWindow.getComputedStyle(board).gridTemplateColumns.split(" ").slice(0, 3).map(parseFloat);
+        const headers = ["hundreds", "tens", "ones"].map(place =>
+          multiplicationDoc.querySelector(".column-title." + place).getBoundingClientRect());
+        const rows = ["multiplicand", "multiplier", "product"].map(role =>
+          ["hundreds", "tens", "ones"].map(place =>
+            multiplicationDoc.querySelector("." + role + " .multiplication-place." + place).getBoundingClientRect()));
+        const cells = rows.flat();
+        const aligned = rows.every(row => row.every((rect, index) => Math.abs(rect.left - headers[index].left) < 1));
+        const horizontal = rows.every(row => row[0].left < row[1].left && row[1].left < row[2].left &&
+          Math.max(...row.map(rect => rect.top)) - Math.min(...row.map(rect => rect.top)) < 1);
+        const contained = cells.every(rect => rect.left >= boardRect.left && rect.right <= boardRect.right + .5);
+        assert(JSON.stringify(tracks) === JSON.stringify(expectedTracks) && aligned && horizontal && contained,
+          "multiplication uses addition's horizontal column tracks and stays inside the board at " + viewport + "px");
+      }
+      frame.style.width = "";
+      frame.style.height = "";
+      await new Promise(resolve => frame.contentWindow.requestAnimationFrame(resolve));
+
+      const sourceOnesRect = multiplicationDoc.querySelector(".multiplicand .multiplication-place.ones").getBoundingClientRect();
+      const productOnesRect = multiplicationDoc.querySelector(".product .multiplication-place.ones").getBoundingClientRect();
+      const productTensRect = multiplicationDoc.querySelector(".product .multiplication-place.tens").getBoundingClientRect();
+      const productHundredsRect = multiplicationDoc.querySelector(".product .multiplication-place.hundreds").getBoundingClientRect();
+      const multiplierTensRect = multiplicationDoc.querySelector(".multiplier-tens-place").getBoundingClientRect();
+      const multiplierOnesRect = multiplicationDoc.querySelector(".multiplier-ones-place").getBoundingClientRect();
+      assert(Math.abs((sourceOnesRect.left + sourceOnesRect.width / 2) - (productOnesRect.left + productOnesRect.width / 2)) < 1 &&
+        sourceOnesRect.top < productOnesRect.top && productHundredsRect.left < productTensRect.left &&
+        productTensRect.left < productOnesRect.left && Math.abs(productHundredsRect.top - productOnesRect.top) < 1 &&
+        multiplierTensRect.left < multiplierOnesRect.left && Math.abs(multiplierTensRect.top - multiplierOnesRect.top) < 1,
+        "multiplicand copies land down matching columns while regrouping and Ten conversion use horizontal place geometry");
       assert(!multiplicationDoc.querySelector(".multiplicand button") &&
         !multiplicationDoc.querySelector(".multiplier-tens-place.source-panel") &&
         multiplicationDoc.querySelectorAll(".multiplier .source-panel").length === 1 &&
@@ -2225,6 +2336,37 @@
         JSON.stringify(multiplicationApi.motionDiagnostics.snapshot().productDigits) === JSON.stringify({ hundreds: 0, tens: 0, ones: 6 }),
         "holding Space on multiplier Ones starts the same accessible sequential Pull All path");
 
+      frame = await openGame("?op=multiplication&a=16&b=4&harness=1");
+      multiplicationDoc = frame.contentDocument;
+      multiplicationApi = frame.contentWindow.NumberGarden;
+      multiplicationDoc.querySelector(".unit.eligible").click();
+      await waitFor(() => !multiplicationApi.motionDiagnostics.snapshot().controlsLocked,
+        "first 16 × 4 multiplicand pull", 10000);
+      const regroupOverlay = await captureNextMultiplicationRegroupOverlay(frame, () =>
+        multiplicationDoc.querySelector(".unit.eligible").click());
+      await waitFor(() => !multiplicationApi.motionDiagnostics.snapshot().controlsLocked,
+        "first 16 × 4 Ones regroup", 10000);
+      let highlightedTens = multiplicationDoc.querySelectorAll(".multiplication-product .tens .newly-regrouped");
+      assert(regroupOverlay.width >= regroupOverlay.height * 3 && regroupOverlay.borderRadius !== "0px" &&
+        regroupOverlay.borderColor === "rgb(155, 91, 0)" && regroupOverlay.backgroundImage !== "none" &&
+        highlightedTens.length === 1 && highlightedTens[0].dataset.index === "2" &&
+        highlightedTens[0].classList.contains("owner-carry"),
+        "Ones-to-Tens travels as a rounded gold bar and lands as the sole gold Product Ten");
+      multiplicationDoc.querySelector(".unit.eligible").click();
+      await waitFor(() => !multiplicationApi.motionDiagnostics.snapshot().controlsLocked,
+        "direct Product Ten after the first regroup", 10000);
+      highlightedTens = multiplicationDoc.querySelectorAll(".multiplication-product .tens .newly-regrouped");
+      assert(highlightedTens.length === 1 && highlightedTens[0].dataset.index === "2" &&
+        multiplicationDoc.querySelector('.multiplication-product .tens [data-index="3"]').classList.contains("owner-product"),
+        "a directly copied Product Ten leaves the most recently regrouped Ten gold");
+      multiplicationDoc.querySelector(".unit.eligible").click();
+      await waitFor(() => multiplicationApi.motionDiagnostics.snapshot().phase === "awaiting-answer" &&
+        !multiplicationApi.motionDiagnostics.snapshot().controlsLocked, "second 16 × 4 Ones regroup", 10000);
+      highlightedTens = multiplicationDoc.querySelectorAll(".multiplication-product .tens .newly-regrouped");
+      assert(highlightedTens.length === 1 && highlightedTens[0].dataset.index === "5" &&
+        multiplicationDoc.querySelector('.multiplication-product .tens [data-index="2"]').classList.contains("owner-product"),
+        "the next Ones regroup turns the prior gold Ten green and highlights only the newly landed bar");
+
       frame = await openGame("?op=multiplication&a=19&b=9&harness=1&reducedMotion=1");
       multiplicationApi = frame.contentWindow.NumberGarden;
       multiplicationApi.motionDiagnostics.clearEvents();
@@ -2235,8 +2377,109 @@
       assert(sixthPull >= 0 && afterSixth.findIndex(event => event.type === "multiplication-regroup-formation" && event.kind === "ones") >= 0 &&
         afterSixth.findIndex(event => event.type === "multiplication-regroup-formation" && event.kind === "tens") >
           afterSixth.findIndex(event => event.type === "multiplication-regroup-formation" && event.kind === "ones") &&
-        JSON.stringify(multiplicationApi.motionDiagnostics.snapshot().productDigits) === JSON.stringify({ hundreds: 1, tens: 7, ones: 1 }),
-        "one pull can settle Ones-to-Tens and then Tens-to-Hundreds regrouping in explanatory order");
+        JSON.stringify(multiplicationApi.motionDiagnostics.snapshot().productDigits) === JSON.stringify({ hundreds: 1, tens: 7, ones: 1 }) &&
+        frame.contentDocument.querySelectorAll(".multiplication-product .tens .newly-regrouped").length === 1,
+        "one pull settles both regroupings in order and rebases a surviving gold Ten after Tens-to-Hundreds");
+      let productHundreds = frame.contentDocument.querySelector(".multiplication-product .hundreds");
+      assert(productHundreds.querySelectorAll(".unit").length === 1 && !productHundreds.querySelector(".hundreds-stack-count"),
+        "a one-Hundred Product shows one individually distinguishable flat without a stack badge");
+
+      frame = await openGame("?op=multiplication&a=12&b=9&harness=1&reducedMotion=1");
+      multiplicationApi = frame.contentWindow.NumberGarden;
+      await finishMultiplication(frame);
+      assert(JSON.stringify(multiplicationApi.motionDiagnostics.snapshot().productDigits) ===
+          JSON.stringify({ hundreds: 1, tens: 0, ones: 8 }) &&
+        !frame.contentDocument.querySelector(".multiplication-product .tens .newly-regrouped"),
+        "Tens-to-Hundreds clears the gold marker when the highlighted Ten belongs to the consumed group");
+
+      frame = await openGame("?op=multiplication&a=50&b=6&harness=1&reducedMotion=1");
+      multiplicationApi = frame.contentWindow.NumberGarden;
+      await finishMultiplication(frame);
+      await multiplicationHundredsLayout(frame, 320);
+      productHundreds = frame.contentDocument.querySelector(".multiplication-product .hundreds");
+      let hundredRects = Array.from(productHundreds.querySelectorAll(".unit"), unit => unit.getBoundingClientRect());
+      const threeHundredCentersX = hundredRects.map(rect => rect.left + rect.width / 2);
+      const threeHundredCentersY = hundredRects.map(rect => rect.top + rect.height / 2);
+      assert(hundredRects.length === 3 && Math.max(...threeHundredCentersX) - Math.min(...threeHundredCentersX) < 5 &&
+        new Set(threeHundredCentersY.map(value => Math.round(value))).size === 3 &&
+        productHundreds.querySelector(".hundreds-stack-count").hidden,
+        "a three-Hundreds Product separates its tilted flats vertically without a stack badge");
+
+      frame = await openGame("?op=multiplication&a=50&b=8&harness=1&reducedMotion=1");
+      multiplicationDoc = frame.contentDocument;
+      multiplicationApi = frame.contentWindow.NumberGarden;
+      await finishMultiplication(frame);
+      await multiplicationHundredsLayout(frame, 320);
+      productHundreds = multiplicationDoc.querySelector(".multiplication-product .hundreds");
+      assert(productHundreds.querySelectorAll(".unit").length === 4 &&
+        productHundreds.querySelector(".hundreds-stack-count").hidden,
+        "a four-Hundreds Product keeps four individually separated vertical flats without a badge");
+
+      frame = await openGame("?op=multiplication&a=50&b=10&harness=1&reducedMotion=1");
+      multiplicationApi = frame.contentWindow.NumberGarden;
+      await finishMultiplication(frame, true);
+      await multiplicationHundredsLayout(frame, 320);
+      productHundreds = frame.contentDocument.querySelector(".multiplication-product .hundreds");
+      hundredRects = Array.from(productHundreds.querySelectorAll(".unit"), unit => unit.getBoundingClientRect());
+      const fiveHundredCentersX = hundredRects.map(rect => rect.left + rect.width / 2);
+      const fiveHundredCentersY = hundredRects.map(rect => rect.top + rect.height / 2);
+      assert(hundredRects.length === 5 && Math.max(...fiveHundredCentersX) - Math.min(...fiveHundredCentersX) < 5 &&
+        new Set(fiveHundredCentersY.map(value => Math.round(value))).size === 5 &&
+        productHundreds.querySelector(".hundreds-stack-count").hidden,
+        "five Hundreds remain individually distinguishable in one vertical stack without a badge");
+      for (const viewport of [320, 760]) {
+        const layout = await multiplicationHundredsLayout(frame, viewport);
+        assert(layout.count === 5 && !layout.compacted && layout.verticallyAligned && layout.separated &&
+          layout.distinctVerticalPositions === 5 && layout.contained && layout.badgeText === null,
+          "five Hundreds stay fully separated, vertical, and contained at " + viewport + "px");
+      }
+      const fiveHundredsDoc = frame.contentDocument;
+      fiveHundredsDoc.querySelector("#settingsButton").click();
+      fiveHundredsDoc.querySelector("#difficultyEasy").click();
+      fiveHundredsDoc.querySelector("#closeSettings").click();
+      const separatedEasyFiveLayout = await multiplicationHundredsLayout(frame, 760);
+      assert(separatedEasyFiveLayout.digitLabelVisible && !separatedEasyFiveLayout.compacted,
+        "Easy shows its normal Hundreds digit label while five flats fit without stacking");
+      const constrainedBoard = fiveHundredsDoc.querySelector(".multiplication-board");
+      constrainedBoard.style.gridTemplateRows = "22px repeat(3, 80px)";
+      frame.contentWindow.dispatchEvent(new Event("resize"));
+      const constrainedFiveLayout = await multiplicationHundredsLayout(frame, 760);
+      assert(constrainedFiveLayout.count === 5 && constrainedFiveLayout.compacted &&
+        constrainedFiveLayout.badgeText === "×5" && constrainedFiveLayout.contained &&
+        !constrainedFiveLayout.digitLabelVisible,
+        "five Hundreds compact only when the cell is too short, show ×5, and suppress a duplicate digit label");
+      constrainedBoard.style.removeProperty("grid-template-rows");
+      frame.contentWindow.dispatchEvent(new Event("resize"));
+      fiveHundredsDoc.querySelector("#settingsButton").click();
+      fiveHundredsDoc.querySelector("#difficultyStandard").click();
+      fiveHundredsDoc.querySelector("#closeSettings").click();
+
+      frame = await openGame("?op=multiplication&a=75&b=8&harness=1&reducedMotion=1");
+      multiplicationDoc = frame.contentDocument;
+      multiplicationApi = frame.contentWindow.NumberGarden;
+      await finishMultiplication(frame);
+      productHundreds = multiplicationDoc.querySelector(".multiplication-product .hundreds");
+      assert(productHundreds.querySelectorAll(".unit").length === 6 &&
+        productHundreds.querySelector(".hundreds-stack-count").textContent === "×6" &&
+        !productHundreds.querySelector(".digit-label"),
+        "six Hundreds retain all units in a compact vertical stack with one ×6 badge in Standard");
+      multiplicationDoc.querySelector("#settingsButton").click();
+      multiplicationDoc.querySelector("#difficultyEasy").click();
+      multiplicationDoc.querySelector("#closeSettings").click();
+      productHundreds = multiplicationDoc.querySelector(".multiplication-product .hundreds");
+      assert(productHundreds.querySelectorAll(".unit").length === 6 &&
+        productHundreds.querySelector(".hundreds-stack-count").textContent === "×6" &&
+        !productHundreds.querySelector(".digit-label"),
+        "the six-Hundreds ×6 stack remains singular and metadata-complete in Easy");
+      for (const viewport of [320, 760]) {
+        const layout = await multiplicationHundredsLayout(frame, viewport);
+        assert(layout.count === 6 && layout.compacted && layout.verticallyAligned &&
+          layout.distinctVerticalPositions === 6 && layout.contained && layout.badgeText === "×6",
+          "the compact six-Hundreds stack and badge stay vertical and contained at " + viewport + "px");
+      }
+      multiplicationDoc.querySelector("#settingsButton").click();
+      multiplicationDoc.querySelector("#difficultyStandard").click();
+      multiplicationDoc.querySelector("#closeSettings").click();
 
       frame = await openGame("?op=multiplication&a=27&b=37&harness=1&reducedMotion=1");
       multiplicationApi = frame.contentWindow.NumberGarden;
@@ -2244,8 +2487,10 @@
       multiplicationSnapshot = multiplicationApi.motionDiagnostics.snapshot();
       assert(multiplicationSnapshot.totalMultiplierUnitsConsumed === 37 && multiplicationSnapshot.convertedTensBars === 3 &&
         JSON.stringify(multiplicationSnapshot.productDigits) === JSON.stringify({ hundreds: 9, tens: 9, ones: 9 }) &&
-        frame.contentDocument.querySelectorAll(".multiplication-product .hundreds .unit").length === 9,
-        "27 × 37 reaches the exact 999 maximum and renders all nine Hundred units");
+        frame.contentDocument.querySelectorAll(".multiplication-product .hundreds .unit").length === 9 &&
+        frame.contentDocument.querySelector(".multiplication-product .hundreds .hundreds-stack-count").textContent === "×9" &&
+        !frame.contentDocument.querySelector(".multiplication-product .hundreds .digit-label"),
+        "27 × 37 reaches 999 with all nine Hundred units behind one ×9 stack badge");
 
       frame = await openGame("?op=multiplication&a=12&b=3&harness=1");
       multiplicationDoc = frame.contentDocument;
