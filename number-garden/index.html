@@ -1688,7 +1688,7 @@
             <option value="4">L4</option><option value="5">L5</option><option value="6">L6</option>
             <option value="7">L7</option><option value="8">L8</option><option value="9">L9</option>
             <option value="10">L10</option><option value="11">L11</option><option value="12">L12</option>
-            <option value="13">L13</option>
+            <option value="13">L13</option><option value="14">L14</option><option value="15">L15</option>
           </select>
         </div>
         <p id="levelHelp">Changing level starts a fresh problem and resets the two advancement counters.</p>
@@ -2027,7 +2027,7 @@
     }).map(([key, messages]) => [key, Object.freeze(messages)])));
 
     const CATEGORY_NAMES = ["No carry", "Ones-only carry", "Tens-only carry", "Two carries"];
-    const LEVEL_COUNT = 13;
+    const LEVEL_COUNT = 15;
     const STANDARD_CURRENT_LEVEL_MIX = 0.50;
     const STANDARD_HIGHER_LEVEL_MIX = 0.25;
     const STANDARD_LOWER_LEVEL_MIX = 0.25;
@@ -2035,9 +2035,9 @@
     const LEVEL_ONE_HIGHER_MIX = 0.25;
     const LEVEL_NINE_CURRENT_MIX = 0.60;
     const LEVEL_NINE_REVIEW_MIX = 0.40;
-    const LEVEL_TWELVE_CURRENT_MIX = 0.60;
-    const LEVEL_TWELVE_REVIEW_MIX = 0.40;
-    const LEVEL_THIRTEEN_ADDITION_MIX = 0.50;
+    const LEVEL_FOURTEEN_CURRENT_MIX = 0.60;
+    const LEVEL_FOURTEEN_REVIEW_MIX = 0.40;
+    const LEVEL_FIFTEEN_ADDITION_MIX = 0.50;
     const LEVEL_EIGHT_TENS_ONLY_MIX = 0.50;
     const LEVEL_EIGHT_BOTH_CARRIES_MIX = 0.50;
     const CURRENT_LEVEL_ADVANCEMENT_TARGET = 4;
@@ -2057,9 +2057,11 @@
       { level: 8, label: "Three-digit results with tens-only or both-column carries" },
       { level: 9, label: "Two two-digit numbers with carries in both columns" },
       { level: 10, label: "Single-digit subtraction without negative differences" },
-      { level: 11, label: "A two-digit minuend minus a single-digit subtrahend" },
-      { level: 12, label: "Two-digit subtraction without negative differences" },
-      { level: 13, label: "Mixed addition and subtraction review" }
+      { level: 11, label: "A two-digit minuend minus a single digit without borrowing" },
+      { level: 12, label: "A two-digit minuend minus a single digit with borrowing" },
+      { level: 13, label: "Two-digit subtraction without borrowing" },
+      { level: 14, label: "Two-digit subtraction with borrowing" },
+      { level: 15, label: "Mixed addition and subtraction review" }
     ]);
     const DB_NAME = "numberGarden";
     const DB_VERSION = 1;
@@ -2391,9 +2393,11 @@
       if (!model || (model.operation || "addition") === "subtraction") {
         if (!model || model.operation !== "subtraction" || model.a < model.b) return false;
         if (level === 10) return model.a <= 9 && model.b <= 9;
-        if (level === 11) return model.a >= 10 && model.b <= 9;
-        if (level === 12) return model.a >= 10 && model.b >= 10;
-        if (level === 13) return [10, 11, 12].some(source => problemMatchesLevel(model, source));
+        if (level === 11) return model.a >= 10 && model.b <= 9 && !model.needsBorrow;
+        if (level === 12) return model.a >= 10 && model.b <= 9 && model.needsBorrow;
+        if (level === 13) return model.a >= 10 && model.b >= 10 && !model.needsBorrow;
+        if (level === 14) return model.a >= 10 && model.b >= 10 && model.needsBorrow;
+        if (level === 15) return [10, 11, 12, 13, 14].some(source => problemMatchesLevel(model, source));
         return false;
       }
       const bothSingle = model.a < 10 && model.b < 10;
@@ -2411,7 +2415,7 @@
           return bothDouble && model.result >= 100 &&
             (pattern ? curriculumPattern(model) === pattern : model.category === 2 || model.category === 3);
         case 9: return bothDouble && model.category === 3;
-        case 13: return true;
+        case 15: return true;
         default: return false;
       }
     }
@@ -2433,11 +2437,11 @@
 
     function selectCurriculumLevel(currentLevel, random = Math.random) {
       const level = clampLevel(currentLevel);
-      if (level === 13) return 13;
+      if (level === 15) return 15;
       const roll = normalizedRandom(random);
       if (level === 1) return roll < LEVEL_ONE_CURRENT_MIX ? 1 : 2;
       if (level === 9) return roll < LEVEL_NINE_CURRENT_MIX ? 9 : uniformlySelectLevel(1, 8, random);
-      if (level === 12) return roll < LEVEL_TWELVE_CURRENT_MIX ? 12 : uniformlySelectLevel(1, 11, random);
+      if (level === 14) return roll < LEVEL_FOURTEEN_CURRENT_MIX ? 14 : uniformlySelectLevel(1, 13, random);
       if (roll < STANDARD_CURRENT_LEVEL_MIX) return level;
       if (roll < STANDARD_CURRENT_LEVEL_MIX + STANDARD_HIGHER_LEVEL_MIX) return level + 1;
       return uniformlySelectLevel(1, level - 1, random);
@@ -2462,13 +2466,13 @@
 
     function generateProblemForLevel(level, exclusions = new Set(), random = Math.random) {
       const curriculumLevel = clampLevel(level);
-      if (curriculumLevel === 13) {
-        const addition = normalizedRandom(random) < LEVEL_THIRTEEN_ADDITION_MIX;
+      if (curriculumLevel === 15) {
+        const addition = normalizedRandom(random) < LEVEL_FIFTEEN_ADDITION_MIX;
         const sourceLevel = addition
           ? uniformlySelectLevel(1, 9, random)
-          : uniformlySelectLevel(10, 12, random);
+          : uniformlySelectLevel(10, 14, random);
         const review = generateProblemForLevel(sourceLevel, exclusions, random);
-        return { ...review, curriculumLevel: 13, curriculumSourceLevel: sourceLevel };
+        return { ...review, curriculumLevel: 15, curriculumSourceLevel: sourceLevel };
       }
       const pattern = curriculumLevel === 8
         ? (normalizedRandom(random) < LEVEL_EIGHT_TENS_ONLY_MIX ? "tens-only" : "both-carries")
@@ -2498,7 +2502,7 @@
         if (sampledLevel === level) {
           next.currentLevelSuccesses += 1;
           credit = "current";
-        } else if (sampledLevel > level && level !== 12) {
+        } else if (sampledLevel > level && level !== 14) {
           next.higherLevelSuccesses += 1;
           credit = "higher";
         }
@@ -5815,9 +5819,9 @@
         LEVEL_ONE_HIGHER_MIX,
         LEVEL_NINE_CURRENT_MIX,
         LEVEL_NINE_REVIEW_MIX,
-        LEVEL_TWELVE_CURRENT_MIX,
-        LEVEL_TWELVE_REVIEW_MIX,
-        LEVEL_THIRTEEN_ADDITION_MIX,
+        LEVEL_FOURTEEN_CURRENT_MIX,
+        LEVEL_FOURTEEN_REVIEW_MIX,
+        LEVEL_FIFTEEN_ADDITION_MIX,
         LEVEL_EIGHT_TENS_ONLY_MIX,
         LEVEL_EIGHT_BOTH_CARRIES_MIX,
         CURRENT_LEVEL_ADVANCEMENT_TARGET,

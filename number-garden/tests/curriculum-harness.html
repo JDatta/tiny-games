@@ -384,7 +384,7 @@
         "an established v3 profile migrates without showing the new launch dialog");
       const api = frame.contentWindow.NumberGarden;
 
-      assert(api.LEVEL_DEFINITIONS.length === 13, "all thirteen level definitions are exposed");
+      assert(api.LEVEL_DEFINITIONS.length === 15, "all fifteen level definitions are exposed");
       assert(api.constants.PROFILE_SCHEMA_VERSION === 4, "profile schema v4 is exposed");
       assert(api.constants.GAME_VERSION === "2.0.0+62d794c" &&
         frame.contentDocument.querySelector("[data-version]").textContent === api.constants.GAME_VERSION,
@@ -567,7 +567,7 @@
       assert(api.problemMatchesLevel(api.deriveProblem(50, 50), 8, "tens-only"), "L8 tags its tens-only pattern");
       assert(api.problemMatchesLevel(api.deriveProblem(55, 55), 8, "both-carries"), "L8 tags its both-carries pattern");
 
-      for (let level = 1; level <= 13; level += 1) {
+      for (let level = 1; level <= 15; level += 1) {
         let allValid = true;
         for (let index = 0; index < 40; index += 1) {
           const model = api.generateProblemForLevel(level);
@@ -588,21 +588,30 @@
       const l10 = api.generateProblemForLevel(10);
       const l11 = api.generateProblemForLevel(11);
       const l12 = api.generateProblemForLevel(12);
+      const l13 = api.generateProblemForLevel(13);
+      const l14 = api.generateProblemForLevel(14);
       assert(l10.operation === "subtraction" && l10.a <= 9 && l10.b <= 9 && l10.a >= l10.b,
         "L10 generates ordered single-digit subtraction");
-      assert(l11.operation === "subtraction" && l11.a >= 10 && l11.b <= 9 && l11.a >= l11.b,
-        "L11 generates a two-digit minuend and single-digit subtrahend");
-      assert(l12.operation === "subtraction" && l12.a >= 10 && l12.b >= 10 && l12.a >= l12.b,
-        "L12 generates ordered two-digit subtraction");
-      const l13Addition = api.generateProblemForLevel(13, new Set(), sequence(.4999, 0, 0, 0));
-      const l13Subtraction = api.generateProblemForLevel(13, new Set(), sequence(.5, 0, 0, 0));
-      assert(l13Addition.operation === "addition" && l13Addition.curriculumLevel === 13 && l13Addition.curriculumSourceLevel === 1,
-        "L13 selects addition just below the exact 50% boundary and records its review source");
-      assert(l13Subtraction.operation === "subtraction" && l13Subtraction.curriculumLevel === 13 && l13Subtraction.curriculumSourceLevel === 10,
-        "L13 selects subtraction at the exact 50% boundary and records its review source");
-      assert(api.sampleCurriculumProblem(13, new Set(), sequence(.4999, 0, 0, 0)).operation === "addition" &&
-        api.sampleCurriculumProblem(13, new Set(), sequence(.5, 0, 0, 0)).operation === "subtraction",
-        "the L13 sampler passes its first random boundary directly to operation selection");
+      assert(l11.operation === "subtraction" && l11.a >= 10 && l11.b <= 9 && l11.a >= l11.b && !l11.needsBorrow,
+        "L11 generates a two-digit minuend and single-digit subtrahend without borrowing");
+      assert(l12.operation === "subtraction" && l12.a >= 10 && l12.b <= 9 && l12.a >= l12.b && l12.needsBorrow,
+        "L12 generates a two-digit minuend and single-digit subtrahend with borrowing");
+      assert(l13.operation === "subtraction" && l13.a >= 10 && l13.b >= 10 && l13.a >= l13.b && !l13.needsBorrow,
+        "L13 generates ordered two-digit subtraction without borrowing");
+      assert(l14.operation === "subtraction" && l14.a >= 10 && l14.b >= 10 && l14.a >= l14.b && l14.needsBorrow,
+        "L14 generates ordered two-digit subtraction with borrowing");
+      const l15Addition = api.generateProblemForLevel(15, new Set(), sequence(.4999, 0, 0, 0));
+      const l15Subtraction = api.generateProblemForLevel(15, new Set(), sequence(.5, 0, 0, 0));
+      assert(l15Addition.operation === "addition" && l15Addition.curriculumLevel === 15 && l15Addition.curriculumSourceLevel === 1,
+        "L15 selects addition just below the exact 50% boundary and records its review source");
+      assert(l15Subtraction.operation === "subtraction" && l15Subtraction.curriculumLevel === 15 && l15Subtraction.curriculumSourceLevel === 10,
+        "L15 selects subtraction at the exact 50% boundary and records its review source");
+      assert(api.generateProblemForLevel(15, new Set(), sequence(.4999, .9999, 0, 0)).curriculumSourceLevel === 9 &&
+        api.generateProblemForLevel(15, new Set(), sequence(.5, .9999, 0)).curriculumSourceLevel === 14,
+        "L15 review can reach the full L1–L9 addition and L10–L14 subtraction ranges");
+      assert(api.sampleCurriculumProblem(15, new Set(), sequence(.4999, 0, 0, 0)).operation === "addition" &&
+        api.sampleCurriculumProblem(15, new Set(), sequence(.5, 0, 0, 0)).operation === "subtraction",
+        "the L15 sampler passes its first random boundary directly to operation selection");
       assert(api.problemKey(4, 7, "addition") === api.problemKey(7, 4, "addition") &&
         api.problemKey(9, 4, "subtraction") !== api.problemKey(4, 9, "subtraction"),
         "recent-problem keys are unordered for addition and ordered for subtraction");
@@ -616,6 +625,20 @@
       assert(negativeRejected && api.deriveProblem(42, 42, "subtraction").result === 0 &&
         api.deriveProblem(42, 17, "subtraction").needsBorrow && !api.deriveProblem(42, 12, "subtraction").needsBorrow,
         "subtraction rejects negative requests, permits equality, and classifies borrowing");
+      let subtractionPartitionIsExact = true;
+      for (let minuend = 1; minuend <= 99; minuend += 1) {
+        for (let subtrahend = 1; subtrahend <= minuend; subtrahend += 1) {
+          const model = api.deriveProblem(minuend, subtrahend, "subtraction");
+          const expectedLevel = minuend < 10 ? 10
+            : subtrahend < 10 ? (model.needsBorrow ? 12 : 11)
+              : (model.needsBorrow ? 14 : 13);
+          const matchingLevels = [10, 11, 12, 13, 14].filter(level => api.problemMatchesLevel(model, level));
+          subtractionPartitionIsExact &&= matchingLevels.length === 1 && matchingLevels[0] === expectedLevel &&
+            api.problemMatchesLevel(model, 15);
+        }
+      }
+      assert(subtractionPartitionIsExact,
+        "every ordered subtraction problem belongs to exactly one granular L10–L14 level and to L15 review");
 
       assert(api.selectCurriculumLevel(1, sequence(.7499)) === 1, "L1 roll below 75% selects L1");
       assert(api.selectCurriculumLevel(1, sequence(.75)) === 2, "L1 roll at 75% selects L2");
@@ -635,9 +658,11 @@
         "L10 retains the current/next sampling boundary");
       assert(api.selectCurriculumLevel(11, sequence(.5)) === 12,
         "L11 may sample the next subtraction level");
-      assert(api.selectCurriculumLevel(12, sequence(.5999)) === 12 && api.selectCurriculumLevel(12, sequence(.6, 0)) === 1 &&
-        api.selectCurriculumLevel(13, sequence(0)) === 13,
-        "L12 gates early mixed review while L13 samples its internal operation mix");
+      assert(api.selectCurriculumLevel(12, sequence(.5)) === 13 && api.selectCurriculumLevel(13, sequence(.5)) === 14,
+        "L12 and L13 may sample the next granular subtraction level");
+      assert(api.selectCurriculumLevel(14, sequence(.5999)) === 14 && api.selectCurriculumLevel(14, sequence(.6, 0)) === 1 &&
+        api.selectCurriculumLevel(15, sequence(0)) === 15,
+        "L14 gates early mixed review while L15 samples its internal operation mix");
 
       function freshAt(level) {
         return { ...api.defaultProfile(), currentLevel: level, currentLevelSuccesses: 0, higherLevelSuccesses: 0 };
@@ -671,19 +696,19 @@
       progress = api.applyProgressForSuccess(progress, 9).profile;
       transition = api.applyProgressForSuccess(progress, 9);
       assert(transition.profile.currentLevel === 2, "higher-level credit never skips a level");
-      progress = freshAt(12);
-      transition = api.applyProgressForSuccess(progress, 13);
+      progress = freshAt(14);
+      transition = api.applyProgressForSuccess(progress, 15);
       assert(transition.credit === "none" && transition.profile.higherLevelSuccesses === 0,
-        "L12 advances only through its current-level success path");
-      for (let level = 9; level <= 12; level += 1) {
+        "L14 advances only through its current-level success path");
+      for (let level = 9; level <= 14; level += 1) {
         progress = freshAt(level);
         for (let success = 0; success < 4; success += 1) progress = api.applyProgressForSuccess(progress, level).profile;
         assert(progress.currentLevel === level + 1 && progress.currentLevelSuccesses === 0 && progress.higherLevelSuccesses === 0,
           "four current-level successes advance L" + level + " to L" + (level + 1));
       }
-      progress = freshAt(13);
-      transition = api.applyProgressForSuccess(progress, 13);
-      assert(!transition.advanced && transition.profile.currentLevel === 13 && transition.profile.currentLevelSuccesses === 0, "L13 is capped");
+      progress = freshAt(15);
+      transition = api.applyProgressForSuccess(progress, 15);
+      assert(!transition.advanced && transition.profile.currentLevel === 15 && transition.profile.currentLevelSuccesses === 0, "L15 is capped");
 
       const migrated = api.validateProfile({ schemaVersion: 1, score: 70, emojiProgress: 7, sound: false, updatedAt: 123 });
       assert(migrated.schemaVersion === 4 && migrated.score === 70 && migrated.emojiProgress === 7 && !migrated.sound &&
@@ -711,10 +736,10 @@
       assert(validV4 && !validV4.launchChoiceMade && api.defaultProfile().launchChoiceMade === false &&
         api.validateProfile({ ...validEasyV3, schemaVersion: 4, launchChoiceMade: undefined }) === null,
         "v4 persists the required launchChoiceMade boolean and new profiles default it to false");
-      const validLevelThirteenV4 = api.validateProfile({ ...validV4, currentLevel: 13, currentLevelSuccesses: 3, higherLevelSuccesses: 1 });
-      assert(validLevelThirteenV4 && validLevelThirteenV4.schemaVersion === 4 && validLevelThirteenV4.currentLevel === 13 &&
-        validLevelThirteenV4.currentLevelSuccesses === 3 && validLevelThirteenV4.higherLevelSuccesses === 1,
-        "schema-v4 validation preserves established L13 profiles without migration");
+      const validLevelFifteenV4 = api.validateProfile({ ...validV4, currentLevel: 15, currentLevelSuccesses: 3, higherLevelSuccesses: 1 });
+      assert(validLevelFifteenV4 && validLevelFifteenV4.schemaVersion === 4 && validLevelFifteenV4.currentLevel === 15 &&
+        validLevelFifteenV4.currentLevelSuccesses === 3 && validLevelFifteenV4.higherLevelSuccesses === 1,
+        "schema-v4 validation accepts L15 profiles without migration");
 
       const modeDoc = frame.contentDocument;
       await countNextUnits(frame, 1);
@@ -1990,25 +2015,25 @@
         destructionOverlap(tutorialDestructionEvents) === 1 && subtractionApi.motionDiagnostics.snapshot().activeDestructionCount === 0,
         "Tutorial waits for each full non-overlapping shatter, completes subtraction, and awards no reward");
 
-      const levelThirteenProfile = { ...profileCookie(), currentLevel: 13, currentLevelSuccesses: 0, higherLevelSuccesses: 0,
+      const levelFifteenProfile = { ...profileCookie(), currentLevel: 15, currentLevelSuccesses: 0, higherLevelSuccesses: 0,
         updatedAt: Date.now() + 1000000 };
-      document.cookie = "numberGardenProgress=" + encodeURIComponent(JSON.stringify(levelThirteenProfile)) + "; Path=/; SameSite=Lax";
+      document.cookie = "numberGardenProgress=" + encodeURIComponent(JSON.stringify(levelFifteenProfile)) + "; Path=/; SameSite=Lax";
       frame = await openGame("?op=subtraction&a=42&b=17&harness=1");
       subtractionDoc = frame.contentDocument;
       subtractionApi = frame.contentWindow.NumberGarden;
-      assert(subtractionDoc.querySelector("#levelBadge").textContent === "L13" &&
-        subtractionDoc.querySelectorAll("#levelSelect option").length === 13 && !subtractionDoc.querySelector(".column-title.hundreds"),
-        "Settings exposes L1–L13 and subtraction hides Hundreds even at L13");
+      assert(subtractionDoc.querySelector("#levelBadge").textContent === "L15" &&
+        subtractionDoc.querySelectorAll("#levelSelect option").length === 15 && !subtractionDoc.querySelector(".column-title.hundreds"),
+        "Settings exposes L1–L15 and subtraction hides Hundreds even at L15");
       let mixedOperators = false;
       for (let attempt = 0; attempt < 8 && !mixedOperators; attempt += 1) {
         const cards = Array.from(subtractionDoc.querySelectorAll(".suggestion"), card => card.textContent);
         mixedOperators = cards.some(text => text.includes("+")) && cards.some(text => text.includes("−"));
         if (!mixedOperators) {
           subtractionDoc.querySelector(".dice").click();
-          await waitFor(() => subtractionApi.motionDiagnostics.snapshot().diceRefreshState === "idle", "L13 mixed refresh");
+          await waitFor(() => subtractionApi.motionDiagnostics.snapshot().diceRefreshState === "idle", "L15 mixed refresh");
         }
       }
-      assert(mixedOperators, "L13 suggestions render a mixed set of operation-correct symbols");
+      assert(mixedOperators, "L15 suggestions render a mixed set of operation-correct symbols");
 
       frame = await openGame("?a=42&b=17&harness=1");
       const revertedDoc = frame.contentDocument;

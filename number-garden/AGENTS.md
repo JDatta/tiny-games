@@ -4,7 +4,7 @@
 
 ### Product
 
-Number Garden is a mobile-first learning game that teaches addition and subtraction through visible place-value units. Thirteen persistent levels grow from single-digit addition through two-column carries, then single- and two-digit subtraction with automatic borrowing, and finally mixed review. Addition uses Ones, Tens, and L6+ Hundreds; subtraction uses Ones and Tens only and never produces a negative difference.
+Number Garden is a mobile-first learning game that teaches addition and subtraction through visible place-value units. Fifteen persistent levels grow from single-digit addition through two-column carries, then separate no-borrow and borrowing subtraction stages, and finally mixed review. Addition uses Ones, Tens, and L6+ Hundreds; subtraction uses Ones and Tens only and never produces a negative difference.
 
 ### Implementation
 
@@ -72,12 +72,12 @@ Addition follows `counting-ones` → optional Ones carry → `counting-tens` →
 - Only the next valid place-value item is interactive. Do not make rendered order, CSS state, or arbitrary tap order determine the count. See the glossary for the place-specific names: Ones blocks/units and Tens or Hundreds bars/rods.
 - Addition carry behavior is derived from the addends. Validate no-carry, ones-carry, tens-carry, and two-carry cases, including zero ones and `198`.
 - Subtraction state must build minuend Ones, build minuend Tens, remove subtrahend Ones, borrow only when empty with removals left, resume Ones, remove Tens, then enter `awaiting-answer`. Validate zero/equal differences, exact depletion, empty places, `40−7`, `42−17`, `20−19`, and reset mid-flow.
-- Keep all thirteen predicates, generated tags, and sampler gates aligned. L8 retains `curriculumPattern`; L9 cannot preview subtraction; L12 cannot preview L13; L13 retains `curriculumSourceLevel` and chooses addition below the exact 50% boundary.
+- Keep all fifteen predicates, generated tags, and sampler gates aligned. L8 retains `curriculumPattern`; L9 cannot preview subtraction; L14 cannot preview L15; L15 retains `curriculumSourceLevel` and chooses addition below the exact 50% boundary.
 - Startup, Next, suggestions, alternative refresh, and dice alternatives use `sampleCurriculumProblem()`. Addition recent keys are unordered; subtraction keys preserve minuend/subtrahend order.
 - `?a=<1-99>&b=<1-99>` defaults to addition. Use `?op=subtraction&a=42&b=17` for subtraction. Forced problems are untagged; invalid/negative subtraction requests must not create negative models.
 - Tutorial resumes at the next unfinished unit, follows the same carry or borrow transitions as manual play, and reaches the real answer keypad through `awaiting-answer`; never create a separate arithmetic path.
 - Only a manually typed correct answer awards exactly 10 coins, one milestone, and eligible level credit once. Tutorial may celebrate and use the shared checker but must never change score, milestones, counters, or level or show a reward toast.
-- Profile schema v4 persists `launchChoiceMade` alongside difficulty and L1–L13 curriculum fields. Keep the schema number unchanged; v1–v3 migrations preserve established-player progress. Reset returns to L1 and keeps sound/difficulty.
+- Profile schema v4 persists `launchChoiceMade` alongside difficulty and L1–L15 curriculum fields. Keep the schema number unchanged; v1–v3 migrations preserve established-player progress. Reset returns to L1 and keeps sound/difficulty.
 - Addition below L6 renders Labels/Tens/Ones and L6+ adds Hundreds. Subtraction always renders Labels/Tens/Ones, regardless of learner level. The L6 unlock still announces/highlights only when an addition board can show it.
 - Apply operation semantics everywhere: equation, keypad, row badges, suggestions, prompts, completion, analytics metadata, live announcements, and ARIA. Use minuend, subtrahend, and difference for subtraction.
 - Addition owns blue/green; subtraction owns lavender/deep purple with distinct operand colors; gold identifies regrouping; coral is reserved for shared eligible/hint/success emphasis.
