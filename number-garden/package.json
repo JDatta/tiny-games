@@ -1,6 +1,6 @@
 {
   "name": "number-garden",
-  "version": "3.0.0+b868ee6",
+  "version": "3.1.0+7139b55",
   "private": true,
   "description": "A mobile-first place-value addition, subtraction, and multiplication game.",
   "scripts": {

@@ -516,7 +516,7 @@
       assert(launchDoc.querySelector("#equationA").textContent + "+" + launchDoc.querySelector("#equationB").textContent === initialEquation,
         "Start keeps the already-generated level-based problem");
       let gameStartEvents = analyticsEntries(frame, "event", "game_start");
-      assert(gameStartEvents.length === 1 && gameStartEvents[0][2].game_version === "3.0.0+b868ee6",
+      assert(gameStartEvents.length === 1 && gameStartEvents[0][2].game_version === "3.1.0+7139b55",
         "the launch Start choice emits one versioned gameplay start event");
       launchDoc.querySelector(".unit.eligible").click();
       assert(analyticsEntries(frame, "event", "game_start").length === 1,
@@ -543,7 +543,7 @@
 
       assert(api.LEVEL_DEFINITIONS.length === 20, "all twenty level definitions are exposed");
       assert(api.constants.PROFILE_SCHEMA_VERSION === 4, "profile schema v4 is exposed");
-      assert(api.constants.GAME_VERSION === "3.0.0+b868ee6" &&
+      assert(api.constants.GAME_VERSION === "3.1.0+7139b55" &&
         frame.contentDocument.querySelector("[data-version]").textContent === api.constants.GAME_VERSION,
         "analytics and the About view share the exposed game version");
       assert(Object.isFrozen(api.DIFFICULTY_MODES) && JSON.stringify(api.DIFFICULTY_MODES) === JSON.stringify(["standard", "easy"]),
@@ -1670,7 +1670,7 @@
         doc.querySelector("#settingsTitle").textContent === "About" && doc.activeElement === doc.querySelector("#settingsTitle"),
         "About replaces Settings inside the same dialog and focuses its title");
       const aboutValues = Array.from(doc.querySelectorAll(".about-details dd"), item => item.textContent);
-      assert(JSON.stringify(aboutValues) === JSON.stringify(["Joydip Datta", "3.0.0+b868ee6", "All rights reserved."]),
+      assert(JSON.stringify(aboutValues) === JSON.stringify(["Joydip Datta", "3.1.0+7139b55", "All rights reserved."]),
         "About shows the author, commit-stamped version, and license");
       assert(doc.querySelector("#settingsBackButton").getAttribute("aria-label") === "Back to settings",
         "About provides an accessible back arrow");
