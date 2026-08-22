@@ -209,6 +209,71 @@
       });
     }
 
+    function captureMultiplicationPullCues(frame, indices, expectedStarts, trigger) {
+      const doc = frame.contentDocument;
+      const diagnostics = frame.contentWindow.NumberGarden.motionDiagnostics;
+      return new Promise((resolve, reject) => {
+        const snapshots = [];
+        let observedStarts = 0;
+        const timeout = setTimeout(() => {
+          observer.disconnect();
+          reject(new Error("Timed out: multiplication pull cue capture"));
+        }, 8000);
+        const observer = new MutationObserver(() => {
+          const starts = diagnostics.events().filter(event => event.type === "multiplication-pull-start");
+          while (observedStarts < starts.length && snapshots.length < expectedStarts) {
+            const event = starts[observedStarts++];
+            snapshots.push({
+              index: event.index,
+              sources: indices.map(index => {
+                const source = doc.querySelector(
+                  '[data-motion-role="source"][data-place="multiplier-ones"][data-index="' + index + '"]'
+                );
+                if (!source) throw new Error("Missing multiplier One source " + index);
+                const style = frame.contentWindow.getComputedStyle(source);
+                return {
+                  index,
+                  active: source.classList.contains("multiplier-pull-source"),
+                  counted: source.classList.contains("counted"),
+                  queued: source.classList.contains("queued"),
+                  motionReduced: source.classList.contains("motion-reduced"),
+                  opacity: style.opacity,
+                  animationName: style.animationName
+                };
+              })
+            });
+          }
+          if (snapshots.length === expectedStarts) {
+            clearTimeout(timeout);
+            observer.disconnect();
+            resolve(snapshots);
+          }
+        });
+        observer.observe(doc.body, { attributes: true, attributeFilter: ["data-motion-event"] });
+        Promise.resolve(trigger()).catch(error => {
+          clearTimeout(timeout);
+          observer.disconnect();
+          reject(error);
+        });
+      });
+    }
+
+    function hasProgressiveMultiplicationPullCues(snapshots, startedIndices, reduced = false) {
+      return snapshots.length === startedIndices.length && snapshots.every((snapshot, position) => {
+        const activeIndex = startedIndices[position];
+        return snapshot.index === activeIndex && snapshot.sources.every(source => {
+          if (source.index < activeIndex) {
+            return source.counted && !source.active && !source.queued && source.opacity === "0.52";
+          }
+          if (source.index === activeIndex) {
+            return source.active && !source.counted && !source.queued && source.opacity === "1" &&
+              source.motionReduced === reduced && (reduced ? source.animationName === "none" : source.animationName !== "none");
+          }
+          return !source.active && !source.counted && !source.queued && source.opacity === "1";
+        });
+      });
+    }
+
     function hasConcurrentQuickBatchLaunch(events, place, batchId, timings) {
       const starts = events.filter(event => event.type === "drop-start" && event.quickPlay &&
         event.place === place && event.batchId === batchId);
@@ -2335,6 +2400,57 @@
         multiplicationApi.motionDiagnostics.events().some(event => event.type === "pull-all-complete") &&
         JSON.stringify(multiplicationApi.motionDiagnostics.snapshot().productDigits) === JSON.stringify({ hundreds: 0, tens: 0, ones: 6 }),
         "holding Space on multiplier Ones starts the same accessible sequential Pull All path");
+
+      frame = await openGame("?op=multiplication&a=6&b=39&harness=1");
+      multiplicationDoc = frame.contentDocument;
+      multiplicationApi = frame.contentWindow.NumberGarden;
+      multiplicationDoc.querySelector(".unit.eligible").click();
+      await waitFor(() => !multiplicationApi.motionDiagnostics.snapshot().controlsLocked,
+        "first 6 × 39 multiplicand pull", 10000);
+      multiplicationDoc.querySelector(".unit.eligible").click();
+      await waitFor(() => !multiplicationApi.motionDiagnostics.snapshot().controlsLocked,
+        "second 6 × 39 multiplicand pull", 10000);
+      multiplicationApi.motionDiagnostics.clearEvents();
+      const partialGroupPullCues = await captureMultiplicationPullCues(
+        frame, [0, 1, 2, 3, 4, 5, 6, 7, 8], 7, () => beginCurrentQuickDrop(frame)
+      );
+      await waitFor(() => !multiplicationApi.motionDiagnostics.snapshot().controlsLocked,
+        "partial multiplier Ones Pull All settlement", 15000);
+      assert(hasProgressiveMultiplicationPullCues(partialGroupPullCues, [2, 3, 4, 5, 6, 7, 8]) &&
+        Array.from(multiplicationDoc.querySelectorAll('.multiplier-ones-place .unit')).every(unit =>
+          unit.classList.contains("counted") && !unit.classList.contains("multiplier-pull-source") &&
+          !unit.classList.contains("queued") && frame.contentWindow.getComputedStyle(unit).opacity === "0.52"),
+        "Pull All keeps later multiplier Ones visible, highlights only the One causing each copy, then mutes it after landing");
+
+      frame = await openGame("?op=multiplication&a=6&b=20&harness=1");
+      multiplicationDoc = frame.contentDocument;
+      multiplicationApi = frame.contentWindow.NumberGarden;
+      multiplicationDoc.querySelector(".unit.eligible").click();
+      await waitFor(() => multiplicationApi.motionDiagnostics.snapshot().phase === "multiplication-consuming-ones" &&
+        !multiplicationApi.motionDiagnostics.snapshot().controlsLocked, "first 6 × 20 multiplier Ten conversion", 10000);
+      multiplicationApi.motionDiagnostics.clearEvents();
+      const convertedGroupPullCues = await captureMultiplicationPullCues(
+        frame, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 10, () => beginCurrentQuickDrop(frame)
+      );
+      await waitFor(() => multiplicationApi.motionDiagnostics.snapshot().phase === "multiplication-converting-ten" &&
+        !multiplicationApi.motionDiagnostics.snapshot().controlsLocked, "converted multiplier Ones Pull All settlement", 15000);
+      const multiplierTens = Array.from(multiplicationDoc.querySelectorAll('.multiplier-tens-place .unit'));
+      assert(hasProgressiveMultiplicationPullCues(convertedGroupPullCues, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) &&
+        multiplierTens[0].classList.contains("counted") && multiplierTens[0].classList.contains("traded") &&
+        frame.contentWindow.getComputedStyle(multiplierTens[0]).opacity === "0.45" &&
+        !multiplierTens[1].classList.contains("counted") && !multiplierTens[1].classList.contains("queued") &&
+        frame.contentWindow.getComputedStyle(multiplierTens[1]).opacity === "1" && multiplierTens[1].classList.contains("eligible"),
+        "converted Tens stay consumed while the next multiplier Ten and all future Pull All Ones remain visible");
+
+      frame = await openGame("?op=multiplication&a=3&b=2&harness=1&reducedMotion=1");
+      multiplicationApi = frame.contentWindow.NumberGarden;
+      const reducedMotionPullCues = await captureMultiplicationPullCues(
+        frame, [0, 1], 2, () => beginCurrentQuickDrop(frame)
+      );
+      await waitFor(() => multiplicationApi.motionDiagnostics.snapshot().phase === "awaiting-answer" &&
+        !multiplicationApi.motionDiagnostics.snapshot().controlsLocked, "reduced-motion multiplier Pull All settlement", 10000);
+      assert(hasProgressiveMultiplicationPullCues(reducedMotionPullCues, [0, 1], true),
+        "reduced motion keeps the active multiplier One as a static high-contrast causal cue");
 
       frame = await openGame("?op=multiplication&a=16&b=4&harness=1");
       multiplicationDoc = frame.contentDocument;

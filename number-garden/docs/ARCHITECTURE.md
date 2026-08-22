@@ -53,7 +53,7 @@ multiplication-consuming-ones
   -> completed
 ```
 
-If the multiplier Ones digit is zero, the path starts at Tens conversion. Each Tens bar opens exactly one new group of ten Ones. Pull All queues only the remainder of the current group and drains one complete pull plus both possible regroup stages before starting the next. It cannot convert or cross another Tens bar.
+If the multiplier Ones digit is zero, the path starts at Tens conversion. Each Tens bar opens exactly one new group of ten Ones. Pull All queues only the remainder of the current group and drains one complete pull plus both possible regroup stages before starting the next. Only the active multiplier One is highlighted while its multiplicand copy travels; completed Ones mute afterward and future queued Ones stay visible. Pull All cannot convert or cross another Tens bar.
 
 Empty source places are skipped. Minuend landings construct the live difference. Each subtrahend landing removes the rightmost live result unit. Borrowing decrements result Tens, creates ten gold Ones, and resumes the existing queue. Exact Ones depletion does not borrow if no subtrahend Ones remain. These invariants handle `8−8`, `42−42`, `40−7`, `42−17`, and `20−19` without special-case arithmetic.
 
