@@ -11,7 +11,7 @@ The primary audience is early elementary learners, with a parent or teacher avai
 ## Core experience
 
 1. The game samples a practice or review problem around the learner’s current L1–L9 level.
-2. The child taps the single glowing next block, counting both addends in order.
+2. The child taps the single glowing next block, counting both addends in order. An accustomed player can instead hold the current addend cell or any block in it for 1.5 seconds to drop that cell's remaining blocks in a fast staggered batch.
 3. At ten units, the game groups and carries them into the next place.
 4. After counting, the child enters the total with a large keypad.
 5. A manually entered correct answer reveals the result, celebrates, awards 10 coins, advances the milestone journey, and may contribute to level advancement.
@@ -45,7 +45,7 @@ Generated models keep their sampled curriculum level; this matters because L8 ov
 
 - The mathematical blocks are the visual focus; decorative garden elements stay secondary.
 - Blue and green distinguish addends, while labels, position, and state changes ensure color is not the only cue.
-- Only the next valid block is actionable, preventing accidental or out-of-order counting.
+- Only the next valid block or its containing addend cell is actionable, preventing accidental or out-of-order counting. A quick-drop batch preserves source order and the normal carry lifecycle.
 - The beetle varies its kid-friendly instructions when the learning step changes, while keeping the chosen message stable during that step; important updates are announced precisely to assistive technology.
 - Controls are touch-friendly, keyboard accessible, and compatible with reduced-motion preferences. With reduced motion, the die updates the alternatives immediately and uses a brief non-moving card highlight instead of tumbling or staggered pops.
 - Audio is optional and never required to understand the game.

@@ -118,6 +118,65 @@
       }
     }
 
+    async function holdCurrentAddendCell(frame, input = "pointer") {
+      const doc = frame.contentDocument;
+      const diagnostics = frame.contentWindow.NumberGarden.motionDiagnostics;
+      const completedBefore = diagnostics.events().filter(event => event.type === "quick-drop-complete").length;
+      const unit = doc.querySelector(".unit.eligible");
+      if (!unit) throw new Error("No eligible unit is available for quick play");
+      const panel = unit.closest(".source-panel");
+      if (!panel) throw new Error("The eligible unit is not inside an addend cell");
+      if (input === "keyboard") {
+        unit.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true }));
+      } else {
+        panel.dispatchEvent(new PointerEvent("pointerdown", {
+          bubbles: true, cancelable: true, button: 0,
+          clientX: panel.getBoundingClientRect().left + 8,
+          clientY: panel.getBoundingClientRect().top + 8
+        }));
+      }
+      await waitFor(() => diagnostics.snapshot().quickPlayHolding, "quick-play hold charge");
+      await new Promise(resolve => setTimeout(resolve, diagnostics.snapshot().quickPlayHoldDuration + 30));
+      if (input === "keyboard") {
+        unit.dispatchEvent(new KeyboardEvent("keyup", { key: " ", bubbles: true, cancelable: true }));
+      } else {
+        panel.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, button: 0 }));
+      }
+      await waitFor(() => diagnostics.events().filter(event => event.type === "quick-drop-complete").length > completedBefore,
+        "quick-drop completion");
+    }
+
+    function colorChannels(color) {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 1;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      context.fillStyle = color;
+      context.fillRect(0, 0, 1, 1);
+      return Array.from(context.getImageData(0, 0, 1, 1).data);
+    }
+
+    function carryLeftoverSnapshot(frame, place) {
+      const doc = frame.contentDocument;
+      const group = doc.querySelector(".result-panel." + place + " .trade-group");
+      const blocks = Array.from(group.querySelectorAll(".unit.traded"));
+      return {
+        luminosity: frame.contentWindow.getComputedStyle(doc.documentElement)
+          .getPropertyValue("--carry-leftover-block-luminosity").trim(),
+        outline: frame.contentWindow.getComputedStyle(group).boxShadow,
+        blocks: blocks.map(block => {
+          const style = frame.contentWindow.getComputedStyle(block);
+          return {
+            owner: block.dataset.owner,
+            fill: colorChannels(style.backgroundColor),
+            borderTopColor: style.borderTopColor,
+            backgroundImage: style.backgroundImage,
+            opacity: style.opacity,
+            filter: style.filter
+          };
+        })
+      };
+    }
+
     async function run() {
       document.cookie = "numberGardenProgress=; Max-Age=0; Path=/; SameSite=Lax";
       await clearDatabase();
@@ -187,6 +246,7 @@
         frame.contentDocument.querySelector("#difficultyStandard").checked,
         "new profiles and the Settings control default to Standard");
       assert(Object.isFrozen(api.MOTION_TIMINGS) && api.MOTION_TIMINGS.BLOCK_FALL_LAND === 520 &&
+        api.MOTION_TIMINGS.QUICK_DROP_STAGGER === 50 && api.MOTION_TIMINGS.QUICK_IMPACT === 320 &&
         api.MOTION_TIMINGS.CARRY_FORMATION === 300 && api.MOTION_TIMINGS.CARRY_TRAVEL === 560 &&
         api.MOTION_TIMINGS.CARRY_LANDING === 140 && api.MOTION_TIMINGS.BEETLE_REACTION === 360 &&
         api.MOTION_TIMINGS.DICE_TUMBLE === 380 && api.MOTION_TIMINGS.DICE_CARD_POP === 150 &&
@@ -196,6 +256,11 @@
         "production teaching-motion timings, including the two-second Tutorial answer pause, are frozen and exposed");
       assert(Object.isFrozen(api.ACTIVE_MOTION_TIMINGS) && api.ACTIVE_MOTION_TIMINGS.BLOCK_FALL_LAND < api.MOTION_TIMINGS.BLOCK_FALL_LAND,
         "harness mode compresses durations without skipping the lifecycle");
+      assert(api.constants.QUICK_PLAY_HOLD_DURATION === 3000 && api.constants.DEFAULT_QUICK_PLAY_SPEED === 2 &&
+        api.motionDiagnostics.snapshot().quickPlaySpeed === 2 &&
+        api.motionDiagnostics.snapshot().productionQuickPlayHoldDuration === 1500 &&
+        api.motionDiagnostics.snapshot().quickPlayHoldDuration === 60,
+        "quick play defaults to a tunable 2x speed and a 1.5-second production hold");
       assert(analyticsEntries(frame, "event", "game_start").length === 0,
         "an established player does not start analytics merely by loading the game");
       frame.contentDocument.querySelector("#answerButton").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
@@ -558,6 +623,89 @@
       await waitFor(() => productionMotionApi.snapshot().phase === "completed" && !productionMotionApi.snapshot().solverRunning,
         "production Tutorial answer completion", 8000);
 
+      frame = await openGame("?a=4&b=3&harness=1&quickPlaySpeed=1");
+      let quickDoc = frame.contentDocument;
+      let quickApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      assert(quickApi.snapshot().quickPlaySpeed === 1 && quickApi.snapshot().productionQuickPlayHoldDuration === 3000 &&
+        quickApi.snapshot().quickPlayHoldDuration === 120 &&
+        quickDoc.querySelector(".unit.eligible").getAttribute("aria-label").includes("Hold for 3 seconds"),
+        "the quickPlaySpeed flag can restore the original hold and updates its accessible instruction");
+
+      frame = await openGame("?a=4&b=3&harness=1");
+      quickDoc = frame.contentDocument;
+      quickApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      quickApi.clearEvents();
+      let quickUnit = quickDoc.querySelector(".unit.eligible");
+      let quickPanel = quickUnit.closest(".source-panel");
+      assert(quickPanel.classList.contains("quick-play-ready") && quickUnit.getAttribute("aria-label").includes("Hold for 1.5 seconds"),
+        "the current addend cell and its keyboard-capable unit expose the quick-play gesture");
+      quickPanel.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, clientX: 8, clientY: 8 }));
+      await waitFor(() => quickApi.snapshot().quickPlayHolding && quickPanel.classList.contains("quick-hold"),
+        "quick-play charge feedback");
+      await new Promise(resolve => setTimeout(resolve, Math.floor(quickApi.snapshot().quickPlayHoldDuration / 2)));
+      quickPanel.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, button: 0 }));
+      await new Promise(resolve => setTimeout(resolve, quickApi.snapshot().quickPlayHoldDuration + 30));
+      assert(!quickApi.snapshot().quickPlayHolding && quickApi.snapshot().onesAcceptedCursor === 0 &&
+        !quickApi.events().some(event => event.type === "quick-hold-complete"),
+        "releasing an addend cell before its tuned hold completes cancels quick play without counting");
+
+      quickUnit = quickDoc.querySelector(".unit.eligible");
+      quickUnit.click();
+      await waitFor(() => quickApi.snapshot().onesLandedCursor === 1 && !quickApi.snapshot().controlsLocked,
+        "single tap before partial-cell quick play");
+      quickApi.clearEvents();
+      await holdCurrentAddendCell(frame);
+      await waitFor(() => quickApi.snapshot().onesLandedCursor === 4 && !quickApi.snapshot().controlsLocked,
+        "remaining first addend cell quick drop");
+      let quickEvents = quickApi.events();
+      let quickStarts = quickEvents.filter(event => event.type === "drop-start" && event.place === "ones");
+      let quickLandings = quickEvents.filter(event => event.type === "drop-landed" && event.quickPlay);
+      assert(quickApi.snapshot().onesAcceptedCursor === 4 && quickStarts.length === 3 && quickLandings.length === 3 &&
+        quickEvents.filter(event => event.type === "quick-impact").length === 3 &&
+        quickStarts[quickStarts.length - 1].at < quickLandings[0].at,
+        "a partial ones cell launches its three remaining blocks concurrently with a dramatic impact per landing");
+      assert(quickEvents.find(event => event.type === "quick-drop-accepted").count === 3 &&
+        quickLandings.every((event, index) => event.index === index + 1),
+        "quick play accepts only the current cell's uncounted blocks and lands them in order");
+
+      quickApi.clearEvents();
+      await holdCurrentAddendCell(frame, "keyboard");
+      await waitFor(() => quickApi.snapshot().phase === "awaiting-answer", "keyboard quick drop completion");
+      quickEvents = quickApi.events();
+      assert(quickApi.snapshot().onesAcceptedCursor === 7 && quickApi.snapshot().onesLandedCursor === 7 &&
+        quickEvents.some(event => event.type === "quick-hold-start" && event.input === "keyboard") &&
+        quickEvents.filter(event => event.type === "drop-landed" && event.quickPlay).length === 3,
+        "holding Space on the glowing block quick-drops the second addend cell without a release-click");
+
+      frame = await openGame("?a=40&b=30&harness=1");
+      quickDoc = frame.contentDocument;
+      quickApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      quickApi.clearEvents();
+      await holdCurrentAddendCell(frame);
+      await waitFor(() => quickApi.snapshot().tensLandedCursor === 4 && !quickApi.snapshot().controlsLocked,
+        "tens-bar quick drop");
+      quickEvents = quickApi.events();
+      assert(quickApi.snapshot().phase === "counting-tens" &&
+        quickEvents.filter(event => event.type === "drop-start" && event.place === "tens").length === 4 &&
+        quickEvents.filter(event => event.type === "quick-impact" && event.place === "tens").length === 4,
+        "long-pressing a Tens addend cell gives every bar the staggered fall and heavy landing treatment");
+
+      frame = await openGame("?a=7&b=5&harness=1");
+      quickDoc = frame.contentDocument;
+      quickApi = frame.contentWindow.NumberGarden.motionDiagnostics;
+      quickApi.clearEvents();
+      await holdCurrentAddendCell(frame);
+      await waitFor(() => quickApi.snapshot().onesLandedCursor === 7 && !quickApi.snapshot().controlsLocked,
+        "first carry-problem quick drop");
+      await holdCurrentAddendCell(frame);
+      await waitFor(() => quickApi.snapshot().visibleOnesCarry && quickApi.snapshot().phase === "counting-tens",
+        "quick drop through ones carry", 5000);
+      quickEvents = quickApi.events();
+      assert(quickApi.snapshot().onesAcceptedCursor === 12 && quickApi.snapshot().onesLandedCursor === 12 &&
+        JSON.stringify(quickEvents.filter(event => event.type === "quick-drop-accepted").map(event => event.count)) === JSON.stringify([7, 5]) &&
+        quickEvents.some(event => event.type === "carry-landed" && event.kind === "ones"),
+        "a quick-drop cell may cross ten while preserving the normal ones-to-tens carry lifecycle");
+
       frame = await openGame("?a=9&b=9&harness=1");
       let motionDoc = frame.contentDocument;
       let motionApi = frame.contentWindow.NumberGarden.motionDiagnostics;
@@ -599,6 +747,22 @@
       assert(motionSnapshot.onesAcceptedCursor === 10 && motionSnapshot.onesLandedCursor === 10 &&
         motionDoc.querySelector('.unit.eligible[data-place="ones"][data-index="10"]'),
         "the ones queue reopens only after the carried ten lands");
+      const onesCarryLeftovers = carryLeftoverSnapshot(frame, "ones");
+      const expectedCarryLeftoverFills = {
+        a: [32, 107, 201, 255],
+        b: [37, 140, 72, 255],
+        carry: [230, 176, 63, 255]
+      };
+      assert(onesCarryLeftovers.luminosity === "90%" && onesCarryLeftovers.blocks.length === 10 &&
+        onesCarryLeftovers.blocks.every(block =>
+          JSON.stringify(block.fill) === JSON.stringify(expectedCarryLeftoverFills[block.owner])),
+        "a completed ones-to-tens carry dims only the leftover fills with the shared 90% luminosity factor");
+      assert(onesCarryLeftovers.outline.includes("rgba(241, 161, 12, 0.55)") &&
+        onesCarryLeftovers.blocks.every(block => block.backgroundImage.includes("repeating-linear-gradient") &&
+          block.opacity === "0.45" && block.filter === "none" &&
+          block.borderTopColor === (block.owner === "a" ? "rgb(7, 86, 188)" :
+            block.owner === "b" ? "rgb(18, 110, 50)" : "rgb(155, 91, 0)")),
+        "ones carry leftovers keep the existing golden outline, owner borders, hatch, and element effects");
       assert(motionDoc.querySelector('[data-carry-destination="tens"].owner-carry'),
         "the permanent carried ten appears at the measured Tens destination");
       let motionEvents = motionApi.events();
@@ -684,6 +848,17 @@
       }, "compact hundreds carry lifecycle", 8000);
       assert(motionDoc.querySelector('.unit.eligible[data-place="tens"][data-index="10"]'),
         "the Tens queue reopens after the carried hundred settles");
+      const tensCarryLeftovers = carryLeftoverSnapshot(frame, "tens");
+      assert(tensCarryLeftovers.luminosity === "90%" && tensCarryLeftovers.blocks.length === 10 &&
+        tensCarryLeftovers.blocks.every(block =>
+          JSON.stringify(block.fill) === JSON.stringify(expectedCarryLeftoverFills[block.owner])),
+        "a completed tens-to-hundreds carry dims only the leftover fills with the shared 90% luminosity factor");
+      assert(tensCarryLeftovers.outline.includes("rgba(241, 161, 12, 0.55)") &&
+        tensCarryLeftovers.blocks.every(block => block.backgroundImage.includes("repeating-linear-gradient") &&
+          block.opacity === "0.45" && block.filter === "none" &&
+          block.borderTopColor === (block.owner === "a" ? "rgb(7, 86, 188)" :
+            block.owner === "b" ? "rgb(18, 110, 50)" : "rgb(155, 91, 0)")),
+        "tens carry leftovers keep the existing golden outline, owner borders, hatch, and element effects");
       const countedTensSource = motionDoc.querySelector(
         '[data-motion-role="source"][data-place="tens"][data-index="0"]'
       );

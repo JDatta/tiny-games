@@ -25,6 +25,7 @@
       --green-soft: #e9f8e8;
       --gold: #f3a712;
       --gold-soft: #fff6d6;
+      --carry-leftover-block-luminosity: 90%;
       --violet: #7256c9;
       --paper: rgba(255, 255, 255, .96);
       --line: #d9e2ee;
@@ -549,6 +550,66 @@
     .place-panel.ones { background: #f8fefd; border-color: #bfe5dd; }
     .result-panel { border-style: dashed; border-width: 2px; }
 
+    .source-panel {
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    .source-panel.quick-play-ready { cursor: pointer; touch-action: none; }
+
+    .source-panel.quick-hold {
+      z-index: 6;
+      border-color: #7256c9;
+      box-shadow: 0 0 0 3px rgba(114,86,201,.18), 0 8px 18px rgba(72,48,145,.16);
+      animation: quick-hold-breathe 720ms ease-in-out infinite alternate;
+    }
+
+    .source-panel.quick-hold::before {
+      content: "";
+      position: absolute;
+      z-index: 8;
+      left: 5px;
+      right: 5px;
+      bottom: 4px;
+      height: 5px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #7256c9, #f3a712, #43a85b);
+      box-shadow: 0 0 9px rgba(114,86,201,.45);
+      pointer-events: none;
+      transform: scaleX(0);
+      transform-origin: left center;
+      animation: quick-hold-charge var(--quick-hold-duration, 1500ms) linear forwards;
+    }
+
+    .source-panel.quick-hold::after {
+      content: "Hold to drop all";
+      position: absolute;
+      z-index: 9;
+      left: 50%;
+      top: 3px;
+      padding: 3px 7px;
+      border: 1px solid rgba(114,86,201,.28);
+      border-radius: 999px;
+      color: #4a3296;
+      background: rgba(255,255,255,.94);
+      box-shadow: 0 2px 6px rgba(72,48,145,.14);
+      font-size: 8px;
+      font-weight: 950;
+      line-height: 1;
+      white-space: nowrap;
+      pointer-events: none;
+      transform: translateX(-50%);
+    }
+
+    @keyframes quick-hold-charge {
+      to { transform: scaleX(1); }
+    }
+
+    @keyframes quick-hold-breathe {
+      to { filter: brightness(1.06); transform: scale(1.018); }
+    }
+
     .digit-label {
       position: absolute;
       right: 7px;
@@ -661,11 +722,13 @@
     }
 
     button.unit { cursor: default; }
-    .unit.owner-a { border-color: #0756bc; background: var(--blue); }
-    .unit.owner-b { border-color: #126e32; background: var(--green); }
+    .unit.owner-a { --unit-fill: var(--blue); border-color: #0756bc; background-color: var(--unit-fill); }
+    .unit.owner-b { --unit-fill: var(--green); border-color: #126e32; background-color: var(--unit-fill); }
     .unit.owner-carry {
+      --unit-fill: #ffc446;
       border-color: #9b5b00;
-      background: repeating-linear-gradient(135deg, #ffc446 0 4px, #f0a000 4px 7px);
+      background-color: var(--unit-fill);
+      background-image: repeating-linear-gradient(135deg, #ffc446 0 4px, #f0a000 4px 7px);
     }
 
     .unit.counted { box-shadow: inset 0 0 0 1px rgba(255,255,255,.72); }
@@ -679,7 +742,11 @@
       filter: saturate(.72);
       box-shadow: inset 0 0 0 2px rgba(255,255,255,.88);
     }
-    .unit.traded { opacity: .45; background-image: repeating-linear-gradient(135deg, transparent 0 3px, rgba(255,255,255,.7) 3px 5px); }
+    .unit.traded {
+      opacity: .45;
+      background-color: color-mix(in srgb, var(--unit-fill) var(--carry-leftover-block-luminosity), black);
+      background-image: repeating-linear-gradient(135deg, transparent 0 3px, rgba(255,255,255,.7) 3px 5px);
+    }
 
     .unit.eligible {
       z-index: 2;
@@ -811,6 +878,18 @@
       pointer-events: none;
       transform-origin: 50% 50%;
       will-change: transform, opacity;
+    }
+
+    .quick-impact-wave {
+      position: fixed;
+      z-index: 89;
+      border: 3px solid rgba(243,167,18,.72);
+      border-radius: 14px;
+      background: radial-gradient(circle at 50% 82%, rgba(255,225,117,.34), rgba(114,86,201,.08) 58%, transparent 72%);
+      box-shadow: inset 0 0 15px rgba(255,196,70,.28), 0 0 0 2px rgba(114,86,201,.16), 0 9px 22px rgba(71,45,22,.2);
+      pointer-events: none;
+      transform-origin: 50% 86%;
+      will-change: transform, opacity, filter;
     }
 
     .motion-overlay.carry-token {
@@ -1289,6 +1368,8 @@
       .board.unlocking .column-title.hundreds,
       .board.unlocking .place-panel.hundreds { outline: 4px solid rgba(114,86,201,.45); outline-offset: -2px; animation: none; }
       .prompt-mascot.reacting, .trade-group.carry-forming .unit { animation: none; }
+      .source-panel.quick-hold { animation: none; filter: brightness(1.05); }
+      .source-panel.quick-hold::before { animation: none; transform: scaleX(1); opacity: .55; }
       .motion-target-flash {
         animation: none;
         outline: 5px solid rgba(114,86,201,.42);
@@ -1746,12 +1827,16 @@
     const PROFILE_KEY = "profile";
     const COOKIE_NAME = "numberGardenProgress";
     const HOLD_DURATION = 650;
+    const QUICK_PLAY_HOLD_DURATION = 3000;
+    const DEFAULT_QUICK_PLAY_SPEED = 2;
     const IDLE_HINT_TIMINGS = Object.freeze({
       standard: Object.freeze({ NEXT_BLOCK: 9000, FIRST_SOLVER_HINT: 60000, SOLVER_REPEAT: 15000 }),
       easy: Object.freeze({ NEXT_BLOCK: 3000, FIRST_SOLVER_HINT: 20000, SOLVER_REPEAT: 5000 })
     });
     const MOTION_TIMINGS = Object.freeze({
       BLOCK_FALL_LAND: 520,
+      QUICK_DROP_STAGGER: 50,
+      QUICK_IMPACT: 320,
       CARRY_FORMATION: 300,
       CARRY_TRAVEL: 560,
       CARRY_LANDING: 140,
@@ -1766,6 +1851,8 @@
     });
     const HARNESS_MOTION_TIMINGS = Object.freeze({
       BLOCK_FALL_LAND: 36,
+      QUICK_DROP_STAGGER: 5,
+      QUICK_IMPACT: 28,
       CARRY_FORMATION: 24,
       CARRY_TRAVEL: 38,
       CARRY_LANDING: 18,
@@ -1783,6 +1870,15 @@
     const diagnosticParams = new URLSearchParams(location.search);
     const harnessMode = diagnosticParams.get("harness") === "1";
     const activeMotionTimings = harnessMode ? HARNESS_MOTION_TIMINGS : MOTION_TIMINGS;
+    const requestedQuickPlaySpeed = Number(diagnosticParams.get("quickPlaySpeed"));
+    const quickPlaySpeed = diagnosticParams.has("quickPlaySpeed") && Number.isFinite(requestedQuickPlaySpeed) &&
+      requestedQuickPlaySpeed >= .5 && requestedQuickPlaySpeed <= 4
+      ? requestedQuickPlaySpeed
+      : DEFAULT_QUICK_PLAY_SPEED;
+    const quickPlayHoldDuration = QUICK_PLAY_HOLD_DURATION / quickPlaySpeed;
+    const activeQuickPlayHoldDuration = (harnessMode ? 120 : QUICK_PLAY_HOLD_DURATION) / quickPlaySpeed;
+    const quickPlayHoldSecondsLabel = String(Number((quickPlayHoldDuration / 1000).toFixed(2)));
+    const quickPlayHoldLabel = quickPlayHoldSecondsLabel + (quickPlayHoldSecondsLabel === "1" ? " second" : " seconds");
     const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches ||
       (harnessMode && diagnosticParams.get("reducedMotion") === "1");
 
@@ -1830,6 +1926,10 @@
     let lastAnnouncement = "";
     const announcementQueue = [];
     let dropDrainPromise = null;
+    let quickPlayHold = null;
+    let quickPlayHoldTimer = 0;
+    let suppressUnitClickUntil = 0;
+    let nextQuickDropBatchId = 1;
     let motionSession = 0;
     let motionSkipRequested = false;
     let diceRefreshState = "idle";
@@ -2463,6 +2563,17 @@
       playDropImpact(place, Math.max(0, durationMs / 1000 - .1));
     }
 
+    function playQuickDropFinalImpact(place) {
+      const base = place === "ones" ? 96 : place === "tens" ? 72 : 58;
+      playTone({ frequency: base, endFrequency: base * .52, duration: .2, volume: .11, type: "triangle" });
+      playTone({ frequency: base * 2.5, endFrequency: base * 1.35, duration: .12, delay: .025, volume: .045, type: "sine" });
+    }
+
+    function vibrate(pattern) {
+      if (reduceMotion || typeof navigator.vibrate !== "function") return;
+      try { navigator.vibrate(pattern); } catch (_) { /* Haptics are optional. */ }
+    }
+
     function playGroupingSound(kind) {
       const base = kind === "ones" ? 520 : 410;
       playTone({ frequency: base, duration: .11, volume: .055, type: "triangle" });
@@ -2661,6 +2772,10 @@
       document.querySelectorAll(".motion-overlay").forEach(overlay => overlay.remove());
     }
 
+    function cleanupImpactEffects() {
+      document.querySelectorAll(".quick-impact-wave").forEach(effect => effect.remove());
+    }
+
     function cleanupTutorialHandCues() {
       document.querySelectorAll(".tutorial-hand-cue").forEach(cue => cue.remove());
     }
@@ -2668,6 +2783,7 @@
     function settleActiveMotionImmediately() {
       if (!isMotionDraining() && activeAnimations.size === 0) {
         cleanupMotionOverlays();
+        cleanupImpactEffects();
         cleanupTutorialHandCues();
         return;
       }
@@ -2676,16 +2792,19 @@
         try { animation.finish(); } catch (_) { animation.cancel(); }
       });
       cleanupMotionOverlays();
+      cleanupImpactEffects();
       cleanupTutorialHandCues();
     }
 
     function abandonActiveMotion() {
+      cancelQuickPlayHold();
       motionSession += 1;
       activeAnimations.forEach(animation => {
         try { animation.cancel(); } catch (_) { /* Animation may already be gone. */ }
       });
       activeAnimations.clear();
       cleanupMotionOverlays();
+      cleanupImpactEffects();
       cleanupTutorialHandCues();
       dropDrainPromise = null;
       motionSkipRequested = false;
@@ -2859,6 +2978,46 @@
       setTimeout(() => element.classList.remove("motion-target-flash"), 280);
     }
 
+    function triggerQuickLandingImpact(place, index, position, total) {
+      const target = resultUnit(place, index);
+      const panel = target && target.closest(".result-panel");
+      const isFinal = position === total - 1;
+      recordMotion("quick-impact", { place, index, position, total, final: isFinal, reduced: reduceMotion });
+      if (isFinal) {
+        playQuickDropFinalImpact(place);
+        vibrate([35, 28, 75]);
+      }
+      if (!panel) return;
+      if (reduceMotion || typeof panel.animate !== "function") {
+        flashMotionTarget(panel);
+        return;
+      }
+      const rect = rectSnapshot(panel);
+      if (!rect) return;
+      const effect = document.createElement("span");
+      effect.className = "quick-impact-wave";
+      effect.setAttribute("aria-hidden", "true");
+      effect.dataset.place = place;
+      effect.dataset.index = String(index);
+      Object.assign(effect.style, {
+        left: rect.left + "px",
+        top: rect.top + "px",
+        width: rect.width + "px",
+        height: rect.height + "px"
+      });
+      document.body.append(effect);
+      const direction = index % 2 ? -1 : 1;
+      animateTracked(effect, [
+        { transform: "translate(0, -2px) scale(.97,1.03)", opacity: .2, filter: "brightness(1.3)" },
+        { offset: .16, transform: "translate(" + (direction * 5) + "px, 3px) scale(1.035,.93)", opacity: .9, filter: "brightness(1.1)" },
+        { offset: .34, transform: "translate(" + (direction * -4) + "px, -2px) scale(.985,1.025)", opacity: .72 },
+        { offset: .52, transform: "translate(" + (direction * 3) + "px, 1px) scale(1.018,.98)", opacity: .55 },
+        { offset: .7, transform: "translate(" + (direction * -2) + "px, 0) scale(1.035,1.02)", opacity: .34 },
+        { transform: "translate(0, 0) scale(1.1,1.06)", opacity: 0, filter: "brightness(1)" }
+      ], { duration: activeMotionTimings.QUICK_IMPACT, easing: "cubic-bezier(.18,.72,.28,1)", fill: "forwards" })
+        .finally(() => effect.remove());
+    }
+
     function clearIdleHints() {
       clearTimeout(nextUnitHintTimer);
       clearTimeout(solverHintTimer);
@@ -2951,6 +3110,9 @@
         unit.type = "button";
         unit.setAttribute("aria-label", label);
         unit.addEventListener("click", onUnitTap);
+        unit.addEventListener("keydown", onQuickPlayKeyDown);
+        unit.addEventListener("keyup", onQuickPlayKeyUp);
+        unit.addEventListener("blur", cancelQuickPlayHold);
       } else {
         unit.setAttribute("aria-hidden", "true");
       }
@@ -3007,11 +3169,29 @@
         canQueuePlaceUnit(progress.accepted, progress.landed, progress.total, progress.carryNeeded, progress.carryVisible);
     }
 
+    function decorateSourcePanel(panel, place, start, end) {
+      panel.classList.add("source-panel");
+      panel.dataset.quickPlace = place;
+      panel.dataset.quickStart = String(start);
+      panel.dataset.quickEnd = String(end);
+      panel.style.setProperty("--quick-hold-duration", activeQuickPlayHoldDuration + "ms");
+      panel.classList.toggle("quick-play-ready", quickDropCellIsCurrent(panel, true));
+      panel.addEventListener("pointerdown", onQuickPlayPointerDown);
+      panel.addEventListener("pointermove", onQuickPlayPointerMove);
+      panel.addEventListener("pointerup", cancelQuickPlayHold);
+      panel.addEventListener("pointercancel", cancelQuickPlayHold);
+      panel.addEventListener("pointerleave", onQuickPlayPointerLeave);
+      panel.addEventListener("contextmenu", event => {
+        if (quickDropCellIsCurrent(panel)) event.preventDefault();
+      });
+      return panel;
+    }
+
     function sourceHundreds() {
       const panel = document.createElement("div");
       panel.className = "place-panel hundreds";
       panel.innerHTML = '<span class="hundred-slot" aria-label="Empty hundreds slot"></span>';
-      return panel;
+      return decorateSourcePanel(panel, "hundreds", 0, 0);
     }
 
     function sourceTens(owner, digit, rowOffset) {
@@ -3025,7 +3205,7 @@
           const eligible = canAcceptPlaceUnit("tens") && state.tensAcceptedCursor === globalIndex;
           const counted = state.tensCursor > globalIndex;
           const queued = state.tensAcceptedCursor > globalIndex && !counted;
-          grid.append(makeUnit(owner, counted, eligible, "Count the next ten", false,
+          grid.append(makeUnit(owner, counted, eligible, "Count the next ten. Hold for " + quickPlayHoldLabel + " to drop the rest of this addend cell.", false,
             { role: "source", place: "tens", index: globalIndex }, queued));
         } else grid.append(makeEmptyUnit());
       }
@@ -3034,7 +3214,7 @@
       label.textContent = digit;
       label.setAttribute("aria-label", digit + " tens out of 10 positions");
       panel.append(grid, label);
-      return panel;
+      return decorateSourcePanel(panel, "tens", rowOffset, rowOffset + digit);
     }
 
     function sourceOnes(owner, digit, rowOffset) {
@@ -3048,7 +3228,7 @@
           const eligible = canAcceptPlaceUnit("ones") && state.onesAcceptedCursor === globalIndex;
           const counted = state.onesCursor > globalIndex;
           const queued = state.onesAcceptedCursor > globalIndex && !counted;
-          strip.append(makeUnit(owner, counted, eligible, "Count the next one", false,
+          strip.append(makeUnit(owner, counted, eligible, "Count the next one. Hold for " + quickPlayHoldLabel + " to drop the rest of this addend cell.", false,
             { role: "source", place: "ones", index: globalIndex }, queued));
         } else strip.append(makeEmptyUnit());
       }
@@ -3057,7 +3237,7 @@
       label.textContent = digit;
       label.setAttribute("aria-label", digit + " ones out of 10 positions");
       panel.append(strip, label);
-      return panel;
+      return decorateSourcePanel(panel, "ones", rowOffset, rowOffset + digit);
     }
 
     function resultHundreds() {
@@ -3311,6 +3491,9 @@
       elements.board.append(resultLabel);
       if (showHundreds) elements.board.append(resultHundreds());
       elements.board.append(resultTens(), resultOnes());
+      elements.board.querySelectorAll(".source-panel").forEach(panel => {
+        panel.classList.toggle("quick-play-ready", quickDropCellIsCurrent(panel));
+      });
       if (hundredsUnlockPending) {
         hundredsUnlockPending = false;
         setTimeout(() => elements.board.classList.remove("unlocking"), reduceMotion ? 1800 : 1450);
@@ -3477,12 +3660,147 @@
       return pauseTutorialStage("prompt-change", promptKey, session);
     }
 
+    function quickDropCellIsCurrent(panel, allowDisconnected = false) {
+      if (!panel || (!allowDisconnected && !panel.isConnected) || !state || solverRunning || diceRefreshState !== "idle" || isDialogOpen() || isMotionDraining() ||
+          state.phase === "completed") return false;
+      const place = panel.dataset.quickPlace;
+      const start = Number(panel.dataset.quickStart);
+      const end = Number(panel.dataset.quickEnd);
+      if (!place || !Number.isInteger(start) || !Number.isInteger(end) || end <= start) return false;
+      const progress = placeProgress(place);
+      return state.phase === progress.phase && progress.accepted >= start && progress.accepted < end;
+    }
+
+    function cancelQuickPlayHold() {
+      clearTimeout(quickPlayHoldTimer);
+      quickPlayHoldTimer = 0;
+      if (quickPlayHold && quickPlayHold.panel) quickPlayHold.panel.classList.remove("quick-hold");
+      quickPlayHold = null;
+    }
+
+    function completeQuickPlayHold() {
+      const hold = quickPlayHold;
+      quickPlayHoldTimer = 0;
+      if (!hold || !quickDropCellIsCurrent(hold.panel)) {
+        cancelQuickPlayHold();
+        return;
+      }
+      hold.panel.classList.remove("quick-hold");
+      quickPlayHold = null;
+      suppressUnitClickUntil = performance.now() + 700;
+      recordMotion("quick-hold-complete", {
+        place: hold.panel.dataset.quickPlace,
+        start: Number(hold.panel.dataset.quickStart),
+        end: Number(hold.panel.dataset.quickEnd),
+        input: hold.input
+      });
+      vibrate([18, 22, 38]);
+      const drain = acceptQuickDropCell(hold.panel);
+      if (drain) trackGameStarted();
+    }
+
+    function beginQuickPlayHold(panel, input, event = null) {
+      if (!quickDropCellIsCurrent(panel)) return false;
+      cancelQuickPlayHold();
+      noteActivity();
+      quickPlayHold = {
+        panel,
+        input,
+        pointerId: event && event.pointerId,
+        startX: event && Number.isFinite(event.clientX) ? event.clientX : 0,
+        startY: event && Number.isFinite(event.clientY) ? event.clientY : 0
+      };
+      panel.classList.add("quick-hold");
+      recordMotion("quick-hold-start", {
+        place: panel.dataset.quickPlace,
+        start: Number(panel.dataset.quickStart),
+        end: Number(panel.dataset.quickEnd),
+        duration: activeQuickPlayHoldDuration,
+        input
+      });
+      quickPlayHoldTimer = setTimeout(completeQuickPlayHold, activeQuickPlayHoldDuration);
+      return true;
+    }
+
+    function onQuickPlayPointerDown(event) {
+      if (event.button !== undefined && event.button !== 0) return;
+      beginQuickPlayHold(event.currentTarget, "pointer", event);
+    }
+
+    function onQuickPlayPointerMove(event) {
+      if (!quickPlayHold || quickPlayHold.input !== "pointer" || quickPlayHold.panel !== event.currentTarget) return;
+      if (quickPlayHold.pointerId !== undefined && event.pointerId !== undefined &&
+          quickPlayHold.pointerId !== event.pointerId) return;
+      const deltaX = event.clientX - quickPlayHold.startX;
+      const deltaY = event.clientY - quickPlayHold.startY;
+      if (Math.hypot(deltaX, deltaY) > 14) cancelQuickPlayHold();
+    }
+
+    function onQuickPlayPointerLeave(event) {
+      if (quickPlayHold && quickPlayHold.input === "pointer" && quickPlayHold.panel === event.currentTarget) {
+        cancelQuickPlayHold();
+      }
+    }
+
+    function onQuickPlayKeyDown(event) {
+      if (event.key !== " ") return;
+      if (event.repeat) {
+        if (event.currentTarget.dataset.quickKeyHold === "true") event.preventDefault();
+        return;
+      }
+      const panel = event.currentTarget.closest(".source-panel");
+      if (!panel || !beginQuickPlayHold(panel, "keyboard", event)) return;
+      event.preventDefault();
+      event.currentTarget.dataset.quickKeyHold = "true";
+    }
+
+    function onQuickPlayKeyUp(event) {
+      if (event.key !== " " || event.currentTarget.dataset.quickKeyHold !== "true") return;
+      event.preventDefault();
+      delete event.currentTarget.dataset.quickKeyHold;
+      const completed = performance.now() < suppressUnitClickUntil;
+      cancelQuickPlayHold();
+      if (!completed && event.currentTarget.isConnected) event.currentTarget.click();
+    }
+
     function onUnitTap(event) {
       const unit = event.currentTarget;
+      if (performance.now() < suppressUnitClickUntil) return;
       if (!unit || solverRunning || diceRefreshState !== "idle" || isDialogOpen() || state.phase === "completed") return;
       noteActivity();
       const drain = acceptPlaceUnit(unit.dataset.place, unit, false);
       if (drain) trackGameStarted();
+    }
+
+    function acceptQuickDropCell(panel) {
+      if (!quickDropCellIsCurrent(panel)) return null;
+      const place = panel.dataset.quickPlace;
+      const progress = placeProgress(place);
+      const start = progress.accepted;
+      const end = Math.min(Number(panel.dataset.quickEnd), progress.total);
+      const batchId = nextQuickDropBatchId++;
+      const items = [];
+      for (let index = start; index < end; index += 1) {
+        const unit = sourceUnit(place, index);
+        if (!unit) return null;
+        items.push({
+          place,
+          index,
+          owner: unit.dataset.owner || (place === "ones" ? ownerForOnes(index) : place === "tens" ? ownerForTens(index) : "carry"),
+          origin: rectSnapshot(unit),
+          quickPlay: true,
+          batchId
+        });
+      }
+      if (!items.length) return null;
+      if (place === "ones") state.onesAcceptedCursor = end;
+      else if (place === "tens") state.tensAcceptedCursor = end;
+      else state.hundredsAcceptedCursor = end;
+      state.dropQueue.push(...items);
+      state.animationState = "quick-drop";
+      recordMotion("quick-drop-accepted", { place, start, end, count: items.length, batchId });
+      render();
+      return ensureDropDrain();
     }
 
     function acceptPlaceUnit(place, unit, allowSolver) {
@@ -3539,7 +3857,6 @@
         if (!item.origin || !destination) motionSkipRequested = true;
         return true;
       }
-      cleanupMotionOverlays();
       const overlay = makeMotionOverlay(item.origin,
         "unit owner-" + item.owner + (item.place === "hundreds" ? " hundred-slot filled" : ""), {
         motionKind: "drop", place: item.place, index: item.index
@@ -3566,9 +3883,88 @@
       return false;
     }
 
+    async function drainQuickDropBatch(batch, session) {
+      const place = batch[0].place;
+      const batchId = batch[0].batchId;
+      state.animationState = "quick-drop";
+      recordMotion("quick-drop-start", { place, count: batch.length, batchId });
+      const flights = batch.map((item, position) => (async () => {
+        if (position) await pause(position * activeMotionTimings.QUICK_DROP_STAGGER);
+        if (!state || session !== motionSession) return true;
+        return animateDrop(item);
+      })());
+
+      for (let position = 0; position < batch.length; position += 1) {
+        const item = batch[position];
+        const useStaticFlash = await flights[position];
+        if (!state || session !== motionSession) return false;
+        if (item.place === "ones") state.onesCursor = Math.max(state.onesCursor, item.index + 1);
+        else if (item.place === "tens") state.tensCursor = Math.max(state.tensCursor, item.index + 1);
+        else state.hundredsCursor = Math.max(state.hundredsCursor, item.index + 1);
+        state.tempCount = item.index + 1;
+        recordMotion("drop-landed", {
+          place: item.place,
+          index: item.index,
+          landed: item.index + 1,
+          quickPlay: true,
+          batchId
+        });
+        render();
+        if (useStaticFlash) flashMotionTarget(resultUnit(item.place, item.index));
+        triggerQuickLandingImpact(item.place, item.index, position, batch.length);
+      }
+
+      if (!state || session !== motionSession) return false;
+      state.dropQueue.splice(0, batch.length);
+      recordMotion("quick-drop-complete", {
+        place,
+        count: batch.length,
+        batchId,
+        landed: placeProgress(place).landed
+      });
+      const landedName = batch.length === 1 ? place.replace(/s$/, "") : place;
+      announce("Quick drop. " + batch.length + " " + landedName + " landed together. Count " + placeProgress(place).landed + ".");
+
+      const crossedCarryBoundary = place === "ones" && state.onesCursor >= 10 && problem.carryToTens && !state.visibleOnesCarry
+        ? "ones"
+        : place === "tens" && state.tensCursor >= 10 && problem.carryToHundreds && !state.visibleHundredsCarry
+          ? "hundreds"
+          : null;
+      if (crossedCarryBoundary) {
+        state.animationState = "carry-pause";
+        render();
+        await pause(0);
+        await performCarry(crossedCarryBoundary, session);
+        if (!state || session !== motionSession) return false;
+      }
+
+      state.animationState = state.dropQueue.length
+        ? (state.dropQueue[0].quickPlay ? "quick-drop" : "drop")
+        : null;
+      render();
+      if (!state.dropQueue.length) {
+        const progress = placeProgress(place);
+        if (progress.landed >= progress.total) {
+          if (place === "ones") finishOnesPlace();
+          else if (place === "tens") finishTensPlace();
+          else finishHundredsPlace();
+        }
+      }
+      return true;
+    }
+
     async function drainDropQueue(session) {
       while (state && session === motionSession && state.dropQueue.length) {
         const item = state.dropQueue[0];
+        if (item.quickPlay) {
+          const batch = [];
+          for (const queued of state.dropQueue) {
+            if (!queued.quickPlay || queued.batchId !== item.batchId) break;
+            batch.push(queued);
+          }
+          if (!await drainQuickDropBatch(batch, session)) return;
+          continue;
+        }
         const useStaticFlash = await animateDrop(item);
         if (!state || session !== motionSession) return;
         if (item.place === "ones") state.onesCursor = item.index + 1;
@@ -4231,7 +4627,12 @@
         diceRefreshCount,
         diceFace,
         activeOverlayCount: document.querySelectorAll(".motion-overlay").length,
+        activeImpactCount: document.querySelectorAll(".quick-impact-wave").length,
         activeHandCueCount: document.querySelectorAll(".tutorial-hand-cue").length,
+        quickPlayHolding: Boolean(quickPlayHold),
+        quickPlaySpeed,
+        productionQuickPlayHoldDuration: quickPlayHoldDuration,
+        quickPlayHoldDuration: activeQuickPlayHoldDuration,
         beetleReactionCount,
         soundEffectCount,
         lastAnnouncement,
@@ -4283,6 +4684,8 @@
         CURRENT_LEVEL_ADVANCEMENT_TARGET,
         HIGHER_LEVEL_ADVANCEMENT_TARGET,
         HUNDREDS_UNLOCK_LEVEL,
+        QUICK_PLAY_HOLD_DURATION,
+        DEFAULT_QUICK_PLAY_SPEED,
         GAME_VERSION,
         PROFILE_SCHEMA_VERSION,
         DIFFICULTY_MODES,

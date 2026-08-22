@@ -12,6 +12,19 @@ Number Garden is a client-only application implemented as one standalone HTML do
 
 The runtime separates pure problem arithmetic (`problem`), temporary interaction progress (`state`), and durable browser data (`profile`). Rendering is derived from those values; the DOM and CSS classes are never the source of mathematical truth.
 
+## Glossary
+
+| Term | Meaning |
+| --- | --- |
+| **addend** | Either number being added in a problem. |
+| **result** | The sum of the addends. |
+| **addend cells** | The table cells for an addend's Hundreds, Tens, and Ones places. Each addend row has up to three cells. |
+| **result cells** | The table cells for the result's Hundreds, Tens, and Ones places. The result row has up to three cells. |
+| **cell** | One place-value table cell—not an individual visual item. |
+| **block** or **unit** | An item in an Ones cell, worth 1. |
+| **bar** or **rod** | An item in a Tens cell, worth 10, or in a Hundreds cell, worth 100. |
+| **Guide beetle** | The speaking beetle that guides the learner through the game. |
+
 ## Files
 
 | Path | Purpose |
@@ -46,7 +59,7 @@ The runtime separates pure problem arithmetic (`problem`), temporary interaction
 - Preserve direct `file://` operation as well as `python3 server.py`. Browser storage is best-effort, so the game must remain playable when IndexedDB or cookies are unavailable.
 - Keep arithmetic in pure helpers such as `deriveProblem()`, transient interaction data in `state`, durable preferences and rewards in `profile`, and DOM construction in render helpers.
 - A new or changed phase must be handled consistently by prompts, enabled-unit selection, input locks, manual advancement, Solver, accessibility announcements, and rendering.
-- Only the next valid block is interactive. Do not make rendered order, CSS state, or arbitrary tap order determine the count.
+- Only the next valid place-value item is interactive. Do not make rendered order, CSS state, or arbitrary tap order determine the count. See the glossary for the place-specific names: Ones blocks/units and Tens or Hundreds bars/rods.
 - Carry behavior is derived from the addends. Validate no-carry, ones-carry, tens-carry, and two-carry cases, including zero ones and a result of `198`.
 - Keep the nine curriculum predicates, generated `curriculumLevel` tags, and weighted sampler aligned. L8 intentionally overlaps L7/L9 arithmetic and distinguishes its 50/50 patterns with `curriculumPattern`.
 - Startup, Next, suggestions, alternative refresh, and dice alternatives must all use `sampleCurriculumProblem()` and preserve unordered recent-pair avoidance.
