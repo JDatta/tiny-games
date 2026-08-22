@@ -76,7 +76,8 @@
       frame.title = "Game under test";
       frame.src = "../index.html" + query;
       document.body.append(frame);
-      await waitFor(() => frame.contentWindow.NumberGarden && frame.contentDocument.querySelector(".row-label"), "game initialization");
+      await waitFor(() => frame.contentWindow.NumberGarden &&
+        frame.contentWindow.NumberGarden.motionDiagnostics.snapshot(), "game initialization");
       const launchDialog = frame.contentDocument.querySelector("#launchDialog");
       if (launchChoice && launchDialog.open) {
         frame.contentDocument.querySelector(launchChoice === "tutorial" ? "#launchTutorialButton" : "#launchStartButton").click();
@@ -238,6 +239,38 @@
       return actions;
     }
 
+    async function finishMultiplication(frame, pullAll = false) {
+      const doc = frame.contentDocument;
+      const diagnostics = frame.contentWindow.NumberGarden.motionDiagnostics;
+      let actions = 0;
+      while (diagnostics.snapshot().phase !== "awaiting-answer" && actions < 120) {
+        await waitFor(() => doc.querySelector(".unit.eligible") && !diagnostics.snapshot().controlsLocked,
+          "next multiplication action", 15000);
+        const phase = diagnostics.snapshot().phase;
+        if (phase === "multiplication-consuming-ones" && pullAll) {
+          await beginCurrentQuickDrop(frame);
+        } else doc.querySelector(".unit.eligible").click();
+        await waitFor(() => !diagnostics.snapshot().controlsLocked, "multiplication action settlement", 15000);
+        actions += 1;
+      }
+      if (diagnostics.snapshot().phase !== "awaiting-answer") throw new Error("Multiplication did not reach the answer phase");
+      return actions;
+    }
+
+    function colorContrast(first, second) {
+      const channel = value => {
+        value /= 255;
+        return value <= .03928 ? value / 12.92 : Math.pow((value + .055) / 1.055, 2.4);
+      };
+      const parse = color => (color.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+      const luminance = color => {
+        const [red = 0, green = 0, blue = 0] = parse(color).map(channel);
+        return .2126 * red + .7152 * green + .0722 * blue;
+      };
+      const left = luminance(first), right = luminance(second);
+      return (Math.max(left, right) + .05) / (Math.min(left, right) + .05);
+    }
+
     async function advanceSubtractionToPhase(frame, targetPhase) {
       const doc = frame.contentDocument;
       const diagnostics = frame.contentWindow.NumberGarden.motionDiagnostics;
@@ -371,12 +404,13 @@
         "a persisted launch choice prevents the dialog on reload");
       assert(analyticsEntries(frame, "event", "game_start").length === 0,
         "a returning-player reload waits for genuine engagement before tracking a start");
+      await waitFor(() => frame.contentDocument.querySelector(".unit.eligible"), "returning-player eligible unit");
       frame.contentDocument.querySelector(".unit.eligible").click();
       assert(analyticsEntries(frame, "event", "game_start").length === 1,
         "a returning player's first accepted block emits the gameplay start event");
       const legacyV3Profile = {
         schemaVersion: 3, score: 0, emojiProgress: 0, sound: true, difficultyMode: "standard",
-        currentLevel: 1, currentLevelSuccesses: 0, higherLevelSuccesses: 0, updatedAt: Date.now() + 5000
+        currentLevel: 1, currentLevelSuccesses: 0, higherLevelSuccesses: 0, updatedAt: Date.now() + 10000000
       };
       document.cookie = "numberGardenProgress=" + encodeURIComponent(JSON.stringify(legacyV3Profile)) + "; Path=/; SameSite=Lax";
       frame = await openGame("?legacyProfileReload=1&harness=1");
@@ -384,7 +418,7 @@
         "an established v3 profile migrates without showing the new launch dialog");
       const api = frame.contentWindow.NumberGarden;
 
-      assert(api.LEVEL_DEFINITIONS.length === 15, "all fifteen level definitions are exposed");
+      assert(api.LEVEL_DEFINITIONS.length === 20, "all twenty level definitions are exposed");
       assert(api.constants.PROFILE_SCHEMA_VERSION === 4, "profile schema v4 is exposed");
       assert(api.constants.GAME_VERSION === "2.0.0+62d794c" &&
         frame.contentDocument.querySelector("[data-version]").textContent === api.constants.GAME_VERSION,
@@ -508,10 +542,13 @@
         "counting-ones", "counting-tens", "counting-tens-with-carry", "skip-zero-ones", "carrying-ones",
         "carrying-hundreds", "awaiting-answer", "completed", "place-value-fallback",
         "subtraction-minuend-ones", "subtraction-minuend-tens", "subtraction-subtrahend-ones",
-        "subtraction-borrowing", "subtraction-subtrahend-tens", "subtraction-awaiting-answer", "subtraction-completed"
+        "subtraction-borrowing", "subtraction-subtrahend-tens", "subtraction-awaiting-answer", "subtraction-completed",
+        "multiplication-consuming-ones", "multiplication-converting-ten", "multiplication-pulling",
+        "multiplication-regrouping-ones", "multiplication-regrouping-tens", "multiplication-awaiting-answer",
+        "multiplication-completed"
       ];
       assert(JSON.stringify(Object.keys(api.PROMPT_POOLS).sort()) === JSON.stringify(promptKeys.slice().sort()),
-        "all addition and subtraction beetle prompt pools are exposed");
+        "all addition, subtraction, and multiplication beetle prompt pools are exposed");
       promptKeys.forEach(key => {
         const pool = api.PROMPT_POOLS[key];
         assert(Object.isFrozen(pool) && pool.length >= 4, key + " has frozen prompt variants");
@@ -522,10 +559,10 @@
           key + " uses only supported prompt placeholders");
       });
       assert(Object.isFrozen(api.PROMPT_POOLS), "the beetle prompt pool collection is frozen");
-      assert(["completed", "subtraction-completed"].every(key => api.PROMPT_POOLS[key].every(message =>
+      assert(["completed", "subtraction-completed", "multiplication-completed"].every(key => api.PROMPT_POOLS[key].every(message =>
         message.includes("{a}") && message.includes("{b}") && message.includes("{result}"))),
         "every operation-specific completion prompt includes the full equation");
-      assert(promptKeys.filter(key => !["completed", "subtraction-completed"].includes(key)).every(key =>
+      assert(promptKeys.filter(key => !["completed", "subtraction-completed", "multiplication-completed"].includes(key)).every(key =>
         api.PROMPT_POOLS[key].every(message => !message.includes("{"))),
         "only completion prompts contain dynamic placeholders");
       assert(api.selectPromptTemplate(["first", "second"], "first", sequence(0)) === "second",
@@ -567,7 +604,7 @@
       assert(api.problemMatchesLevel(api.deriveProblem(50, 50), 8, "tens-only"), "L8 tags its tens-only pattern");
       assert(api.problemMatchesLevel(api.deriveProblem(55, 55), 8, "both-carries"), "L8 tags its both-carries pattern");
 
-      for (let level = 1; level <= 15; level += 1) {
+      for (let level = 1; level <= 20; level += 1) {
         let allValid = true;
         for (let index = 0; index < 40; index += 1) {
           const model = api.generateProblemForLevel(level);
@@ -612,14 +649,74 @@
       assert(api.sampleCurriculumProblem(15, new Set(), sequence(.4999, 0, 0, 0)).operation === "addition" &&
         api.sampleCurriculumProblem(15, new Set(), sequence(.5, 0, 0, 0)).operation === "subtraction",
         "the L15 sampler passes its first random boundary directly to operation selection");
+      assert(Array.from({ length: 12 }, (_, index) =>
+        api.generateProblemForLevel(15, new Set(), sequence(index % 2 ? .8 : .2, .4, .3, .2)).operation
+      ).every(operation => operation !== "multiplication"),
+        "L15 remains isolated from multiplication previews");
+
+      const multiplicationExamples = [
+        [16, 7, 8], [17, 27, 3], [18, 3, 27], [19, 27, 37]
+      ];
+      multiplicationExamples.forEach(([level, a, b]) => {
+        const model = api.deriveProblem(a, b, "multiplication");
+        assert(api.problemMatchesLevel(model, level) && model.result <= 999,
+          "role-sensitive multiplication operands match L" + level);
+      });
+      let oversizedProductRejected = false;
+      try { api.deriveProblem(99, 99, "multiplication"); } catch (error) { oversizedProductRejected = error.name === "RangeError"; }
+      assert(oversizedProductRejected && api.deriveProblem(27, 37, "multiplication").result === 999,
+        "multiplication accepts the exact maximum product and rejects products above 999");
+      let multiplicationPartitionIsExact = true;
+      for (let multiplicand = 1; multiplicand <= 99; multiplicand += 1) {
+        for (let multiplier = 1; multiplier <= 99; multiplier += 1) {
+          if (multiplicand * multiplier > 999) continue;
+          const model = api.deriveProblem(multiplicand, multiplier, "multiplication");
+          const expectedLevel = multiplicand < 10
+            ? (multiplier < 10 ? 16 : 18)
+            : (multiplier < 10 ? 17 : 19);
+          const matchingLevels = [16, 17, 18, 19].filter(level => api.problemMatchesLevel(model, level));
+          multiplicationPartitionIsExact &&= matchingLevels.length === 1 && matchingLevels[0] === expectedLevel &&
+            api.problemMatchesLevel(model, 20);
+        }
+      }
+      assert(multiplicationPartitionIsExact,
+        "every allowed ordered multiplication belongs to exactly one L16–L19 role pattern and L20 review");
+      for (let level = 16; level <= 19; level += 1) {
+        let generatedAreBounded = true;
+        for (let index = 0; index < 120; index += 1) {
+          const model = api.generateProblemForLevel(level);
+          generatedAreBounded &&= model.operation === "multiplication" && model.result <= 999 &&
+            api.problemMatchesLevel(model, level);
+        }
+        assert(generatedAreBounded, "generated L" + level + " multiplication preserves digit roles and the product bound");
+      }
+      const l20Addition = api.generateProblemForLevel(20, new Set(), sequence(.3999, 0, 0, 0, 0));
+      const l20Subtraction = api.generateProblemForLevel(20, new Set(), sequence(.4, 0, 0, 0));
+      const l20SubtractionUpper = api.generateProblemForLevel(20, new Set(), sequence(.6999, .9999, 0));
+      const l20Multiplication = api.generateProblemForLevel(20, new Set(), sequence(.7, 0, 0));
+      const l20AdditionUpper = api.generateProblemForLevel(20, new Set(), sequence(.3999, .9999, 0, 0));
+      const l20MultiplicationUpper = api.generateProblemForLevel(20, new Set(), sequence(.9999, .9999, 0));
+      assert(l20Addition.operation === "addition" && l20Addition.curriculumLevel === 20 && l20Addition.curriculumSourceLevel === 1,
+        "L20 selects addition below the exact 40% boundary");
+      assert(l20Subtraction.operation === "subtraction" && l20Subtraction.curriculumSourceLevel === 10 &&
+        l20SubtractionUpper.operation === "subtraction" && l20SubtractionUpper.curriculumSourceLevel === 14,
+        "L20 selects uniform subtraction review from 40% through the 70% boundary");
+      assert(l20Multiplication.operation === "multiplication" && l20Multiplication.curriculumLevel === 20 &&
+        l20Multiplication.curriculumSourceLevel === 16,
+        "L20 selects uniform multiplication review at the exact 70% boundary");
+      assert(l20AdditionUpper.curriculumSourceLevel === 9 && l20MultiplicationUpper.curriculumSourceLevel === 19,
+        "L20 review reaches the full uniform L1–L9 and L16–L19 source ranges");
       assert(api.problemKey(4, 7, "addition") === api.problemKey(7, 4, "addition") &&
-        api.problemKey(9, 4, "subtraction") !== api.problemKey(4, 9, "subtraction"),
-        "recent-problem keys are unordered for addition and ordered for subtraction");
+        api.problemKey(9, 4, "subtraction") !== api.problemKey(4, 9, "subtraction") &&
+        api.problemKey(9, 4, "multiplication") !== api.problemKey(4, 9, "multiplication"),
+        "recent-problem keys are unordered only for addition and ordered for role-sensitive operations");
       const excludedAddition = api.generateProblemForLevel(1, new Set([api.problemKey(1, 1, "addition")]), sequence(0, 0));
       const excludedSubtraction = api.generateProblemForLevel(10, new Set([api.problemKey(1, 1, "subtraction")]), sequence(0));
+      const excludedMultiplication = api.generateProblemForLevel(16, new Set([api.problemKey(1, 1, "multiplication")]), sequence(0));
       assert(api.problemKey(excludedAddition) !== api.problemKey(1, 1, "addition") &&
-        api.problemKey(excludedSubtraction) !== api.problemKey(1, 1, "subtraction"),
-        "operation-aware exclusions remove matching generated addition and subtraction problems");
+        api.problemKey(excludedSubtraction) !== api.problemKey(1, 1, "subtraction") &&
+        api.problemKey(excludedMultiplication) !== api.problemKey(1, 1, "multiplication"),
+        "operation-aware exclusions remove matching generated problems for all three operations");
       let negativeRejected = false;
       try { api.deriveProblem(4, 9, "subtraction"); } catch (error) { negativeRejected = error.name === "RangeError"; }
       assert(negativeRejected && api.deriveProblem(42, 42, "subtraction").result === 0 &&
@@ -663,6 +760,14 @@
       assert(api.selectCurriculumLevel(14, sequence(.5999)) === 14 && api.selectCurriculumLevel(14, sequence(.6, 0)) === 1 &&
         api.selectCurriculumLevel(15, sequence(0)) === 15,
         "L14 gates early mixed review while L15 samples its internal operation mix");
+      assert(api.selectCurriculumLevel(16, sequence(.4999)) === 16 && api.selectCurriculumLevel(16, sequence(.5)) === 17 &&
+        api.selectCurriculumLevel(16, sequence(.75, 0)) === 1 && api.selectCurriculumLevel(18, sequence(.5)) === 19,
+        "L16–L18 retain the normal current, next, and lower-review boundaries");
+      assert(api.selectCurriculumLevel(19, sequence(.5999)) === 19 &&
+        api.selectCurriculumLevel(19, sequence(.6, 0)) === 1 &&
+        api.selectCurriculumLevel(19, sequence(.6, .9999)) === 18 &&
+        api.selectCurriculumLevel(20, sequence(0)) === 20,
+        "L19 gates L20 while reviewing the full L1–L18 range and L20 owns its internal mix");
 
       function freshAt(level) {
         return { ...api.defaultProfile(), currentLevel: level, currentLevelSuccesses: 0, higherLevelSuccesses: 0 };
@@ -700,15 +805,22 @@
       transition = api.applyProgressForSuccess(progress, 15);
       assert(transition.credit === "none" && transition.profile.higherLevelSuccesses === 0,
         "L14 advances only through its current-level success path");
-      for (let level = 9; level <= 14; level += 1) {
+      progress = freshAt(19);
+      transition = api.applyProgressForSuccess(progress, 20);
+      assert(transition.credit === "none" && transition.profile.higherLevelSuccesses === 0,
+        "L19 cannot receive early L20 credit and advances only through current-level work");
+      for (let level = 9; level <= 19; level += 1) {
         progress = freshAt(level);
         for (let success = 0; success < 4; success += 1) progress = api.applyProgressForSuccess(progress, level).profile;
         assert(progress.currentLevel === level + 1 && progress.currentLevelSuccesses === 0 && progress.higherLevelSuccesses === 0,
           "four current-level successes advance L" + level + " to L" + (level + 1));
       }
       progress = freshAt(15);
-      transition = api.applyProgressForSuccess(progress, 15);
-      assert(!transition.advanced && transition.profile.currentLevel === 15 && transition.profile.currentLevelSuccesses === 0, "L15 is capped");
+      for (let success = 0; success < 4; success += 1) progress = api.applyProgressForSuccess(progress, 15).profile;
+      assert(progress.currentLevel === 16, "four L15 review successes advance into multiplication");
+      progress = freshAt(20);
+      transition = api.applyProgressForSuccess(progress, 20);
+      assert(!transition.advanced && transition.profile.currentLevel === 20 && transition.profile.currentLevelSuccesses === 0, "L20 is capped");
 
       const migrated = api.validateProfile({ schemaVersion: 1, score: 70, emojiProgress: 7, sound: false, updatedAt: 123 });
       assert(migrated.schemaVersion === 4 && migrated.score === 70 && migrated.emojiProgress === 7 && !migrated.sound &&
@@ -736,10 +848,10 @@
       assert(validV4 && !validV4.launchChoiceMade && api.defaultProfile().launchChoiceMade === false &&
         api.validateProfile({ ...validEasyV3, schemaVersion: 4, launchChoiceMade: undefined }) === null,
         "v4 persists the required launchChoiceMade boolean and new profiles default it to false");
-      const validLevelFifteenV4 = api.validateProfile({ ...validV4, currentLevel: 15, currentLevelSuccesses: 3, higherLevelSuccesses: 1 });
-      assert(validLevelFifteenV4 && validLevelFifteenV4.schemaVersion === 4 && validLevelFifteenV4.currentLevel === 15 &&
-        validLevelFifteenV4.currentLevelSuccesses === 3 && validLevelFifteenV4.higherLevelSuccesses === 1,
-        "schema-v4 validation accepts L15 profiles without migration");
+      const validLevelTwentyV4 = api.validateProfile({ ...validV4, currentLevel: 20, currentLevelSuccesses: 3, higherLevelSuccesses: 1 });
+      assert(validLevelTwentyV4 && validLevelTwentyV4.schemaVersion === 4 && validLevelTwentyV4.currentLevel === 20 &&
+        validLevelTwentyV4.currentLevelSuccesses === 3 && validLevelTwentyV4.higherLevelSuccesses === 1,
+        "schema-v4 validation accepts L20 profiles without migration");
 
       const modeDoc = frame.contentDocument;
       await countNextUnits(frame, 1);
@@ -2015,15 +2127,178 @@
         destructionOverlap(tutorialDestructionEvents) === 1 && subtractionApi.motionDiagnostics.snapshot().activeDestructionCount === 0,
         "Tutorial waits for each full non-overlapping shatter, completes subtraction, and awards no reward");
 
+      frame = await openGame("?op=multiplication&a=12&b=23&harness=1");
+      assert(frame.contentDocument.querySelector("#equationA").textContent === "12" &&
+        frame.contentDocument.querySelector("#equationB").textContent === "23" &&
+        frame.contentDocument.querySelector("#equationOperator").textContent === "×",
+        "the multiplication query accepts ordered 12 × 23 operands");
+
+      frame = await openGame("?op=multiplication&a=99&b=99&harness=1");
+      assert(!(frame.contentDocument.querySelector("#equationA").textContent === "99" &&
+        frame.contentDocument.querySelector("#equationB").textContent === "99" &&
+        frame.contentDocument.querySelector("#equationOperator").textContent === "×"),
+        "an oversized forced multiplication falls back to curriculum sampling");
+
+      frame = await openGame("?op=multiplication&a=4&b=3&harness=1");
+      let multiplicationDoc = frame.contentDocument;
+      let multiplicationApi = frame.contentWindow.NumberGarden;
+      setSound(frame, true);
+      let multiplicationSnapshot = multiplicationApi.motionDiagnostics.snapshot();
+      const multiplicationSoundBaseline = multiplicationSnapshot.soundEffectCount;
+      const multiplicandMarkup = multiplicationDoc.querySelector(".multiplication-column.multiplicand").textContent;
+      const multiplicationForeground = getComputedStyle(multiplicationDoc.querySelector(".first-number")).color;
+      const multiplicationBackground = getComputedStyle(multiplicationDoc.querySelector(".equation-card")).backgroundColor;
+      assert(multiplicationSnapshot.phase === "multiplication-consuming-ones" &&
+        multiplicationDoc.body.classList.contains("operation-multiplication") &&
+        !multiplicationDoc.body.classList.contains("operation-addition") && !multiplicationDoc.body.classList.contains("operation-subtraction") &&
+        multiplicationDoc.querySelector("#equationOperator").textContent === "×" &&
+        JSON.stringify(Array.from(multiplicationDoc.querySelectorAll(".multiplication-role-title"), title => title.textContent)) ===
+          JSON.stringify(["Multiplicand", "Multiplier", "Product"]) &&
+        multiplicationDoc.querySelector(".equation-card").getAttribute("aria-label").includes("4 times 3") &&
+        colorContrast(multiplicationForeground, multiplicationBackground) >= 4.5,
+        "multiplication activates an accessible forest/mint theme, times semantics, and its three-role board");
+      assert(!multiplicationDoc.querySelector(".multiplicand button") &&
+        !multiplicationDoc.querySelector(".multiplier-tens-place.source-panel") &&
+        multiplicationDoc.querySelectorAll(".multiplier .source-panel").length === 1 &&
+        multiplicationDoc.querySelector(".multiplier-ones-place .unit.eligible").getAttribute("aria-label").includes("Pull All") &&
+        !multiplicationDoc.querySelector(".multiplier").textContent.includes("Drop All"),
+        "the multiplicand is stationary, only multiplier Ones support Pull All, and multiplier Drop All is absent");
+      multiplicationApi.motionDiagnostics.clearEvents();
+      await finishMultiplication(frame);
+      multiplicationSnapshot = multiplicationApi.motionDiagnostics.snapshot();
+      const singleDigitEvents = multiplicationApi.motionDiagnostics.events();
+      assert(multiplicationSnapshot.totalMultiplierUnitsConsumed === 3 &&
+        JSON.stringify(multiplicationSnapshot.productDigits) === JSON.stringify({ hundreds: 0, tens: 1, ones: 2 }) &&
+        singleDigitEvents.filter(event => event.type === "multiplication-pull-start").length === 3 &&
+        singleDigitEvents.some(event => event.type === "multiplication-regroup-formation" && event.kind === "ones") &&
+        multiplicationApi.motionDiagnostics.snapshot().soundEffectCount > multiplicationSoundBaseline &&
+        multiplicationDoc.querySelector(".multiplication-column.multiplicand").textContent === multiplicandMarkup,
+        "4 × 3 pulls the stationary multiplicand three times with sound and visibly regroups 12 Ones into 1 Ten and 2 Ones");
+      const multiplicationScoreBefore = Number(multiplicationDoc.querySelector("#scoreValue").textContent);
+      await enterAnswer(frame, 12);
+      assert(Number(multiplicationDoc.querySelector("#scoreValue").textContent) === multiplicationScoreBefore + 10 &&
+        multiplicationDoc.querySelector("#promptText").textContent.includes("4 × 3 = 12") &&
+        analyticsEntries(frame, "event", "game_complete").some(entry => entry[2].operation === "multiplication" && entry[2].result === 12),
+        "a typed multiplication product uses multiplication prompts, analytics, and the normal one-time reward");
+
+      frame = await openGame("?op=multiplication&a=12&b=3&harness=1");
+      multiplicationApi = frame.contentWindow.NumberGarden;
+      multiplicationApi.motionDiagnostics.clearEvents();
+      await finishMultiplication(frame);
+      const twoDigitPulls = multiplicationApi.motionDiagnostics.events().filter(event => event.type === "multiplication-pull-start");
+      assert(twoDigitPulls.length === 3 && twoDigitPulls.every(event => event.multiplicandOnes === 2 && event.multiplicandTens === 1) &&
+        JSON.stringify(multiplicationApi.motionDiagnostics.snapshot().productDigits) === JSON.stringify({ hundreds: 0, tens: 3, ones: 6 }),
+        "a two-digit multiplicand pulls its Ones blocks and Tens bars together for every multiplier unit");
+
+      frame = await openGame("?op=multiplication&a=10&b=20&harness=1");
+      multiplicationDoc = frame.contentDocument;
+      multiplicationApi = frame.contentWindow.NumberGarden;
+      assert(multiplicationApi.motionDiagnostics.snapshot().phase === "multiplication-converting-ten" &&
+        multiplicationDoc.querySelector(".unit.eligible").dataset.place === "multiplier-tens",
+        "a zero multiplier Ones digit starts at explicit Tens conversion");
+      multiplicationDoc.querySelector(".unit.eligible").click();
+      await waitFor(() => !multiplicationApi.motionDiagnostics.snapshot().controlsLocked &&
+        multiplicationApi.motionDiagnostics.snapshot().phase === "multiplication-consuming-ones", "first multiplier Ten conversion");
+      multiplicationApi.motionDiagnostics.clearEvents();
+      await beginCurrentQuickDrop(frame);
+      await waitFor(() => !multiplicationApi.motionDiagnostics.snapshot().controlsLocked, "first multiplication Pull All", 15000);
+      multiplicationSnapshot = multiplicationApi.motionDiagnostics.snapshot();
+      assert(multiplicationSnapshot.phase === "multiplication-converting-ten" && multiplicationSnapshot.convertedTensBars === 1 &&
+        multiplicationSnapshot.totalMultiplierUnitsConsumed === 10 &&
+        multiplicationApi.motionDiagnostics.events().some(event => event.type === "pull-all-complete" && event.stoppedForTen) &&
+        multiplicationDoc.querySelector(".unit.eligible").dataset.place === "multiplier-tens",
+        "Pull All processes one converted Ones group sequentially and stops at the next multiplier Ten");
+      await finishMultiplication(frame, true);
+      assert(JSON.stringify(multiplicationApi.motionDiagnostics.snapshot().productDigits) ===
+          JSON.stringify({ hundreds: 2, tens: 0, ones: 0 }) &&
+        multiplicationApi.motionDiagnostics.events().filter(event => event.type === "multiplier-ten-conversion-start").length === 1,
+        "a second explicit Ten tap finishes 10 × 20 while the empty multiplicand Ones place is skipped");
+
+      frame = await openGame("?op=multiplication&a=3&b=2&harness=1");
+      multiplicationApi = frame.contentWindow.NumberGarden;
+      multiplicationApi.motionDiagnostics.clearEvents();
+      await beginCurrentQuickDrop(frame, "keyboard");
+      await waitFor(() => multiplicationApi.motionDiagnostics.snapshot().phase === "awaiting-answer" &&
+        !multiplicationApi.motionDiagnostics.snapshot().controlsLocked, "keyboard Pull All", 15000);
+      assert(multiplicationApi.motionDiagnostics.events().some(event => event.type === "pull-all-start") &&
+        multiplicationApi.motionDiagnostics.events().some(event => event.type === "pull-all-complete") &&
+        JSON.stringify(multiplicationApi.motionDiagnostics.snapshot().productDigits) === JSON.stringify({ hundreds: 0, tens: 0, ones: 6 }),
+        "holding Space on multiplier Ones starts the same accessible sequential Pull All path");
+
+      frame = await openGame("?op=multiplication&a=19&b=9&harness=1&reducedMotion=1");
+      multiplicationApi = frame.contentWindow.NumberGarden;
+      multiplicationApi.motionDiagnostics.clearEvents();
+      await finishMultiplication(frame, true);
+      const simultaneousEvents = multiplicationApi.motionDiagnostics.events();
+      const sixthPull = simultaneousEvents.findIndex(event => event.type === "multiplication-pull-landed" && event.index === 5);
+      const afterSixth = simultaneousEvents.slice(sixthPull + 1);
+      assert(sixthPull >= 0 && afterSixth.findIndex(event => event.type === "multiplication-regroup-formation" && event.kind === "ones") >= 0 &&
+        afterSixth.findIndex(event => event.type === "multiplication-regroup-formation" && event.kind === "tens") >
+          afterSixth.findIndex(event => event.type === "multiplication-regroup-formation" && event.kind === "ones") &&
+        JSON.stringify(multiplicationApi.motionDiagnostics.snapshot().productDigits) === JSON.stringify({ hundreds: 1, tens: 7, ones: 1 }),
+        "one pull can settle Ones-to-Tens and then Tens-to-Hundreds regrouping in explanatory order");
+
+      frame = await openGame("?op=multiplication&a=27&b=37&harness=1&reducedMotion=1");
+      multiplicationApi = frame.contentWindow.NumberGarden;
+      await finishMultiplication(frame, true);
+      multiplicationSnapshot = multiplicationApi.motionDiagnostics.snapshot();
+      assert(multiplicationSnapshot.totalMultiplierUnitsConsumed === 37 && multiplicationSnapshot.convertedTensBars === 3 &&
+        JSON.stringify(multiplicationSnapshot.productDigits) === JSON.stringify({ hundreds: 9, tens: 9, ones: 9 }) &&
+        frame.contentDocument.querySelectorAll(".multiplication-product .hundreds .unit").length === 9,
+        "27 × 37 reaches the exact 999 maximum and renders all nine Hundred units");
+
+      frame = await openGame("?op=multiplication&a=12&b=3&harness=1");
+      multiplicationDoc = frame.contentDocument;
+      multiplicationApi = frame.contentWindow.NumberGarden;
+      multiplicationDoc.querySelector(".unit.eligible").click();
+      multiplicationDoc.querySelector("#resetCurrent").click();
+      await waitFor(() => !multiplicationApi.motionDiagnostics.snapshot().controlsLocked, "multiplication reset settlement");
+      multiplicationSnapshot = multiplicationApi.motionDiagnostics.snapshot();
+      assert(multiplicationSnapshot.phase === "multiplication-consuming-ones" && multiplicationSnapshot.totalMultiplierUnitsConsumed === 0 &&
+        multiplicationSnapshot.productOnes === 0 && multiplicationSnapshot.productTens === 0 && multiplicationSnapshot.multiplicationQueueLength === 0,
+        "Reset can interrupt a multiplicand pull and restore all multiplication progress");
+
+      frame = await openGame("?op=multiplication&a=12&b=2&harness=1");
+      multiplicationApi = frame.contentWindow.NumberGarden;
+      frame.contentDocument.querySelector(".unit.eligible").click();
+      frame.contentWindow.dispatchEvent(new Event("resize"));
+      await waitFor(() => !multiplicationApi.motionDiagnostics.snapshot().controlsLocked, "multiplication resize settlement");
+      assert(multiplicationApi.motionDiagnostics.snapshot().totalMultiplierUnitsConsumed === 1 &&
+        JSON.stringify(multiplicationApi.motionDiagnostics.snapshot().productDigits) === JSON.stringify({ hundreds: 0, tens: 1, ones: 2 }),
+        "Resize settles an in-flight multiplication pull without losing its arithmetic commit");
+
+      frame = await openGame("?op=multiplication&a=12&b=2&harness=1");
+      multiplicationApi = frame.contentWindow.NumberGarden;
+      frame.contentDocument.querySelector(".unit.eligible").click();
+      Object.defineProperty(frame.contentDocument, "hidden", { configurable: true, value: true });
+      frame.contentDocument.dispatchEvent(new Event("visibilitychange"));
+      await waitFor(() => !multiplicationApi.motionDiagnostics.snapshot().controlsLocked, "multiplication visibility settlement");
+      assert(multiplicationApi.motionDiagnostics.snapshot().totalMultiplierUnitsConsumed === 1 &&
+        JSON.stringify(multiplicationApi.motionDiagnostics.snapshot().productDigits) === JSON.stringify({ hundreds: 0, tens: 1, ones: 2 }),
+        "Visibility loss settles an in-flight multiplication pull without losing its arithmetic commit");
+
+      frame = await openGame("?op=multiplication&a=12&b=10&harness=1&reducedMotion=1");
+      multiplicationDoc = frame.contentDocument;
+      multiplicationApi = frame.contentWindow.NumberGarden;
+      const multiplicationTutorialScore = multiplicationDoc.querySelector("#scoreValue").textContent;
+      multiplicationDoc.querySelector("#settingsButton").click();
+      multiplicationDoc.querySelector("#runSolverButton").click();
+      await waitFor(() => multiplicationApi.motionDiagnostics.snapshot().phase === "completed" &&
+        !multiplicationApi.motionDiagnostics.snapshot().solverRunning, "multiplication Tutorial", 20000);
+      assert(JSON.stringify(multiplicationApi.motionDiagnostics.snapshot().productDigits) === JSON.stringify({ hundreds: 1, tens: 2, ones: 0 }) &&
+        multiplicationDoc.querySelector("#scoreValue").textContent === multiplicationTutorialScore &&
+        analyticsEntries(frame, "event", "game_complete").length === 0,
+        "Tutorial follows multiplication Tens conversion, pulling, regrouping, and the real keypad without rewards or completion analytics");
+
       const levelFifteenProfile = { ...profileCookie(), currentLevel: 15, currentLevelSuccesses: 0, higherLevelSuccesses: 0,
-        updatedAt: Date.now() + 1000000 };
+        updatedAt: Date.now() + 10000000 };
       document.cookie = "numberGardenProgress=" + encodeURIComponent(JSON.stringify(levelFifteenProfile)) + "; Path=/; SameSite=Lax";
       frame = await openGame("?op=subtraction&a=42&b=17&harness=1");
       subtractionDoc = frame.contentDocument;
       subtractionApi = frame.contentWindow.NumberGarden;
       assert(subtractionDoc.querySelector("#levelBadge").textContent === "L15" &&
-        subtractionDoc.querySelectorAll("#levelSelect option").length === 15 && !subtractionDoc.querySelector(".column-title.hundreds"),
-        "Settings exposes L1–L15 and subtraction hides Hundreds even at L15");
+        subtractionDoc.querySelectorAll("#levelSelect option").length === 20 && !subtractionDoc.querySelector(".column-title.hundreds"),
+        "Settings exposes L1–L20 and subtraction hides Hundreds at mixed-review levels");
       let mixedOperators = false;
       for (let attempt = 0; attempt < 8 && !mixedOperators; attempt += 1) {
         const cards = Array.from(subtractionDoc.querySelectorAll(".suggestion"), card => card.textContent);
@@ -2038,6 +2313,7 @@
       frame = await openGame("?a=42&b=17&harness=1");
       const revertedDoc = frame.contentDocument;
       assert(revertedDoc.body.classList.contains("operation-addition") && !revertedDoc.body.classList.contains("operation-subtraction") &&
+        !revertedDoc.body.classList.contains("operation-multiplication") &&
         revertedDoc.querySelector("#equationOperator").textContent === "+" && revertedDoc.querySelector(".column-title.hundreds"),
         "a subsequent addition reverts the blue/green theme and restores the unlocked Hundreds column");
 

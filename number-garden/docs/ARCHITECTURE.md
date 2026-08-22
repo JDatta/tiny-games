@@ -6,12 +6,12 @@ Number Garden is a client-only application contained in [`index.html`](../index.
 
 ## Runtime boundaries
 
-- `problem` is the immutable arithmetic model. `deriveProblem(a, b, operation = "addition")` validates operands and returns operation, operand digits, result digits, result, and addition carry or subtraction borrow metadata.
-- `state` is transient interaction progress. Addition retains accepted/landed Ones, Tens, and Hundreds cursors. Subtraction has separate minuend/subtrahend cursors, live difference digits, borrow state, and a shared drop queue.
-- `profile` is durable schema-v4 data: score, milestones, sound, difficulty, launch choice, current L1–L15 level, both advancement counters, and timestamp.
+- `problem` is the immutable arithmetic model. `deriveProblem(a, b, operation = "addition")` validates operands and returns operation, operand/result digits, result, and operation-specific carry, borrow, or multiplicand/multiplier metadata. Multiplication rejects products above 999.
+- `state` is transient interaction progress. Addition retains accepted/landed place cursors. Subtraction has separate minuend/subtrahend cursors, live difference digits, borrow state, and a drop queue. Multiplication has an isolated sequential pull queue, active multiplier group counters, converted Tens count, settled product digits, pull/regroup phases, and Pull All lifecycle state.
+- `profile` is durable schema-v4 data: score, milestones, sound, difficulty, launch choice, current L1–L20 level, both advancement counters, and timestamp.
 - Rendering is derived from those values. CSS classes and DOM order never determine arithmetic.
 
-Curriculum helpers (`problemMatchesLevel`, `generateProblemForLevel`, `selectCurriculumLevel`, and `sampleCurriculumProblem`) own L1–L15 generation. L8 retains `curriculumPattern`; L15 models retain both `curriculumLevel: 15` and `curriculumSourceLevel`. `problemKey` makes addition exclusions unordered and subtraction exclusions ordered.
+Curriculum helpers (`problemMatchesLevel`, `generateProblemForLevel`, `selectCurriculumLevel`, and `sampleCurriculumProblem`) own L1–L20 generation. L8 retains `curriculumPattern`; mixed L15/L20 models retain their mixed level and `curriculumSourceLevel`. `problemKey` makes addition exclusions unordered while subtraction and role-sensitive multiplication remain ordered.
 
 ## Interaction state flows
 
@@ -40,37 +40,52 @@ counting-minuend-ones
   -> completed
 ```
 
+Multiplication has a third isolated path:
+
+```text
+multiplication-consuming-ones
+  -> multiplicand pull (all non-empty multiplicand places together)
+  -> automatic Ones-to-Tens regrouping
+  -> automatic Tens-to-Hundreds regrouping
+  -> multiplication-converting-ten (explicit multiplier Ten tap, when needed)
+  -> multiplication-consuming-ones (ten new waiting blocks)
+  -> awaiting-answer
+  -> completed
+```
+
+If the multiplier Ones digit is zero, the path starts at Tens conversion. Each Tens bar opens exactly one new group of ten Ones. Pull All queues only the remainder of the current group and drains one complete pull plus both possible regroup stages before starting the next. It cannot convert or cross another Tens bar.
+
 Empty source places are skipped. Minuend landings construct the live difference. Each subtrahend landing removes the rightmost live result unit. Borrowing decrements result Tens, creates ten gold Ones, and resumes the existing queue. Exact Ones depletion does not borrow if no subtrahend Ones remain. These invariants handle `8−8`, `42−42`, `40−7`, `42−17`, and `20−19` without special-case arithmetic.
 
-Each source has separate accepted and landed cursors. A tap captures one source rectangle; quick drop accepts the remainder of the active operand cell as one batch. Addition batches may pause at a carry boundary. Subtraction batches process source order and may pause between two removals for automatic borrowing, then resume without another gesture. The queue and animation fields lock reset, settings, answer, dice, suggestions, and other source cells until settled.
+Addition/subtraction sources have separate accepted and landed cursors. Multiplication separates accepted and consumed counts. A tap captures one source action; Drop All accepts an addition/subtraction operand-cell remainder, while multiplication Pull All accepts only its active Ones group. Addition batches may pause at a carry boundary. Subtraction batches may pause for borrowing. Multiplication queues are strictly sequential. Queue and animation fields lock competing controls; multiplication Reset remains available so its centralized interruption path can abandon a pull safely.
 
-Tutorial uses the same eligibility, queue, carry/borrow, phase transitions, answer button, keypad digits, and checker as manual play. It adds only timing and noninteractive hand cues. Reduced motion commits travel statically but preserves the one-second stage pauses and two-second hidden-answer pause.
+Tutorial uses the same eligibility, queues, carry/borrow/pull/regroup transitions, answer button, keypad digits, and checker as manual play. It adds only timing and noninteractive hand cues. Reduced motion commits travel statically but preserves stage and hidden-answer pauses.
 
 ## Rendering and theming
 
-`render()` applies `operation-addition` or `operation-subtraction` to both body and the active app. It updates the equation operator/semantics, prompt pool, result terminology, keypad equation, suggestion labels, board, and controls. Addition uses the original blue/green ownership colors. Subtraction uses lavender/deep purple with separate minuend/subtrahend colors. Gold identifies both carrying and borrowing; coral owns eligible, idle-hint, and shared success emphasis.
+`render()` applies exactly one of `operation-addition`, `operation-subtraction`, or `operation-multiplication` to body and app. It updates operator semantics, prompts, terminology, keypad, suggestions, board, and controls. Addition uses blue/green, subtraction lavender/deep purple, and multiplication forest/mint green. Gold identifies carrying, borrowing, multiplier Tens conversion, and product regrouping; coral owns actionable/hint/success emphasis.
 
-`renderBoard()` retains the addition renderer and delegates subtraction to a two-column board. Addition shows Hundreds when the profile is L6+; subtraction always omits it. Result cells expose stable `data-motion-role`, `data-place`, and `data-index` geometry. Source cells additionally expose operation-phase place names such as `minuend-ones` and `subtrahend-tens` so duplicate visual columns cannot be confused.
+`renderBoard()` retains addition, delegates subtraction to its two-place board, and delegates multiplication to three semantic Multiplicand/Multiplier/Product cards. Multiplication cards contain internal Hundreds/Tens/Ones places; the multiplicand renders as noninteractive source geometry, multiplier Ones/Tens expose distinct action names, and the product supports up to nine Hundreds. Stable `data-motion-role`, `data-place`, and `data-index` metadata drives animations without making the DOM arithmetic truth.
 
-Frozen prompt pools cover every addition and subtraction phase. State caches the selected prompt so unrelated re-renders do not change it. Live announcements use addend/sum or minuend/subtrahend/difference vocabulary. Dialog focus, keyboard controls, touch targets, and reduced-motion alternatives remain shared.
+Frozen prompt pools cover every phase of all three operations. State caches the selected prompt so unrelated re-renders do not change it. Live announcements and ARIA use addend/sum, minuend/subtrahend/difference, or multiplicand/multiplier/product vocabulary. Dialog focus, keyboard controls, touch targets, and reduced-motion alternatives remain shared.
 
 ## Curriculum selection and progression
 
-L1 is 75% current and 25% next. L2–L8 and L10–L13 use 50% current, 25% next, and 25% uniform lower review. L9 is gated to 60% L9 plus 40% L1–L8 review; L14 is gated to 60% L14 plus 40% L1–L13 review. L15 first chooses addition below the exact 0.5 random boundary and subtraction at or above it, then uniformly chooses the corresponding review source.
+L1 is 75% current and 25% next. L2–L8, L10–L13, and L16–L18 use 50% current, 25% next, and 25% uniform lower review. L9 and L14 use 60% current plus 40% gated review. L15 chooses exactly 50% addition from uniform L1–L9 and 50% subtraction from uniform L10–L14; it never previews multiplication. L19 uses 60% current plus 40% uniform L1–L18 and never previews L20. L20 selects exactly 40% addition (uniform L1–L9), 30% subtraction (uniform L10–L14), and 30% multiplication (uniform L16–L19).
 
-Four current-level or two eligible higher-level manual successes advance one level. L14 deliberately ignores hypothetical higher-level credit and advances only from its current-level counter; L15 caps progress. Query-forced models have no curriculum tag, so they may earn coins but never counter credit.
+Four current-level or two eligible higher-level manual successes advance one level. Gated L14 and L19 advance through current-level work; L20 caps progress. Query-forced models have no curriculum tag, so they may earn coins but never counter credit.
 
 ## Persistence and analytics
 
-IndexedDB is mirrored to a compact cookie; the newest valid profile wins. Schema v4 remains unchanged. V1 records migrate to L1, while v2/v3 curriculum records preserve their prior level, and validation accepts the full L1–L15 range. Older profiles skip the launch choice; new/reset profiles require it. Storage failure degrades to in-memory play.
+IndexedDB is mirrored to a compact cookie; the newest valid profile wins. Schema v4 remains unchanged because its shape did not change. V1 records migrate to L1, v2/v3 curriculum records preserve their level, and validation accepts L1–L20. Older profiles skip the launch choice; new/reset profiles require it. Storage failure degrades to in-memory play.
 
 `game_start` fires once per page load only after manual engagement and includes version and operation. `game_complete` fires only after a typed success and includes cumulative rewards, version, operation, operands, and result. Tutorial emits neither event.
 
 ## Diagnostics and public surface
 
-Addition is the default for `?a=...&b=...`. Subtraction uses `?op=subtraction&a=42&b=17`. Forced requests are untagged; invalid requests fall back to sampling. `quickPlaySpeed` remains 0.5–4. Harness-only flags compress timing and can force reduced motion.
+Addition is the default for `?a=...&b=...`. Subtraction uses `?op=subtraction&a=42&b=17`; multiplication uses `?op=multiplication&a=12&b=23`. Forced requests are untagged; invalid operands, order, operation, or products above 999 fall back to sampling. `quickPlaySpeed` remains 0.5–4. Harness-only flags compress timing and can force reduced motion.
 
-`window.NumberGarden` exposes the pure arithmetic/curriculum/profile helpers, `problemKey`, L1–L15 definitions, frozen prompts and timing tables, version/constants, and read-only motion diagnostics. The snapshot retains every legacy addition field and adds operation, source level, all subtraction cursors, live result digits, borrow count/phase, and borrow classification. Motion events diagnose source drop, quick batches, and borrow formation/travel/landing.
+`window.NumberGarden` exposes pure arithmetic/curriculum/profile helpers, ordered keys, L1–L20 definitions, frozen prompts/timings, version/constants, and read-only diagnostics. The snapshot retains legacy fields and adds all multiplication group counts, accepted/consumed values, converted Tens, total units consumed, product digits, pull/regroup/conversion phases, queue length, and Pull All lifecycle. Motion events diagnose every source, regroup, interruption, and hold boundary.
 
 ## Change guidance
 

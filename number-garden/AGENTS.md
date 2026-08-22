@@ -4,7 +4,7 @@
 
 ### Product
 
-Number Garden is a mobile-first learning game that teaches addition and subtraction through visible place-value units. Fifteen persistent levels grow from single-digit addition through two-column carries, then separate no-borrow and borrowing subtraction stages, and finally mixed review. Addition uses Ones, Tens, and L6+ Hundreds; subtraction uses Ones and Tens only and never produces a negative difference.
+Number Garden is a mobile-first learning game that teaches addition, subtraction, and multiplication through visible place-value units. Twenty persistent levels grow from addition and carrying through subtraction and borrowing, then role-sensitive multiplication and a three-operation review. Addition uses Ones, Tens, and L6+ Hundreds; subtraction uses Ones and Tens only; multiplication keeps a stationary multiplicand beside a consumable multiplier and a three-place product.
 
 ### Implementation
 
@@ -16,13 +16,18 @@ The runtime separates pure problem arithmetic (`problem`), temporary interaction
 
 | Term | Meaning |
 | --- | --- |
-| **operation** | Either `addition` or `subtraction`; it determines arithmetic, phase flow, language, theme, and visible columns. |
+| **operation** | `addition`, `subtraction`, or `multiplication`; it determines arithmetic, phase flow, language, theme, and board semantics. |
 | **addend** | Either number being added in a problem. |
 | **minuend** | The first subtraction operand: the amount built before any units are removed. |
 | **subtrahend** | The second subtraction operand: the amount removed from the minuend. |
-| **result** | The sum for addition or difference for subtraction. |
+| **multiplicand** | The first multiplication operand. Its blocks and bars stay visible and are cloned for each consumed multiplier One. |
+| **multiplier** | The second multiplication operand. Its Ones are consumed; each Tens bar must be explicitly converted into ten new Ones. |
+| **product** | The result of multiplying the multiplicand by the multiplier. Product Ones and Tens regroup automatically. |
+| **result** | The sum for addition, difference for subtraction, or product for multiplication. |
 | **difference** | The result of subtracting the subtrahend from the minuend. |
 | **borrowing** | Automatically trading one result Ten for ten Ones when subtraction needs more Ones. |
+| **Pull All** | Multiplication-only hold action that sequentially consumes the rest of the current multiplier Ones group, then stops before the next Tens bar. |
+| **Drop All** | Addition/subtraction hold action for the remaining items in the active operand cell. Multiplier cells never use it. |
 | **operand cells** | The place-value cells belonging to either addend, the minuend, or the subtrahend. |
 | **addend cells** | The addition operand cells for an addend's Hundreds, Tens, and Ones places. |
 | **result cells** | The table cells for the result's Hundreds, Tens, and Ones places. The result row has up to three cells. |
@@ -33,7 +38,7 @@ The runtime separates pure problem arithmetic (`problem`), temporary interaction
 
 ## State flows
 
-Addition follows `counting-ones` → optional Ones carry → `counting-tens` → optional Hundreds carry/count → `awaiting-answer` → `completed`. Subtraction follows `counting-minuend-ones` → `counting-minuend-tens` → `counting-subtrahend-ones` → optional `borrowing-to-ones` and resumed Ones removal → `counting-subtrahend-tens` → the shared answer flow. Empty places skip automatically. Accepted and landed cursors remain separate so ordinary drops, quick-drop batches, Tutorial, resets, animation interruption, and diagnostics all observe the same mathematical transitions.
+Addition follows `counting-ones` → optional Ones carry → `counting-tens` → optional Hundreds carry/count → `awaiting-answer` → `completed`. Subtraction follows `counting-minuend-ones` → `counting-minuend-tens` → `counting-subtrahend-ones` → optional `borrowing-to-ones` and resumed Ones removal → `counting-subtrahend-tens` → the shared answer flow. Multiplication alternates `multiplication-consuming-ones` and explicit `multiplication-converting-ten`; every consumed One runs a multiplicand-pull animation followed by automatic Ones and then Tens regrouping before the next queued pull. Empty places skip automatically. Accepted and landed/consumed counters remain separate so ordinary input, hold batches, Tutorial, resets, animation interruption, and diagnostics share the same mathematical transitions.
 
 ## Files
 
@@ -60,7 +65,7 @@ Addition follows `counting-ones` → optional Ones carry → `counting-tens` →
 | `docs/exec-plans/completed/init-game.md` | Original implementation brief and acceptance criteria. Useful for product intent, but the shipped code and current docs describe present behavior. |
 | `docs/exec-plans/completed/codemagic-linux-bootstrap-plan.md` | Completed plan for adding the npm, Capacitor, and Codemagic iOS bootstrap from Linux. |
 | `docs/exec-plans/pending/code-magic-next-steps.md` | Pending manual steps for Codemagic setup, signing, TestFlight, device testing, and the eventual `ios/` tracking decision. |
-| `tests/curriculum-harness.html` | Deterministic browser harness for curriculum predicates/generation, sampler boundaries, progression, migration, reward paths, Settings, persistence, and the Hundreds unlock. |
+| `tests/curriculum-harness.html` | Deterministic browser harness for all L1–L20 curriculum rules, arithmetic flows, motion, progression, migration, rewards, Settings, persistence, and operation semantics. |
 
 ## Gotchas
 
@@ -72,15 +77,16 @@ Addition follows `counting-ones` → optional Ones carry → `counting-tens` →
 - Only the next valid place-value item is interactive. Do not make rendered order, CSS state, or arbitrary tap order determine the count. See the glossary for the place-specific names: Ones blocks/units and Tens or Hundreds bars/rods.
 - Addition carry behavior is derived from the addends. Validate no-carry, ones-carry, tens-carry, and two-carry cases, including zero ones and `198`.
 - Subtraction state must build minuend Ones, build minuend Tens, remove subtrahend Ones, borrow only when empty with removals left, resume Ones, remove Tens, then enter `awaiting-answer`. Validate zero/equal differences, exact depletion, empty places, `40−7`, `42−17`, `20−19`, and reset mid-flow.
-- Keep all fifteen predicates, generated tags, and sampler gates aligned. L8 retains `curriculumPattern`; L9 cannot preview subtraction; L14 cannot preview L15; L15 retains `curriculumSourceLevel` and chooses addition below the exact 50% boundary.
-- Startup, Next, suggestions, alternative refresh, and dice alternatives use `sampleCurriculumProblem()`. Addition recent keys are unordered; subtraction keys preserve minuend/subtrahend order.
-- `?a=<1-99>&b=<1-99>` defaults to addition. Use `?op=subtraction&a=42&b=17` for subtraction. Forced problems are untagged; invalid/negative subtraction requests must not create negative models.
-- Tutorial resumes at the next unfinished unit, follows the same carry or borrow transitions as manual play, and reaches the real answer keypad through `awaiting-answer`; never create a separate arithmetic path.
+- Multiplication must never move or consume the multiplicand itself. One multiplier One clones every non-empty multiplicand place together, lands that copy, and settles Ones→Tens before Tens→Hundreds. Pull All is sequential, ends at the current Ones group, and cannot cross an explicit multiplier Tens tap. Validate zero Ones, multiple Tens, simultaneous overflows, `19×9`, and `27×37=999`.
+- Keep all twenty predicates, generated tags, and sampler gates aligned. L8 retains `curriculumPattern`; L9 cannot preview subtraction; L14 cannot preview L15; L15 contains no multiplication; L19 cannot preview L20; L15 and L20 retain `curriculumSourceLevel`. L20 uses exact 40%/30%/30% operation boundaries.
+- Startup, Next, suggestions, alternative refresh, and dice alternatives use `sampleCurriculumProblem()`. Addition recent keys are unordered; subtraction and multiplication keys preserve operand order.
+- `?a=<1-99>&b=<1-99>` defaults to addition. Use `?op=subtraction&a=42&b=17` or `?op=multiplication&a=12&b=23`. Forced problems are untagged; invalid subtraction order and multiplication products above 999 must fall back to sampling.
+- Tutorial resumes at the next unfinished unit, follows the same carry, borrow, multiplier conversion, pull, and product-regroup transitions as manual play, and reaches the real answer keypad through `awaiting-answer`; never create a separate arithmetic path.
 - Only a manually typed correct answer awards exactly 10 coins, one milestone, and eligible level credit once. Tutorial may celebrate and use the shared checker but must never change score, milestones, counters, or level or show a reward toast.
-- Profile schema v4 persists `launchChoiceMade` alongside difficulty and L1–L15 curriculum fields. Keep the schema number unchanged; v1–v3 migrations preserve established-player progress. Reset returns to L1 and keeps sound/difficulty.
-- Addition below L6 renders Labels/Tens/Ones and L6+ adds Hundreds. Subtraction always renders Labels/Tens/Ones, regardless of learner level. The L6 unlock still announces/highlights only when an addition board can show it.
-- Apply operation semantics everywhere: equation, keypad, row badges, suggestions, prompts, completion, analytics metadata, live announcements, and ARIA. Use minuend, subtrahend, and difference for subtraction.
-- Addition owns blue/green; subtraction owns lavender/deep purple with distinct operand colors; gold identifies regrouping; coral is reserved for shared eligible/hint/success emphasis.
+- Profile schema v4 persists `launchChoiceMade` alongside difficulty and L1–L20 curriculum fields. Keep the schema number unchanged; v1–v3 migrations preserve established-player progress. Reset returns to L1 and keeps sound/difficulty.
+- Addition below L6 renders Labels/Tens/Ones and L6+ adds Hundreds. Subtraction always renders Labels/Tens/Ones. Multiplication always renders Multiplicand/Multiplier/Product cards with internal Hundreds/Tens/Ones places. The L6 unlock announces/highlights only when an addition board can show it.
+- Apply operation semantics everywhere: equation, keypad, role labels, suggestions, prompts, completion, analytics metadata, live announcements, and ARIA. Use minuend/subtrahend/difference for subtraction and multiplicand/multiplier/product for multiplication.
+- Addition owns blue/green; subtraction owns lavender/deep purple; multiplication owns forest/mint green; gold identifies regrouping; coral is reserved for shared eligible/hint/success emphasis. Remove stale operation classes whenever the operation changes.
 - Keep the bee and current-level badge visible on narrow/fullscreen layouts. Sound belongs in Settings.
 - Maintain touch targets, keyboard access, ARIA announcements, focus handling, and `prefers-reduced-motion` behavior whenever controls or animations change.
 - Do not edit `@poc-game.html` to implement product changes. Make shipped behavior changes in `index.html`.

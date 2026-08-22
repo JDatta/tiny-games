@@ -1,6 +1,6 @@
 # Number Garden
 
-Number Garden is a mobile-first addition and subtraction game with fifteen persistent learning levels. L1–L9 teach addition by counting ones and tens and visibly regrouping into tens and hundreds. L10–L14 introduce subtraction in separate no-borrow and borrowing stages, and L15 mixes both operations for review.
+Number Garden is a mobile-first place-value arithmetic game with twenty persistent learning levels. L1–L9 teach addition and regrouping, L10–L14 teach subtraction and borrowing, L15 reviews both, L16–L19 introduce role-sensitive multiplication, and L20 mixes all three operations.
 
 Run it locally:
 
@@ -9,10 +9,10 @@ cd number-garden
 python3 server.py
 ```
 
-Then visit `http://localhost:8080`. The standalone `index.html` can also be opened directly. On a new profile, choose `Start` or watch the guided `28 + 47` Tutorial. Tap the coral-highlighted blocks in order, or hold the active operand cell for 1.5 seconds to quick-drop its remaining blocks. Addition visibly carries groups of ten; subtraction builds the minuend, removes the subtrahend, and automatically borrows one ten when Ones run out. Tap `?` to enter an answer, or hold it to start Tutorial from the current step. Manual correct answers earn 10 coins and level credit; Tutorial awards neither.
+Then visit `http://localhost:8080`. The standalone `index.html` can also be opened directly. On a new profile, choose `Start` or watch the guided `28 + 47` Tutorial. Tap coral-highlighted items in order. Addition and subtraction let you hold the active operand cell for 1.5 seconds to Drop All remaining items. In multiplication, the multiplicand stays still: tap multiplier Ones to pull complete copies into the product, hold the Ones cell to Pull All only that group, and explicitly tap each multiplier Ten to turn it into ten new Ones. Product regrouping is automatic and visible. Tap `?` to answer, or hold it to start Tutorial. Manual correct answers earn 10 coins and level credit; Tutorial awards neither.
 
-The learner advances after either four current-level manual successes or two higher-level manual successes. L14 deliberately offers no early L15 problems, so it advances through current-level work; L15 is the cap. Settings supports Standard/Easy difficulty, L1–L15 overrides, sound, reset, and About. Addition diagnostics default to `?a=58&b=47`; subtraction uses `?op=subtraction&a=42&b=17`. Forced problems are untagged: they may earn the normal manual reward but never level credit. Subtraction diagnostics with a subtrahend greater than the minuend are rejected.
+The learner advances after either four current-level manual successes or two eligible higher-level manual successes. L14 and L19 gate the next mixed-review level, and L20 is the cap. Settings supports Standard/Easy difficulty, L1–L20 overrides, sound, reset, and About. Addition diagnostics default to `?a=58&b=47`; subtraction uses `?op=subtraction&a=42&b=17`; multiplication uses `?op=multiplication&a=12&b=23`. Forced problems are untagged, may earn the normal manual reward, and never earn level credit. Invalid subtraction order and multiplication products above 999 fall back to curriculum sampling.
 
 Quick play defaults to `quickPlaySpeed=2`. The optional numeric URL flag accepts `0.5` through `4`; for example, `?quickPlaySpeed=1` restores the original three-second hold and `?quickPlaySpeed=4` shortens it to 0.75 seconds.
 
-With the local server running, open `http://localhost:8080/tests/curriculum-harness.html` to run the deterministic curriculum and browser integration checks.
+With the local server running, open `http://localhost:8080/tests/curriculum-harness.html` to run the deterministic curriculum and browser integration checks. The harness covers exact L16–L20 sampling boundaries, the 999 product cap, multiplication Pull All gates, automatic product regrouping, interruption, Tutorial, rewards, analytics, and all existing addition/subtraction behavior.

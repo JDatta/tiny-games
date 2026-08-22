@@ -14,7 +14,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#dff4ff">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23e7f7dd'/%3E%3Cpath d='M51 82V42M50 55C30 54 22 42 21 27c18-2 31 7 30 28M51 43c4-17 16-25 31-24 1 17-10 28-31 28' fill='none' stroke='%232b9348' stroke-width='10' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <title>Number Garden — Place-Value Addition and Subtraction</title>
+  <title>Number Garden — Place-Value Arithmetic</title>
   <style>
     :root {
       --ink: #17243f;
@@ -1530,6 +1530,7 @@
     body.operation-subtraction .suggestion.current { border-color: #6238a1; background: #eee5ff; color: #4b257c; }
     .suggestion.operation-addition:not(.current) { border-left: 4px solid #2477df; }
     .suggestion.operation-subtraction:not(.current) { border-left: 4px solid #7656c9; background: #faf6ff; color: #4f278c; }
+    .suggestion.operation-multiplication:not(.current) { border-left: 4px solid #187849; background: #f0fbf5; color: #145c3a; }
     body.operation-subtraction .reset-current { border-color: #bda4df; background: #f0e7ff; color: #57328d; }
     body.operation-subtraction .icon-button { border-color: #bea8db; background: rgba(247,240,255,.94); color: #4f2a7d; }
     body.operation-subtraction .answer-button { color: #7d2935; background: #ffe1dd; box-shadow: 7px 0 0 -1px #ffe1dd, -7px 0 0 -1px #ffe1dd, 0 7px 0 -1px #ffe1dd, 0 -7px 0 -1px #ffe1dd, 0 5px 12px rgba(132,55,91,.2); }
@@ -1541,6 +1542,131 @@
     body.operation-subtraction .quick-impact-wave {
       border-color: rgba(225,74,79,.76);
       background: radial-gradient(circle at 50% 82%, rgba(255,198,193,.42), rgba(111,63,165,.1) 58%, transparent 72%);
+    }
+
+    body.operation-multiplication {
+      background:
+        radial-gradient(circle at 8% 8%, rgba(255,255,255,.8) 0 3.5%, transparent 3.8%),
+        radial-gradient(circle at 91% 13%, rgba(255,255,255,.66) 0 4%, transparent 4.3%),
+        linear-gradient(165deg, #d8f5e5 0%, #effbf4 52%, #dcf3e7 100%);
+    }
+    body.operation-multiplication .equation-card,
+    body.operation-multiplication .board {
+      border-color: #82c9a5;
+      background: rgba(249,255,252,.96);
+      box-shadow: 0 9px 24px rgba(24,102,66,.16);
+    }
+    body.operation-multiplication .first-number { color: #12623c; }
+    body.operation-multiplication .second-number { color: #257e52; }
+    body.operation-multiplication .math-symbol { color: #174f35; }
+    body.operation-multiplication .level-badge { border-color: #187849; color: #105d38; background: #e7f8ef; }
+    body.operation-multiplication .tray { border-color: #91cdb0; background: rgba(243,252,247,.96); }
+    body.operation-multiplication .suggestion.current { border-color: #187849; background: #e5f7ed; color: #105b38; }
+    body.operation-multiplication .reset-current { border-color: #8dc9aa; background: #e8f8ef; color: #155f3b; }
+    body.operation-multiplication .icon-button { border-color: #91c9ad; background: rgba(240,251,245,.95); color: #155d3a; }
+    body.operation-multiplication .next-button { border-color: #67af8a; background: #dff5e9; color: #125b38; }
+    body.operation-multiplication .dice { border-color: #8dc9aa; background: #effaf4; color: #155d3a; }
+    body.operation-multiplication .sheet-button.primary { border-color: #105b38; background: #187849; }
+    body.operation-multiplication .speech { border-color: #85c5a4; background: #effaf4; }
+    body.operation-multiplication .unit.owner-a { --unit-fill: #176f46; border-color: #0d5132; background-color: var(--unit-fill); }
+    body.operation-multiplication .unit.owner-b { --unit-fill: #55ad78; border-color: #217348; background-color: var(--unit-fill); }
+    body.operation-multiplication .unit.owner-product { --unit-fill: #26965d; border-color: #12673e; background-color: var(--unit-fill); }
+    body.operation-multiplication .answer-button { color: #7d2935; background: #ffe1dd; box-shadow: 7px 0 0 -1px #ffe1dd, -7px 0 0 -1px #ffe1dd, 0 7px 0 -1px #ffe1dd, 0 -7px 0 -1px #ffe1dd, 0 5px 12px rgba(80,112,88,.2); }
+    body.operation-multiplication .answer-button.answer-ready { animation-name: subtraction-answer-ready-pulse; }
+
+    .multiplication-board {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-rows: minmax(0, 1fr);
+      gap: 6px;
+      padding: 6px;
+    }
+    .multiplication-column {
+      min-width: 0;
+      min-height: 0;
+      padding: 5px;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      align-content: stretch;
+      gap: 4px;
+      border: 1px solid #9bcfb4;
+      border-radius: 15px;
+      background: #f8fdf9;
+    }
+    .multiplication-column.multiplier { background: #f1fbf5; border-color: #7fbd9c; }
+    .multiplication-column.product { border: 2px dashed #65ad86; background: #fbfffc; }
+    .multiplication-role-title {
+      min-height: 26px;
+      display: grid;
+      place-items: center;
+      border-radius: 9px;
+      color: #104d31;
+      background: #d8f2e4;
+      font-size: clamp(9px, 2.6vw, 12px);
+      font-weight: 950;
+    }
+    .multiplication-value {
+      min-height: 32px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #91c8aa;
+      border-radius: 9px;
+      color: #105b38;
+      background: white;
+      font-size: clamp(16px, 4vw, 21px);
+      font-weight: 950;
+      font-variant-numeric: tabular-nums;
+    }
+    .multiplication-places { min-height: 0; display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 4px; }
+    .multiplication-place {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      padding: 17px 3px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      border: 1px solid #b6dbc7;
+      border-radius: 10px;
+      background: rgba(255,255,255,.82);
+    }
+    .multiplication-place::before {
+      content: attr(data-place-label);
+      position: absolute;
+      top: 2px;
+      left: 4px;
+      color: #35664d;
+      font-size: 8px;
+      font-weight: 950;
+    }
+    .multiplication-place .result-groups { gap: 2px; }
+    .multiplication-place .tens-grid { max-width: 96px; }
+    .multiplication-place .ones-strip { max-width: 180px; }
+    .multiplication-place.hundreds .hundreds-strip { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
+    .multiplication-place.hundreds .hundred-slot { width: 100%; max-width: 30px; height: auto; aspect-ratio: 1; justify-self: center; font-size: 8px; }
+    .multiplication-place .digit-label { right: 3px; bottom: 3px; min-width: 20px; padding: 2px 4px; font-size: 12px; }
+    .multiplication-place.quick-hold::after { content: "Hold to Pull All"; }
+    .multiplication-static { pointer-events: none; }
+    .multiplication-regroup-callout {
+      position: absolute;
+      z-index: 5;
+      top: 2px;
+      right: 2px;
+      padding: 2px 4px;
+      border: 1px solid #e7ad19;
+      border-radius: 7px;
+      color: #724100;
+      background: #fff5bd;
+      font-size: 7px;
+      font-weight: 950;
+    }
+    .multiplier-conversion-target { outline: 3px solid rgba(243,167,18,.48); outline-offset: -3px; }
+
+    @media (max-width: 379px) {
+      .multiplication-board { gap: 3px; padding: 4px; }
+      .multiplication-column { padding: 3px; gap: 3px; }
+      .multiplication-place { padding-left: 2px; padding-right: 2px; }
     }
     .borrow-formation-token {
       position: absolute;
@@ -1584,7 +1710,7 @@
 </head>
 <body>
   <main class="app" aria-labelledby="gameTitle">
-    <h1 id="gameTitle" class="sr-only">Number Garden place-value addition and subtraction game</h1>
+    <h1 id="gameTitle" class="sr-only">Number Garden place-value addition, subtraction, and multiplication game</h1>
 
     <header class="topbar">
       <div class="bee" aria-hidden="true">🐝</div>
@@ -1689,6 +1815,8 @@
             <option value="7">L7</option><option value="8">L8</option><option value="9">L9</option>
             <option value="10">L10</option><option value="11">L11</option><option value="12">L12</option>
             <option value="13">L13</option><option value="14">L14</option><option value="15">L15</option>
+            <option value="16">L16</option><option value="17">L17</option><option value="18">L18</option>
+            <option value="19">L19</option><option value="20">L20</option>
           </select>
         </div>
         <p id="levelHelp">Changing level starts a fresh problem and resets the two advancement counters.</p>
@@ -1998,6 +2126,48 @@
         "You found the difference! {a} − {b} = {result}.",
         "Correct! {a} − {b} = {result}."
       ],
+      "multiplication-consuming-ones": [
+        "Pull the next multiplier One to copy the multiplicand.",
+        "Each glowing One adds one full multiplicand to the product.",
+        "Tap the next multiplier One and watch the multiplicand copy.",
+        "Build the product one multiplier block at a time."
+      ],
+      "multiplication-converting-ten": [
+        "Tap the glowing multiplier Ten to make 10 Ones.",
+        "Convert the next multiplier Ten bar into ten waiting Ones.",
+        "One multiplier Ten means ten more multiplicand pulls.",
+        "Tap the Ten bar before continuing the product."
+      ],
+      "multiplication-pulling": [
+        "The whole multiplicand is moving into the product.",
+        "Copy every multiplicand place together.",
+        "One multiplier unit pulls one complete multiplicand.",
+        "Let this multiplicand copy settle before the next pull."
+      ],
+      "multiplication-regrouping-ones": [
+        "10 product Ones regroup automatically as 1 Ten.",
+        "The product has ten Ones, so they become one Ten.",
+        "Watch 10 product Ones trade for 1 gold Ten.",
+        "Regrouping the product Ones into Tens."
+      ],
+      "multiplication-regrouping-tens": [
+        "10 product Tens regroup automatically as 1 Hundred.",
+        "The product has ten Tens, so they become one Hundred.",
+        "Watch 10 product Tens trade for 1 gold Hundred.",
+        "Regrouping the product Tens into Hundreds."
+      ],
+      "multiplication-awaiting-answer": [
+        "The product is built. Tap ? and enter the answer.",
+        "Multiplication complete! Tap ? to type the product.",
+        "All copies are settled. Tap ? and give the product.",
+        "What is the product? Tap ? and enter it."
+      ],
+      "multiplication-completed": [
+        "Wonderful! {a} × {b} = {result}.",
+        "Great multiplying! {a} × {b} = {result}.",
+        "You found the product! {a} × {b} = {result}.",
+        "Correct! {a} × {b} = {result}."
+      ],
       "place-value-fallback": [
         "Build the answer with place values.",
         "Use the ones, tens, and hundreds to find the answer.",
@@ -2027,7 +2197,7 @@
     }).map(([key, messages]) => [key, Object.freeze(messages)])));
 
     const CATEGORY_NAMES = ["No carry", "Ones-only carry", "Tens-only carry", "Two carries"];
-    const LEVEL_COUNT = 15;
+    const LEVEL_COUNT = 20;
     const STANDARD_CURRENT_LEVEL_MIX = 0.50;
     const STANDARD_HIGHER_LEVEL_MIX = 0.25;
     const STANDARD_LOWER_LEVEL_MIX = 0.25;
@@ -2038,6 +2208,11 @@
     const LEVEL_FOURTEEN_CURRENT_MIX = 0.60;
     const LEVEL_FOURTEEN_REVIEW_MIX = 0.40;
     const LEVEL_FIFTEEN_ADDITION_MIX = 0.50;
+    const LEVEL_NINETEEN_CURRENT_MIX = 0.60;
+    const LEVEL_NINETEEN_REVIEW_MIX = 0.40;
+    const LEVEL_TWENTY_ADDITION_MIX = 0.40;
+    const LEVEL_TWENTY_SUBTRACTION_MIX = 0.30;
+    const LEVEL_TWENTY_MULTIPLICATION_MIX = 0.30;
     const LEVEL_EIGHT_TENS_ONLY_MIX = 0.50;
     const LEVEL_EIGHT_BOTH_CARRIES_MIX = 0.50;
     const CURRENT_LEVEL_ADVANCEMENT_TARGET = 4;
@@ -2061,7 +2236,12 @@
       { level: 12, label: "A two-digit minuend minus a single digit with borrowing" },
       { level: 13, label: "Two-digit subtraction without borrowing" },
       { level: 14, label: "Two-digit subtraction with borrowing" },
-      { level: 15, label: "Mixed addition and subtraction review" }
+      { level: 15, label: "Mixed addition and subtraction review" },
+      { level: 16, label: "One-digit multiplicand times one-digit multiplier" },
+      { level: 17, label: "Two-digit multiplicand times one-digit multiplier" },
+      { level: 18, label: "One-digit multiplicand times two-digit multiplier" },
+      { level: 19, label: "Two-digit multiplicand times two-digit multiplier, product at most 999" },
+      { level: 20, label: "Mixed addition, subtraction, and multiplication review" }
     ]);
     const DB_NAME = "numberGarden";
     const DB_VERSION = 1;
@@ -2175,6 +2355,7 @@
     let lastAnnouncement = "";
     const announcementQueue = [];
     let dropDrainPromise = null;
+    let multiplicationDrainPromise = null;
     let quickPlayHold = null;
     let quickPlayHoldTimer = 0;
     let suppressUnitClickUntil = 0;
@@ -2264,8 +2445,8 @@
     }
 
     function deriveProblem(a, b, operation = "addition") {
-      if (operation !== "addition" && operation !== "subtraction") {
-        throw new RangeError("Operation must be addition or subtraction.");
+      if (!["addition", "subtraction", "multiplication"].includes(operation)) {
+        throw new RangeError("Operation must be addition, subtraction, or multiplication.");
       }
       if (!Number.isInteger(a) || !Number.isInteger(b) || a < 1 || a > 99 || b < 1 || b > 99) {
         throw new RangeError("Operands must be integers from 1 through 99.");
@@ -2277,6 +2458,19 @@
         a: { hundreds: 0, tens: Math.floor(a / 10), ones: a % 10 },
         b: { hundreds: 0, tens: Math.floor(b / 10), ones: b % 10 }
       };
+      if (operation === "multiplication") {
+        const result = a * b;
+        if (result > 999) throw new RangeError("Multiplication products must not exceed 999.");
+        const resultDigits = {
+          hundreds: Math.floor(result / 100),
+          tens: Math.floor(result / 10) % 10,
+          ones: result % 10
+        };
+        return {
+          operation, a, b, digits, result, resultDigits, productDigits: resultDigits,
+          multiplicand: a, multiplier: b, needsBorrow: false, category: null
+        };
+      }
       if (operation === "subtraction") {
         const result = a - b;
         const resultDigits = { hundreds: 0, tens: Math.floor(result / 10), ones: result % 10 };
@@ -2304,6 +2498,42 @@
     }
 
     function freshState(model) {
+      if (model.operation === "multiplication") {
+        const initialGroupSize = model.digits.b.ones;
+        return {
+          operation: "multiplication",
+          phase: initialGroupSize ? "multiplication-consuming-ones" : "multiplication-converting-ten",
+          activeGroupSize: initialGroupSize,
+          activeGroupAccepted: 0,
+          activeGroupConsumed: 0,
+          activeGroupNumber: 0,
+          convertedTensBars: 0,
+          multiplierTensRemaining: model.digits.b.tens,
+          totalMultiplierUnitsConsumed: 0,
+          productOnes: 0,
+          productTens: 0,
+          productHundreds: 0,
+          multiplicationQueue: [],
+          pullPhase: null,
+          regroupPhase: null,
+          pullAllActive: false,
+          pullAllGroup: null,
+          pullAllQueued: 0,
+          animationState: null,
+          dropQueue: [],
+          tempCount: 0,
+          solverUsed: false,
+          rewardAwarded: false,
+          skipMessage: initialGroupSize === 0,
+          promptKey: null,
+          promptTemplate: "",
+          // Common diagnostics stay present for existing consumers.
+          onesAcceptedCursor: 0, onesCursor: 0, tensAcceptedCursor: 0, tensCursor: 0,
+          hundredsAcceptedCursor: 0, hundredsCursor: 0,
+          visibleOnesCarry: false, visibleHundredsCarry: false,
+          carryPhase: null, carryKind: null
+        };
+      }
       if (model.operation === "subtraction") {
         const phase = model.digits.a.ones > 0 ? "counting-minuend-ones" : "counting-minuend-tens";
         return {
@@ -2378,6 +2608,8 @@
       const op = model.operation || "addition";
       return op === "subtraction"
         ? model.a + "−" + model.b
+        : op === "multiplication"
+          ? model.a + "×" + model.b
         : [Math.min(model.a, model.b), Math.max(model.a, model.b)].join("+");
     }
 
@@ -2390,6 +2622,17 @@
     }
 
     function problemMatchesLevel(model, level, pattern = null) {
+      if (model && model.operation === "multiplication") {
+        if (model.result > 999) return false;
+        const oneDigitA = model.a <= 9;
+        const oneDigitB = model.b <= 9;
+        if (level === 16) return oneDigitA && oneDigitB;
+        if (level === 17) return !oneDigitA && oneDigitB;
+        if (level === 18) return oneDigitA && !oneDigitB;
+        if (level === 19) return !oneDigitA && !oneDigitB;
+        if (level === 20) return [16, 17, 18, 19].some(source => problemMatchesLevel(model, source));
+        return false;
+      }
       if (!model || (model.operation || "addition") === "subtraction") {
         if (!model || model.operation !== "subtraction" || model.a < model.b) return false;
         if (level === 10) return model.a <= 9 && model.b <= 9;
@@ -2397,7 +2640,7 @@
         if (level === 12) return model.a >= 10 && model.b <= 9 && model.needsBorrow;
         if (level === 13) return model.a >= 10 && model.b >= 10 && !model.needsBorrow;
         if (level === 14) return model.a >= 10 && model.b >= 10 && model.needsBorrow;
-        if (level === 15) return [10, 11, 12, 13, 14].some(source => problemMatchesLevel(model, source));
+        if (level === 15 || level === 20) return [10, 11, 12, 13, 14].some(source => problemMatchesLevel(model, source));
         return false;
       }
       const bothSingle = model.a < 10 && model.b < 10;
@@ -2416,6 +2659,7 @@
             (pattern ? curriculumPattern(model) === pattern : model.category === 2 || model.category === 3);
         case 9: return bothDouble && model.category === 3;
         case 15: return true;
+        case 20: return true;
         default: return false;
       }
     }
@@ -2437,11 +2681,12 @@
 
     function selectCurriculumLevel(currentLevel, random = Math.random) {
       const level = clampLevel(currentLevel);
-      if (level === 15) return 15;
+      if (level === 15 || level === 20) return level;
       const roll = normalizedRandom(random);
       if (level === 1) return roll < LEVEL_ONE_CURRENT_MIX ? 1 : 2;
       if (level === 9) return roll < LEVEL_NINE_CURRENT_MIX ? 9 : uniformlySelectLevel(1, 8, random);
       if (level === 14) return roll < LEVEL_FOURTEEN_CURRENT_MIX ? 14 : uniformlySelectLevel(1, 13, random);
+      if (level === 19) return roll < LEVEL_NINETEEN_CURRENT_MIX ? 19 : uniformlySelectLevel(1, 18, random);
       if (roll < STANDARD_CURRENT_LEVEL_MIX) return level;
       if (roll < STANDARD_CURRENT_LEVEL_MIX + STANDARD_HIGHER_LEVEL_MIX) return level + 1;
       return uniformlySelectLevel(1, level - 1, random);
@@ -2451,11 +2696,13 @@
       const key = level + ":" + (pattern || "all");
       if (curriculumPairCache.has(key)) return curriculumPairCache.get(key);
       const pairs = [];
-      const operation = level >= 10 ? "subtraction" : "addition";
+      const operation = level >= 16 && level <= 19 ? "multiplication" : level >= 10 ? "subtraction" : "addition";
       for (let a = 1; a <= 99; a += 1) {
         const firstB = operation === "subtraction" ? 1 : a;
+        const orderedFirstB = operation === "multiplication" ? 1 : firstB;
         const lastB = operation === "subtraction" ? a : 99;
-        for (let b = firstB; b <= lastB; b += 1) {
+        for (let b = orderedFirstB; b <= lastB; b += 1) {
+          if (operation === "multiplication" && a * b > 999) continue;
           const model = deriveProblem(a, b, operation);
           if (problemMatchesLevel(model, level, pattern)) pairs.push([a, b]);
         }
@@ -2474,11 +2721,21 @@
         const review = generateProblemForLevel(sourceLevel, exclusions, random);
         return { ...review, curriculumLevel: 15, curriculumSourceLevel: sourceLevel };
       }
+      if (curriculumLevel === 20) {
+        const operationRoll = normalizedRandom(random);
+        const sourceLevel = operationRoll < LEVEL_TWENTY_ADDITION_MIX
+          ? uniformlySelectLevel(1, 9, random)
+          : operationRoll < LEVEL_TWENTY_ADDITION_MIX + LEVEL_TWENTY_SUBTRACTION_MIX
+            ? uniformlySelectLevel(10, 14, random)
+            : uniformlySelectLevel(16, 19, random);
+        const review = generateProblemForLevel(sourceLevel, exclusions, random);
+        return { ...review, curriculumLevel: 20, curriculumSourceLevel: sourceLevel };
+      }
       const pattern = curriculumLevel === 8
         ? (normalizedRandom(random) < LEVEL_EIGHT_TENS_ONLY_MIX ? "tens-only" : "both-carries")
         : null;
       const allPairs = curriculumPairs(curriculumLevel, pattern);
-      const operation = curriculumLevel >= 10 ? "subtraction" : "addition";
+      const operation = curriculumLevel >= 16 ? "multiplication" : curriculumLevel >= 10 ? "subtraction" : "addition";
       const available = allPairs.filter(pair => !exclusions.has(pairKey(pair[0], pair[1], operation)));
       const pool = available.length ? available : allPairs;
       if (!pool.length) throw new Error("No problems are defined for level " + curriculumLevel + ".");
@@ -2502,7 +2759,7 @@
         if (sampledLevel === level) {
           next.currentLevelSuccesses += 1;
           credit = "current";
-        } else if (sampledLevel > level && level !== 14) {
+        } else if (sampledLevel > level && level !== 14 && level !== 19) {
           next.higherLevelSuccesses += 1;
           credit = "higher";
         }
@@ -2649,7 +2906,7 @@
     function startProblem(model, options = {}) {
       abandonActiveMotion();
       problem = model;
-      if (model.operation === "subtraction") hundredsUnlockPending = false;
+      if (model.operation !== "addition") hundredsUnlockPending = false;
       state = freshState(model);
       solverRunning = false;
       tutorialControlActivation = null;
@@ -2662,7 +2919,9 @@
       noteActivity();
       if (state.skipMessage) announce(model.operation === "subtraction"
         ? "The minuend has zero Ones, so begin by building its Tens."
-        : "There are zero ones, so we skip to tens.");
+        : model.operation === "multiplication"
+          ? "The multiplier has zero Ones, so tap its first Tens bar to make ten Ones."
+          : "There are zero ones, so we skip to tens.");
     }
 
     function startWeightedProblem() {
@@ -3135,6 +3394,10 @@
 
     function isMotionDraining() {
       if (!state) return false;
+      if (state.operation === "multiplication") {
+        return Boolean(state.animationState || state.multiplicationQueue.length ||
+          state.activeGroupAccepted !== state.activeGroupConsumed);
+      }
       if (state.operation === "subtraction") {
         return Boolean(state.animationState || state.dropQueue.length || activeDestructions.size ||
           state.minuendOnesAcceptedCursor !== state.minuendOnesCursor ||
@@ -3237,6 +3500,7 @@
       cleanupImpactEffects();
       cleanupTutorialHandCues();
       dropDrainPromise = null;
+      multiplicationDrainPromise = null;
       motionSkipRequested = false;
       pendingTutorialStagePromptKey = null;
     }
@@ -4259,7 +4523,200 @@
       });
     }
 
+    function appendMultiplicationUnits(panel, place, count, owner, role, options = {}) {
+      const groups = document.createElement("div");
+      groups.className = "result-groups";
+      const capacity = place === "hundreds" ? 9 : place === "tens" ? Math.max(10, Math.ceil(count / 10) * 10) : Math.max(10, Math.ceil(count / 10) * 10);
+      if (place === "hundreds") {
+        const strip = document.createElement("div");
+        strip.className = "hundreds-strip";
+        for (let index = 0; index < capacity; index += 1) {
+          const metadata = { role, place, index };
+          const unit = index < count
+            ? makeUnit(owner, true, false, "", options.traded && index < 1, metadata)
+            : makeEmptyUnit(metadata);
+          unit.classList.add("hundred-slot");
+          if (index < count) {
+            unit.classList.add("filled");
+            unit.textContent = "100";
+          }
+          strip.append(unit);
+        }
+        groups.append(strip);
+      } else {
+        const groupCount = Math.max(1, Math.ceil(capacity / 10));
+        for (let group = 0; group < groupCount; group += 1) {
+          const container = document.createElement("div");
+          container.className = place === "tens" ? "tens-grid" : "ones-strip";
+          if (options.regrouping && group === 0) container.classList.add("trade-group", "carry-forming");
+          for (let local = 0; local < 10; local += 1) {
+            const index = group * 10 + local;
+            const metadata = { role, place, index };
+            if (index < count) container.append(makeUnit(owner, true, false, "", options.traded && group === 0, metadata));
+            else container.append(makeEmptyUnit(metadata));
+          }
+          groups.append(container);
+        }
+      }
+      panel.append(groups);
+    }
+
+    function makeMultiplicationPlace(place, count, owner, role, options = {}) {
+      const panel = document.createElement("div");
+      panel.className = "multiplication-place " + place + (options.static ? " multiplication-static" : "") +
+        (options.product ? " result-panel" : "");
+      panel.dataset.placeLabel = place[0].toUpperCase() + place.slice(1);
+      appendMultiplicationUnits(panel, place, count, owner, role, options);
+      if (options.showLabel) {
+        const label = document.createElement("span");
+        label.className = "digit-label";
+        label.textContent = count;
+        label.setAttribute("aria-label", count + " product " + place);
+        panel.append(label);
+      }
+      if (options.regrouping) {
+        const callout = document.createElement("span");
+        callout.className = "multiplication-regroup-callout";
+        callout.textContent = place === "ones" ? "10 ones → 1 ten" : "10 tens → 1 hundred";
+        panel.append(callout);
+      }
+      return panel;
+    }
+
+    function makeMultiplierTensPlace() {
+      const panel = document.createElement("div");
+      panel.className = "multiplication-place tens multiplier-tens-place";
+      panel.dataset.placeLabel = "Tens";
+      const grid = document.createElement("div");
+      grid.className = "tens-grid";
+      for (let index = 0; index < 10; index += 1) {
+        if (index < problem.digits.b.tens) {
+          const converted = index < state.convertedTensBars;
+          const eligible = state.phase === "multiplication-converting-ten" && !state.animationState &&
+            index === state.convertedTensBars;
+          const unit = makeUnit("b", converted, eligible,
+            eligible ? "Convert the next multiplier ten into ten Ones" : "",
+            converted, { role: "source", place: "multiplier-tens", index });
+          unit.dataset.action = "convert-multiplier-ten";
+          grid.append(unit);
+        } else grid.append(makeEmptyUnit({ role: "source", place: "multiplier-tens", index }));
+      }
+      panel.append(grid);
+      const label = document.createElement("span");
+      label.className = "digit-label";
+      label.textContent = Math.max(0, problem.digits.b.tens - state.convertedTensBars);
+      label.setAttribute("aria-label", Math.max(0, problem.digits.b.tens - state.convertedTensBars) + " multiplier Tens remain");
+      panel.append(label);
+      return panel;
+    }
+
+    function makeMultiplierOnesPlace() {
+      const panel = document.createElement("div");
+      panel.className = "multiplication-place ones multiplier-ones-place";
+      panel.dataset.placeLabel = "Ones";
+      const strip = document.createElement("div");
+      strip.className = "ones-strip";
+      for (let index = 0; index < 10; index += 1) {
+        if (index < state.activeGroupSize) {
+          const consumed = index < state.activeGroupConsumed;
+          const queued = !consumed && index < state.activeGroupAccepted;
+          const eligible = state.phase === "multiplication-consuming-ones" && !state.animationState &&
+            index === state.activeGroupAccepted;
+          const unit = makeUnit("b", consumed, eligible,
+            "Pull the next multiplier One. Hold for " + quickPlayHoldLabel + " to Pull All remaining Ones in this group.",
+            false, { role: "source", place: "multiplier-ones", index }, queued);
+          unit.dataset.activeGroup = String(state.activeGroupNumber);
+          strip.append(unit);
+        } else strip.append(makeEmptyUnit({ role: "source", place: "multiplier-ones", index }));
+      }
+      panel.append(strip);
+      const label = document.createElement("span");
+      label.className = "digit-label";
+      label.textContent = Math.max(0, state.activeGroupSize - state.activeGroupConsumed);
+      label.setAttribute("aria-label", Math.max(0, state.activeGroupSize - state.activeGroupConsumed) + " multiplier Ones remain in this group");
+      panel.append(label);
+      decorateSourcePanel(panel, "multiplier-ones", 0, state.activeGroupSize);
+      return panel;
+    }
+
+    function renderMultiplicationBoard() {
+      elements.board.className = "board multiplication-board";
+      elements.board.replaceChildren();
+
+      const multiplicand = document.createElement("section");
+      multiplicand.className = "multiplication-column multiplicand";
+      multiplicand.setAttribute("aria-label", "Multiplicand " + problem.a + ", stationary");
+      const multiplicandTitle = document.createElement("div");
+      multiplicandTitle.className = "multiplication-role-title";
+      multiplicandTitle.textContent = "Multiplicand";
+      const multiplicandValue = document.createElement("div");
+      multiplicandValue.className = "multiplication-value";
+      multiplicandValue.textContent = problem.a;
+      const multiplicandPlaces = document.createElement("div");
+      multiplicandPlaces.className = "multiplication-places";
+      multiplicandPlaces.append(
+        makeMultiplicationPlace("hundreds", 0, "a", "multiplicand", { static: true }),
+        makeMultiplicationPlace("tens", problem.digits.a.tens, "a", "multiplicand", { static: true }),
+        makeMultiplicationPlace("ones", problem.digits.a.ones, "a", "multiplicand", { static: true })
+      );
+      multiplicand.append(multiplicandTitle, multiplicandValue, multiplicandPlaces);
+
+      const multiplier = document.createElement("section");
+      multiplier.className = "multiplication-column multiplier";
+      multiplier.setAttribute("aria-label", "Multiplier " + problem.b + ", consumable");
+      const multiplierTitle = document.createElement("div");
+      multiplierTitle.className = "multiplication-role-title";
+      multiplierTitle.textContent = "Multiplier";
+      const multiplierValue = document.createElement("div");
+      multiplierValue.className = "multiplication-value";
+      multiplierValue.textContent = problem.b;
+      const multiplierPlaces = document.createElement("div");
+      multiplierPlaces.className = "multiplication-places";
+      multiplierPlaces.append(
+        makeMultiplicationPlace("hundreds", 0, "b", "source", { static: true }),
+        makeMultiplierTensPlace(),
+        makeMultiplierOnesPlace()
+      );
+      multiplier.append(multiplierTitle, multiplierValue, multiplierPlaces);
+
+      const product = document.createElement("section");
+      product.className = "multiplication-column product";
+      product.setAttribute("aria-label", state.phase === "completed" ? "Product " + problem.result : "Product being built");
+      const productTitle = document.createElement("div");
+      productTitle.className = "multiplication-role-title";
+      productTitle.textContent = "Product";
+      const productValue = document.createElement("div");
+      productValue.className = "multiplication-value";
+      productValue.textContent = state.phase === "completed" ? problem.result : "?";
+      const productPlaces = document.createElement("div");
+      productPlaces.className = "multiplication-places multiplication-product";
+      const showLabels = state.phase === "completed" || profile.difficultyMode === "easy";
+      productPlaces.append(
+        makeMultiplicationPlace("hundreds", state.productHundreds, "product", "result", {
+          product: true, showLabel: showLabels, regrouping: state.regroupPhase === "tens"
+        }),
+        makeMultiplicationPlace("tens", state.productTens, "product", "result", {
+          product: true, showLabel: showLabels, regrouping: state.regroupPhase === "tens", traded: state.regroupPhase === "tens"
+        }),
+        makeMultiplicationPlace("ones", state.productOnes, "product", "result", {
+          product: true, showLabel: showLabels, regrouping: state.regroupPhase === "ones", traded: state.regroupPhase === "ones"
+        })
+      );
+      product.append(productTitle, productValue, productPlaces);
+
+      elements.board.append(multiplicand, multiplier, product);
+      const onesPanel = elements.board.querySelector(".multiplier-ones-place");
+      if (onesPanel) onesPanel.classList.toggle("quick-play-ready", quickDropCellIsCurrent(onesPanel));
+      if (state.animationState === "multiplier-ten-conversion") {
+        elements.board.querySelector(".multiplier-ones-place")?.classList.add("multiplier-conversion-target");
+      }
+    }
+
     function renderBoard() {
+      if (problem.operation === "multiplication") {
+        renderMultiplicationBoard();
+        return;
+      }
       if (problem.operation === "subtraction") {
         renderSubtractionBoard();
         return;
@@ -4326,6 +4783,15 @@
     }
 
     function promptKeyForState(currentState) {
+      if (currentState.operation === "multiplication") {
+        if (currentState.phase === "completed") return "multiplication-completed";
+        if (currentState.phase === "awaiting-answer") return "multiplication-awaiting-answer";
+        if (currentState.regroupPhase === "ones") return "multiplication-regrouping-ones";
+        if (currentState.regroupPhase === "tens") return "multiplication-regrouping-tens";
+        if (currentState.animationState === "multiplicand-pull") return "multiplication-pulling";
+        if (currentState.phase === "multiplication-converting-ten") return "multiplication-converting-ten";
+        return "multiplication-consuming-ones";
+      }
       if (currentState.operation === "subtraction") {
         if (currentState.phase === "completed") return "subtraction-completed";
         if (currentState.phase === "awaiting-answer") return "subtraction-awaiting-answer";
@@ -4393,11 +4859,14 @@
       button.className = "suggestion operation-" + item.operation + (index === 0 ? " current" : "");
       button.dataset.operation = item.operation;
       const subtraction = item.operation === "subtraction";
-      const symbol = subtraction ? "−" : "+";
+      const multiplication = item.operation === "multiplication";
+      const symbol = subtraction ? "−" : multiplication ? "×" : "+";
       button.innerHTML = item.a + "<br>" + symbol + " " + item.b;
       button.setAttribute("aria-label", subtraction
         ? item.a + " minus " + item.b + ", " + (item.needsBorrow ? "with borrowing" : "without borrowing")
-        : item.a + " plus " + item.b + ", " + CATEGORY_NAMES[item.category]);
+        : multiplication
+          ? "Multiplicand " + item.a + " times multiplier " + item.b + ", product " + item.result
+          : item.a + " plus " + item.b + ", " + CATEGORY_NAMES[item.category]);
       if (index === 0) {
         button.disabled = true;
         button.setAttribute("aria-current", "true");
@@ -4438,16 +4907,20 @@
     function render() {
       const motionLocked = isMotionDraining() || diceRefreshState !== "idle";
       const subtraction = problem.operation === "subtraction";
+      const multiplication = problem.operation === "multiplication";
       document.body.classList.toggle("operation-subtraction", subtraction);
-      document.body.classList.toggle("operation-addition", !subtraction);
+      document.body.classList.toggle("operation-multiplication", multiplication);
+      document.body.classList.toggle("operation-addition", !subtraction && !multiplication);
       document.querySelector(".app").classList.toggle("operation-subtraction", subtraction);
-      document.querySelector(".app").classList.toggle("operation-addition", !subtraction);
-      document.querySelector('meta[name="theme-color"]').content = subtraction ? "#e8ddff" : "#dff4ff";
+      document.querySelector(".app").classList.toggle("operation-multiplication", multiplication);
+      document.querySelector(".app").classList.toggle("operation-addition", !subtraction && !multiplication);
+      document.querySelector('meta[name="theme-color"]').content = subtraction ? "#e8ddff" : multiplication ? "#d8f5e5" : "#dff4ff";
       elements.equationA.textContent = problem.a;
       elements.equationB.textContent = problem.b;
-      elements.equationOperator.textContent = subtraction ? "−" : "+";
+      elements.equationOperator.textContent = subtraction ? "−" : multiplication ? "×" : "+";
       elements.equationCard.setAttribute("aria-label", "Current " + problem.operation + " problem: " + problem.a +
-        (subtraction ? " minus " : " plus ") + problem.b + ", answer " + (state.phase === "completed" ? problem.result : "hidden"));
+        (subtraction ? " minus " : multiplication ? " times " : " plus ") + problem.b +
+        ", answer " + (state.phase === "completed" ? problem.result : "hidden"));
       elements.answer.textContent = state.phase === "completed" ? problem.result : "?";
       const answerReady = state.phase === "awaiting-answer";
       elements.answer.classList.toggle("answer-ready", answerReady);
@@ -4458,7 +4931,7 @@
       const resetCompleted = state.phase === "completed";
       elements.reset.hidden = resetCompleted;
       elements.reset.disabled = resetCompleted || solverRunning || diceRefreshState !== "idle" ||
-        (motionLocked && activeDestructions.size === 0);
+        (motionLocked && activeDestructions.size === 0 && state.operation !== "multiplication");
       elements.settings.disabled = motionLocked || solverRunning;
       elements.fullscreen.disabled = motionLocked || solverRunning;
       renderPrompt();
@@ -4509,9 +4982,278 @@
       return pauseTutorialStage("prompt-change", promptKey, session);
     }
 
+    function canAcceptMultiplicationOne(allowSolver = false) {
+      return Boolean(state && state.operation === "multiplication" &&
+        state.phase === "multiplication-consuming-ones" && !state.animationState &&
+        (allowSolver || !solverRunning) && state.activeGroupAccepted < state.activeGroupSize);
+    }
+
+    function multiplicationSourceUnits() {
+      return Array.from(elements.board.querySelectorAll('.multiplicand [data-motion-role="multiplicand"].unit'));
+    }
+
+    async function animateMultiplicandPull(item, session = motionSession) {
+      const sources = multiplicationSourceUnits().map(unit => ({
+        place: unit.dataset.place,
+        index: Number(unit.dataset.index),
+        rect: rectSnapshot(unit)
+      })).filter(source => source.rect);
+      const multiplicandOnes = sources.filter(source => source.place === "ones").length;
+      const multiplicandTens = sources.filter(source => source.place === "tens").length;
+      state.pullPhase = "travel";
+      state.animationState = "multiplicand-pull";
+      render();
+      recordMotion("multiplication-pull-start", {
+        group: item.group, index: item.index, quickPlay: Boolean(item.pullAll), multiplicandOnes, multiplicandTens
+      });
+      if (item.pullAll) recordMotion("pull-all-item-start", { group: item.group, index: item.index });
+      playDropSound("ones", activeMotionTimings.BLOCK_FALL_LAND);
+      await Promise.all(sources.map((source, position) => {
+        const target = elements.board.querySelector(".multiplication-product .multiplication-place." + source.place);
+        const destination = rectSnapshot(target);
+        if (reduceMotion || motionSkipRequested || !destination) return Promise.resolve(false);
+        const overlay = makeMotionOverlay(source.rect, "unit owner-a", {
+          motionKind: "multiplication-pull", place: source.place, index: source.index,
+          multiplierIndex: item.index, multiplierGroup: item.group
+        });
+        if (!overlay) return Promise.resolve(false);
+        const deltaX = destination.left + destination.width / 2 - (source.rect.left + source.rect.width / 2);
+        const deltaY = destination.top + destination.height / 2 - (source.rect.top + source.rect.height / 2);
+        const arc = (position % 2 ? -1 : 1) * (6 + position);
+        return animateTracked(overlay, [
+          { transform: "translate(0,0) scale(1)", opacity: 1 },
+          { offset: .52, transform: "translate(" + (deltaX * .52).toFixed(2) + "px," + (deltaY * .52 - 12 + arc).toFixed(2) + "px) scale(.96)", opacity: 1 },
+          { transform: "translate(" + deltaX.toFixed(2) + "px," + deltaY.toFixed(2) + "px) scale(.78)", opacity: .88 }
+        ], { duration: activeMotionTimings.BLOCK_FALL_LAND, fill: "forwards", easing: "cubic-bezier(.35,.05,.25,1)" })
+          .finally(() => overlay.remove());
+      }));
+      if (!state || session !== motionSession) return false;
+      state.pullPhase = "landing";
+      state.productOnes += problem.digits.a.ones;
+      state.productTens += problem.digits.a.tens;
+      state.activeGroupConsumed += 1;
+      state.totalMultiplierUnitsConsumed += 1;
+      state.tempCount = state.totalMultiplierUnitsConsumed;
+      render();
+      flashMotionTarget(elements.board.querySelector(".multiplication-column.product"));
+      playDropImpact("ones");
+      recordMotion("multiplication-pull-landed", {
+        group: item.group, index: item.index, quickPlay: Boolean(item.pullAll),
+        consumed: state.activeGroupConsumed, totalMultiplierUnitsConsumed: state.totalMultiplierUnitsConsumed,
+        productOnes: state.productOnes, productTens: state.productTens, productHundreds: state.productHundreds
+      });
+      if (item.pullAll) recordMotion("pull-all-item-complete", { group: item.group, index: item.index });
+      return true;
+    }
+
+    async function performMultiplicationRegroup(kind, session = motionSession) {
+      const sourcePlace = kind === "ones" ? "ones" : "tens";
+      const destinationPlace = kind === "ones" ? "tens" : "hundreds";
+      state.regroupPhase = kind;
+      state.pullPhase = "regrouping-" + sourcePlace;
+      state.animationState = "multiplication-regrouping";
+      render();
+      recordMotion("multiplication-regroup-formation", { kind, sourcePlace, destinationPlace });
+      playGroupingSound(kind);
+      await pause(reduceMotion || motionSkipRequested ? 0 : activeMotionTimings.CARRY_FORMATION);
+      if (!state || session !== motionSession) return false;
+      const origin = rectSnapshot(elements.board.querySelector(".multiplication-product .multiplication-place." + sourcePlace));
+      const destination = rectSnapshot(elements.board.querySelector(".multiplication-product .multiplication-place." + destinationPlace));
+      let overlay = null;
+      if (!reduceMotion && !motionSkipRequested && origin && destination) {
+        overlay = makeMotionOverlay(origin, "carry-token " + (kind === "ones" ? "ten-token" : "hundred-token"), {
+          motionKind: "multiplication-regroup", carryKind: kind
+        });
+      }
+      recordMotion("multiplication-regroup-travel", { kind, destination: destinationPlace });
+      if (overlay && destination) {
+        const deltaX = destination.left - origin.left;
+        const deltaY = destination.top - origin.top;
+        await animateTracked(overlay, [
+          { transform: "translate(0,0) scale(.55)", opacity: .9 },
+          { offset: .5, transform: "translate(" + (deltaX * .5).toFixed(2) + "px," + (deltaY * .5 - 10).toFixed(2) + "px) scale(.8)", opacity: 1 },
+          { transform: "translate(" + deltaX.toFixed(2) + "px," + deltaY.toFixed(2) + "px) scale(.7)", opacity: .9 }
+        ], { duration: activeMotionTimings.CARRY_TRAVEL, fill: "forwards", easing: "ease-in-out" });
+        overlay.remove();
+      }
+      if (!state || session !== motionSession) return false;
+      if (kind === "ones") {
+        state.productOnes -= 10;
+        state.productTens += 1;
+      } else {
+        state.productTens -= 10;
+        state.productHundreds += 1;
+      }
+      state.regroupPhase = null;
+      state.pullPhase = "regroup-landed";
+      render();
+      flashMotionTarget(elements.board.querySelector(".multiplication-product .multiplication-place." + destinationPlace));
+      playCarryLanding(kind);
+      recordMotion("multiplication-regroup-landed", {
+        kind, productOnes: state.productOnes, productTens: state.productTens, productHundreds: state.productHundreds
+      });
+      return true;
+    }
+
+    function finishMultiplicationGroup() {
+      if (state.pullAllActive && state.pullAllGroup === state.activeGroupNumber) {
+        recordMotion("pull-all-complete", {
+          group: state.pullAllGroup,
+          consumed: state.activeGroupConsumed,
+          stoppedForTen: state.convertedTensBars < problem.digits.b.tens
+        });
+        state.pullAllActive = false;
+        state.pullAllGroup = null;
+        state.pullAllQueued = 0;
+      }
+      state.pullPhase = null;
+      state.animationState = null;
+      if (state.convertedTensBars < problem.digits.b.tens) {
+        state.phase = "multiplication-converting-ten";
+        render();
+        announce("This Ones group is complete. Tap the next multiplier Ten bar to make ten more Ones.");
+      } else enterAwaitingAnswer();
+    }
+
+    async function drainMultiplicationQueue(session = motionSession) {
+      while (state && session === motionSession && state.multiplicationQueue.length) {
+        const item = state.multiplicationQueue[0];
+        if (!await animateMultiplicandPull(item, session)) return;
+        while (state.productOnes >= 10) {
+          if (!await performMultiplicationRegroup("ones", session)) return;
+        }
+        while (state.productTens >= 10) {
+          if (!await performMultiplicationRegroup("tens", session)) return;
+        }
+        if (!state || session !== motionSession) return;
+        state.multiplicationQueue.shift();
+        state.pullPhase = null;
+        state.animationState = state.multiplicationQueue.length ? "multiplicand-pull" : null;
+        recordMotion("multiplication-pull-settled", {
+          group: item.group, index: item.index, queueLength: state.multiplicationQueue.length,
+          productOnes: state.productOnes, productTens: state.productTens, productHundreds: state.productHundreds
+        });
+        render();
+      }
+      if (!state || session !== motionSession) return;
+      if (state.activeGroupConsumed >= state.activeGroupSize) finishMultiplicationGroup();
+      else {
+        state.animationState = null;
+        state.pullPhase = null;
+        render();
+        announce("One multiplicand copy settled. Pull the next multiplier One.");
+      }
+      motionSkipRequested = false;
+      if (!solverRunning) noteActivity();
+    }
+
+    function ensureMultiplicationDrain() {
+      if (multiplicationDrainPromise) return multiplicationDrainPromise;
+      const session = motionSession;
+      const promise = drainMultiplicationQueue(session);
+      multiplicationDrainPromise = promise;
+      promise.finally(() => {
+        if (multiplicationDrainPromise === promise) multiplicationDrainPromise = null;
+      });
+      return promise;
+    }
+
+    function acceptMultiplicationOne(unit, allowSolver = false, pullAll = false) {
+      if (!canAcceptMultiplicationOne(allowSolver) && !pullAll) return null;
+      const index = Number(unit && unit.dataset.index);
+      if (!unit || index !== state.activeGroupAccepted) return null;
+      state.activeGroupAccepted += 1;
+      state.multiplicationQueue.push({ group: state.activeGroupNumber, index, pullAll, origin: rectSnapshot(unit) });
+      state.animationState = "multiplicand-pull";
+      state.pullPhase = "queued";
+      recordMotion("multiplication-pull-accepted", {
+        group: state.activeGroupNumber, index, accepted: state.activeGroupAccepted, pullAll
+      });
+      render();
+      return ensureMultiplicationDrain();
+    }
+
+    function acceptMultiplicationPullAll(panel) {
+      if (!quickDropCellIsCurrent(panel)) return null;
+      const group = state.activeGroupNumber;
+      const start = state.activeGroupAccepted;
+      const end = state.activeGroupSize;
+      const items = [];
+      for (let index = start; index < end; index += 1) items.push({ group, index, pullAll: true, origin: null });
+      if (!items.length) return null;
+      state.activeGroupAccepted = end;
+      state.multiplicationQueue.push(...items);
+      state.pullAllActive = true;
+      state.pullAllGroup = group;
+      state.pullAllQueued = items.length;
+      state.animationState = "multiplicand-pull";
+      state.pullPhase = "queued";
+      recordMotion("pull-all-start", { group, start, end, count: items.length });
+      render();
+      return ensureMultiplicationDrain();
+    }
+
+    async function convertMultiplierTen(unit, allowSolver = false) {
+      if (!state || state.operation !== "multiplication" || state.phase !== "multiplication-converting-ten" ||
+          state.animationState || (!allowSolver && solverRunning) || state.convertedTensBars >= problem.digits.b.tens) return false;
+      const index = Number(unit && unit.dataset.index);
+      if (!unit || index !== state.convertedTensBars) return false;
+      const session = motionSession;
+      const origin = rectSnapshot(unit);
+      const destination = rectSnapshot(elements.board.querySelector(".multiplier-ones-place"));
+      state.animationState = "multiplier-ten-conversion";
+      state.multiplierConversionPhase = "travel";
+      render();
+      recordMotion("multiplier-ten-conversion-start", { index, convertedTensBars: state.convertedTensBars });
+      playGroupingSound("ones");
+      let overlay = null;
+      if (!reduceMotion && !motionSkipRequested && origin && destination) {
+        overlay = makeMotionOverlay(origin, "unit owner-carry", {
+          motionKind: "multiplier-ten-conversion", place: "multiplier-tens", index
+        });
+      }
+      if (overlay) {
+        const deltaX = destination.left + destination.width / 2 - (origin.left + origin.width / 2);
+        const deltaY = destination.top + destination.height / 2 - (origin.top + origin.height / 2);
+        await animateTracked(overlay, [
+          { transform: "translate(0,0) scale(1)", opacity: 1 },
+          { offset: .55, transform: "translate(" + (deltaX * .55).toFixed(2) + "px," + (deltaY * .55 - 10).toFixed(2) + "px) scale(1.08)", opacity: 1 },
+          { transform: "translate(" + deltaX.toFixed(2) + "px," + deltaY.toFixed(2) + "px) scale(.72)", opacity: .9 }
+        ], { duration: activeMotionTimings.CARRY_TRAVEL, fill: "forwards", easing: "ease-in-out" });
+        overlay.remove();
+      }
+      if (!state || session !== motionSession) return false;
+      state.convertedTensBars += 1;
+      state.multiplierTensRemaining = problem.digits.b.tens - state.convertedTensBars;
+      state.activeGroupNumber += 1;
+      state.activeGroupSize = 10;
+      state.activeGroupAccepted = 0;
+      state.activeGroupConsumed = 0;
+      state.multiplierConversionPhase = "landing";
+      render();
+      flashMotionTarget(elements.board.querySelector(".multiplier-ones-place"));
+      await pause(reduceMotion || motionSkipRequested ? 0 : activeMotionTimings.CARRY_LANDING);
+      if (!state || session !== motionSession) return false;
+      state.multiplierConversionPhase = null;
+      state.animationState = null;
+      state.phase = "multiplication-consuming-ones";
+      state.skipMessage = false;
+      recordMotion("multiplier-ten-conversion-complete", {
+        index, convertedTensBars: state.convertedTensBars, activeGroupSize: state.activeGroupSize
+      });
+      render();
+      announce("One multiplier Ten became ten Ones. Pull this new group; Pull All stops before the next Ten.");
+      if (!solverRunning) noteActivity();
+      return true;
+    }
+
     function quickDropCellIsCurrent(panel, allowDisconnected = false) {
       if (!panel || (!allowDisconnected && !panel.isConnected) || !state || solverRunning || diceRefreshState !== "idle" || isDialogOpen() || isMotionDraining() ||
           state.phase === "completed") return false;
+      if (state.operation === "multiplication") {
+        return panel.dataset.quickPlace === "multiplier-ones" && state.phase === "multiplication-consuming-ones" &&
+          state.activeGroupAccepted < state.activeGroupSize;
+      }
       const place = panel.dataset.quickPlace;
       const start = Number(panel.dataset.quickStart);
       const end = Number(panel.dataset.quickEnd);
@@ -4544,7 +5286,9 @@
         input: hold.input
       });
       vibrate([18, 22, 38]);
-      const drain = acceptQuickDropCell(hold.panel);
+      const drain = state.operation === "multiplication"
+        ? acceptMultiplicationPullAll(hold.panel)
+        : acceptQuickDropCell(hold.panel);
       if (drain) trackGameStarted();
     }
 
@@ -4614,14 +5358,23 @@
 
     function onUnitTap(event) {
       const unit = event.currentTarget;
-      if (performance.now() < suppressUnitClickUntil) return;
+      if (performance.now() < suppressUnitClickUntil &&
+          !(state && state.operation === "multiplication" && unit.dataset.action === "convert-multiplier-ten")) return;
       if (!unit || solverRunning || diceRefreshState !== "idle" || isDialogOpen() || state.phase === "completed") return;
       noteActivity();
+      if (state.operation === "multiplication") {
+        const drain = unit.dataset.action === "convert-multiplier-ten"
+          ? convertMultiplierTen(unit, false)
+          : acceptMultiplicationOne(unit, false);
+        if (drain) trackGameStarted();
+        return;
+      }
       const drain = acceptPlaceUnit(unit.dataset.place, unit, false);
       if (drain) trackGameStarted();
     }
 
     function acceptQuickDropCell(panel) {
+      if (state.operation === "multiplication") return acceptMultiplicationPullAll(panel);
       if (!quickDropCellIsCurrent(panel)) return null;
       const place = panel.dataset.quickPlace;
       const progress = placeProgress(place);
@@ -4675,6 +5428,21 @@
     }
 
     function acceptNextPlaceUnitForSolver() {
+      if (state.operation === "multiplication") {
+        if (state.phase === "multiplication-converting-ten") {
+          const unit = elements.board.querySelector(
+            '[data-motion-role="source"][data-place="multiplier-tens"][data-index="' + state.convertedTensBars + '"]'
+          );
+          if (!unit) return null;
+          showTutorialHandCue(unit, "multiplier-tens", state.convertedTensBars);
+          return convertMultiplierTen(unit, true);
+        }
+        if (!canAcceptMultiplicationOne(true)) return null;
+        const unit = sourceUnit("multiplier-ones", state.activeGroupAccepted);
+        if (!unit) return null;
+        showTutorialHandCue(unit, "multiplier-ones", state.activeGroupAccepted);
+        return acceptMultiplicationOne(unit, true);
+      }
       const placesByPhase = {
         "counting-ones": "ones", "counting-tens": "tens", "counting-hundreds": "hundreds",
         "counting-minuend-ones": "minuend-ones", "counting-minuend-tens": "minuend-tens",
@@ -5129,7 +5897,9 @@
         showSolverHint(false);
         cue(610, .08);
       }
-      announce("Counting finished. The answer is still hidden. Tap the question mark and enter the answer.");
+      announce(problem.operation === "multiplication"
+        ? "The product is built. The answer is still hidden. Tap the question mark and enter the product."
+        : "Counting finished. The answer is still hidden. Tap the question mark and enter the answer.");
     }
 
     function finishTensPlace() {
@@ -5272,7 +6042,19 @@
     function completeProblem(method) {
       if (state.phase === "completed") return;
       state.phase = "completed";
-      if (problem.operation === "subtraction") {
+      if (problem.operation === "multiplication") {
+        state.activeGroupAccepted = state.activeGroupConsumed = state.activeGroupSize;
+        state.convertedTensBars = problem.digits.b.tens;
+        state.multiplierTensRemaining = 0;
+        state.totalMultiplierUnitsConsumed = problem.b;
+        state.productOnes = problem.resultDigits.ones;
+        state.productTens = problem.resultDigits.tens;
+        state.productHundreds = problem.resultDigits.hundreds;
+        state.multiplicationQueue.length = 0;
+        state.pullPhase = null;
+        state.regroupPhase = null;
+        state.pullAllActive = false;
+      } else if (problem.operation === "subtraction") {
         state.minuendOnesAcceptedCursor = state.minuendOnesCursor = problem.digits.a.ones;
         state.minuendTensAcceptedCursor = state.minuendTensCursor = problem.digits.a.tens;
         state.subtrahendOnesAcceptedCursor = state.subtrahendOnesCursor = problem.digits.b.ones;
@@ -5293,7 +6075,7 @@
       state.carryKind = null;
       state.visibleOnesCarry = Boolean(problem.carryToTens);
       state.visibleHundredsCarry = Boolean(problem.carryToHundreds);
-      state.tempCount = problem.operation === "subtraction" ? problem.result : problem.tensTotal;
+      state.tempCount = problem.operation === "subtraction" || problem.operation === "multiplication" ? problem.result : problem.tensTotal;
       if (method !== "solver") solverRunning = false;
       pendingTutorialStagePromptKey = null;
       if (method !== "solver") cleanupTutorialHandCues();
@@ -5323,11 +6105,11 @@
       if (isManual) {
         const levelMessage = advanced ? " You advanced to level " + profile.currentLevel + "." : "";
         const unlockMessage = unlockedHundreds ? " The Hundreds column is now unlocked." : "";
-        announce("Correct. " + problem.a + (problem.operation === "subtraction" ? " minus " : " plus ") + problem.b +
+        announce("Correct. " + problem.a + (problem.operation === "subtraction" ? " minus " : problem.operation === "multiplication" ? " times " : " plus ") + problem.b +
           " equals " + problem.result + ". You earned 10 coins." + levelMessage + unlockMessage);
         showToast(advanced ? "+10 coins · Welcome to L" + profile.currentLevel + "!" : "+10 coins · New milestone earned!");
       } else {
-        announce("Tutorial complete. " + problem.a + (problem.operation === "subtraction" ? " minus " : " plus ") + problem.b +
+        announce("Tutorial complete. " + problem.a + (problem.operation === "subtraction" ? " minus " : problem.operation === "multiplication" ? " times " : " plus ") + problem.b +
           " equals " + problem.result + ". No coins or level progress were awarded.");
       }
     }
@@ -5366,7 +6148,8 @@
           continue;
         }
         if (["counting-ones", "counting-tens", "counting-hundreds", "counting-minuend-ones", "counting-minuend-tens",
-          "counting-subtrahend-ones", "counting-subtrahend-tens"].includes(state.phase)) {
+          "counting-subtrahend-ones", "counting-subtrahend-tens", "multiplication-consuming-ones",
+          "multiplication-converting-ten"].includes(state.phase)) {
           if (!await pausePendingTutorialStage(session)) return;
           const drain = acceptNextPlaceUnitForSolver();
           if (drain) await drain;
@@ -5409,7 +6192,7 @@
       clearIdleHints();
       typedAnswer = "";
       updateTypedValue();
-      elements.keypadEquation.textContent = problem.a + (problem.operation === "subtraction" ? " − " : " + ") + problem.b + " =";
+      elements.keypadEquation.textContent = problem.a + (problem.operation === "subtraction" ? " − " : problem.operation === "multiplication" ? " × " : " + ") + problem.b + " =";
       elements.keypad.showModal();
       requestAnimationFrame(() => elements.keypad.querySelector('[data-key="1"]').focus());
     }
@@ -5739,8 +6522,30 @@
         borrowCount: state.borrowCount || 0,
         borrowPhase: state.borrowPhase || null,
         needsBorrow: Boolean(problem.needsBorrow),
-        queueLength: state.dropQueue.length,
-        queueBoundary: problem.operation === "subtraction"
+        activeGroupSize: state.activeGroupSize || 0,
+        activeGroupAccepted: state.activeGroupAccepted || 0,
+        activeGroupConsumed: state.activeGroupConsumed || 0,
+        activeGroupNumber: state.activeGroupNumber || 0,
+        convertedTensBars: state.convertedTensBars || 0,
+        multiplierTensRemaining: state.multiplierTensRemaining || 0,
+        totalMultiplierUnitsConsumed: state.totalMultiplierUnitsConsumed || 0,
+        productOnes: state.productOnes ?? null,
+        productTens: state.productTens ?? null,
+        productHundreds: state.productHundreds ?? null,
+        productDigits: state.operation === "multiplication" ? {
+          hundreds: state.productHundreds, tens: state.productTens, ones: state.productOnes
+        } : null,
+        pullPhase: state.pullPhase || null,
+        regroupPhase: state.regroupPhase || null,
+        multiplierConversionPhase: state.multiplierConversionPhase || null,
+        pullAllActive: Boolean(state.pullAllActive),
+        pullAllGroup: state.pullAllGroup ?? null,
+        pullAllQueued: state.pullAllQueued || 0,
+        multiplicationQueueLength: state.multiplicationQueue ? state.multiplicationQueue.length : 0,
+        queueLength: state.operation === "multiplication" ? state.multiplicationQueue.length : state.dropQueue.length,
+        queueBoundary: problem.operation === "multiplication"
+          ? state.activeGroupSize
+          : problem.operation === "subtraction"
           ? (() => {
               const phasePlace = {
                 "counting-minuend-ones": "minuend-ones", "counting-minuend-tens": "minuend-tens",
@@ -5822,6 +6627,11 @@
         LEVEL_FOURTEEN_CURRENT_MIX,
         LEVEL_FOURTEEN_REVIEW_MIX,
         LEVEL_FIFTEEN_ADDITION_MIX,
+        LEVEL_NINETEEN_CURRENT_MIX,
+        LEVEL_NINETEEN_REVIEW_MIX,
+        LEVEL_TWENTY_ADDITION_MIX,
+        LEVEL_TWENTY_SUBTRACTION_MIX,
+        LEVEL_TWENTY_MULTIPLICATION_MIX,
         LEVEL_EIGHT_TENS_ONLY_MIX,
         LEVEL_EIGHT_BOTH_CARRIES_MIX,
         CURRENT_LEVEL_ADVANCEMENT_TARGET,
