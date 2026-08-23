@@ -53,7 +53,7 @@ Labels, position, text, and state changes ensure color is never the only cue. Th
 
 ## Progress and persistence
 
-Four current-level typed successes or two eligible higher-level typed successes advance exactly one level and reset both counters. L14 and L19 receive no higher-level credit because their gated samplers exclude the following mixed-review level; L20 is capped. Lower-level and diagnostic problems receive no level credit. Incorrect attempts do not prevent the later correct reward.
+Four current-level typed successes or two eligible higher-level typed successes advance exactly one level and reset both counters. L9, L14, and L19 receive no higher-level credit because their gated samplers exclude the following operation or mixed-review level; L20 is capped. Lower-level and diagnostic problems receive no level credit. After each manual success, the celebration explicitly reports the credited counter (or that a practice problem earned no level credit). Incorrect attempts do not prevent the later correct reward.
 
 Profile schema v4 persists score, milestones, L1–L20 level, both counters, sound, difficulty, launch choice, and timestamp. Existing v1–v4 profiles are preserved and validated without a schema bump. Settings can override L1–L20, and reset returns to L1 while retaining sound and difficulty.
 

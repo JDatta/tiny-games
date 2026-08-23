@@ -928,6 +928,11 @@
       transition = api.applyProgressForSuccess(progress, 15);
       assert(transition.credit === "none" && transition.profile.higherLevelSuccesses === 0,
         "L14 advances only through its current-level success path");
+      progress = freshAt(9);
+      transition = api.applyProgressForSuccess(progress, 10);
+      assert(api.isGatedCurriculumLevel(9) && api.isGatedCurriculumLevel(14) && api.isGatedCurriculumLevel(19) &&
+        !api.isGatedCurriculumLevel(8) && transition.credit === "none" && transition.profile.higherLevelSuccesses === 0,
+        "all operation-boundary gates share one sampler and higher-credit policy");
       progress = freshAt(19);
       transition = api.applyProgressForSuccess(progress, 20);
       assert(transition.credit === "none" && transition.profile.higherLevelSuccesses === 0,
@@ -944,6 +949,10 @@
       progress = freshAt(20);
       transition = api.applyProgressForSuccess(progress, 20);
       assert(!transition.advanced && transition.profile.currentLevel === 20 && transition.profile.currentLevelSuccesses === 0, "L20 is capped");
+      const summary = api.progressSummary({ ...freshAt(9), currentLevelSuccesses: 2, higherLevelSuccesses: 1 });
+      assert(summary.current === 2 && summary.currentTarget === 4 && !summary.acceptsHigherCredit &&
+        summary.higher === 1 && summary.higherTarget === 2,
+        "visible progress summary distinguishes current credit from gated practice work");
 
       const migrated = api.validateProfile({ schemaVersion: 1, score: 70, emojiProgress: 7, sound: false, updatedAt: 123 });
       assert(migrated.schemaVersion === 4 && migrated.score === 70 && migrated.emojiProgress === 7 && !migrated.sound &&

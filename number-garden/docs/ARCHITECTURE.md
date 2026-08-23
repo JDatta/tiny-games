@@ -73,7 +73,7 @@ Frozen prompt pools cover every phase of all three operations. State caches the 
 
 L1 is 75% current and 25% next. L2–L8, L10–L13, and L16–L18 use 50% current, 25% next, and 25% uniform lower review. L9 and L14 use 60% current plus 40% gated review. L15 chooses exactly 50% addition from uniform L1–L9 and 50% subtraction from uniform L10–L14; it never previews multiplication. L19 uses 60% current plus 40% uniform L1–L18 and never previews L20. L20 selects exactly 40% addition (uniform L1–L9), 30% subtraction (uniform L10–L14), and 30% multiplication (uniform L16–L19).
 
-Four current-level or two eligible higher-level manual successes advance one level. Gated L14 and L19 advance through current-level work; L20 caps progress. Query-forced models have no curriculum tag, so they may earn coins but never counter credit.
+Four current-level or two eligible higher-level manual successes advance one level. L9, L14, and L19 are operation-boundary gates: their samplers never preview the next level and their earlier-level practice problems receive no level credit. Completion feedback always states whether a success moved the current or higher-level counter, so a practice problem cannot look like stalled progress. L20 caps progress. Query-forced models have no curriculum tag, so they may earn coins but never counter credit.
 
 ## Persistence and analytics
 

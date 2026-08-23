@@ -2257,6 +2257,10 @@
     const LEVEL_EIGHT_BOTH_CARRIES_MIX = 0.50;
     const CURRENT_LEVEL_ADVANCEMENT_TARGET = 4;
     const HIGHER_LEVEL_ADVANCEMENT_TARGET = 2;
+    // These levels are the last lesson before a new operation/review set. They
+    // deliberately sample only themselves and earlier material, never the next
+    // level. Keep selection and advancement eligibility tied to this one list.
+    const GATED_CURRICULUM_LEVELS = Object.freeze([9, 14, 19]);
     const HUNDREDS_UNLOCK_LEVEL = 6;
     const GAME_VERSION = "3.1.0+7139b55";
     const PROFILE_SCHEMA_VERSION = 4;
@@ -2720,6 +2724,22 @@
       return first + Math.floor(normalizedRandom(random) * (last - first + 1));
     }
 
+    function isGatedCurriculumLevel(level) {
+      return GATED_CURRICULUM_LEVELS.includes(clampLevel(level));
+    }
+
+    function progressSummary(value) {
+      const level = clampLevel(value && value.currentLevel);
+      return {
+        level,
+        current: Math.min(CURRENT_LEVEL_ADVANCEMENT_TARGET, Math.max(0, Number(value && value.currentLevelSuccesses) || 0)),
+        currentTarget: CURRENT_LEVEL_ADVANCEMENT_TARGET,
+        higher: Math.min(HIGHER_LEVEL_ADVANCEMENT_TARGET, Math.max(0, Number(value && value.higherLevelSuccesses) || 0)),
+        higherTarget: HIGHER_LEVEL_ADVANCEMENT_TARGET,
+        acceptsHigherCredit: level < LEVEL_COUNT && !isGatedCurriculumLevel(level)
+      };
+    }
+
     function selectCurriculumLevel(currentLevel, random = Math.random) {
       const level = clampLevel(currentLevel);
       if (level === 15 || level === 20) return level;
@@ -2800,7 +2820,7 @@
         if (sampledLevel === level) {
           next.currentLevelSuccesses += 1;
           credit = "current";
-        } else if (sampledLevel > level && level !== 14 && level !== 19) {
+        } else if (sampledLevel > level && !isGatedCurriculumLevel(level)) {
           next.higherLevelSuccesses += 1;
           credit = "higher";
         }
@@ -6214,12 +6234,16 @@
       const isManual = method === "typed";
       let advanced = false;
       let unlockedHundreds = false;
+      let progressCredit = "none";
+      let completionProgress = null;
       if (isManual && !state.rewardAwarded) {
         state.rewardAwarded = true;
         const previousLevel = profile.currentLevel;
         const progress = applyProgressForSuccess(profile, problem.curriculumLevel);
         profile = progress.profile;
         advanced = progress.advanced;
+        progressCredit = progress.credit;
+        completionProgress = progressSummary(profile);
         unlockedHundreds = previousLevel < HUNDREDS_UNLOCK_LEVEL && profile.currentLevel >= HUNDREDS_UNLOCK_LEVEL;
         hundredsUnlockPending = unlockedHundreds;
         profile.score += 10;
@@ -6236,9 +6260,21 @@
       if (isManual) {
         const levelMessage = advanced ? " You advanced to level " + profile.currentLevel + "." : "";
         const unlockMessage = unlockedHundreds ? " The Hundreds column is now unlocked." : "";
+        const creditMessage = !advanced && completionProgress
+          ? progressCredit === "current"
+            ? " Current-level progress is " + completionProgress.current + " of " + completionProgress.currentTarget + "."
+            : progressCredit === "higher"
+              ? " Higher-level progress is " + completionProgress.higher + " of " + completionProgress.higherTarget + "."
+              : " This practice problem earns coins but does not change level progress."
+          : "";
         announce("Correct. " + problem.a + (problem.operation === "subtraction" ? " minus " : problem.operation === "multiplication" ? " times " : " plus ") + problem.b +
-          " equals " + problem.result + ". You earned 10 coins." + levelMessage + unlockMessage);
-        showToast(advanced ? "+10 coins · Welcome to L" + profile.currentLevel + "!" : "+10 coins · New milestone earned!");
+          " equals " + problem.result + ". You earned 10 coins." + levelMessage + unlockMessage + creditMessage);
+        const progressToast = completionProgress && progressCredit === "current"
+          ? " · L" + completionProgress.level + " " + completionProgress.current + "/" + completionProgress.currentTarget
+          : completionProgress && progressCredit === "higher"
+            ? " · Next " + completionProgress.higher + "/" + completionProgress.higherTarget
+            : " · Practice";
+        showToast(advanced ? "+10 coins · Welcome to L" + profile.currentLevel + "!" : "+10 coins" + progressToast);
       } else {
         announce("Tutorial complete. " + problem.a + (problem.operation === "subtraction" ? " minus " : problem.operation === "multiplication" ? " times " : " plus ") + problem.b +
           " equals " + problem.result + ". No coins or level progress were awarded.");
@@ -6733,6 +6769,8 @@
       generateProblemForLevel,
       sampleCurriculumProblem,
       applyProgressForSuccess,
+      isGatedCurriculumLevel,
+      progressSummary,
       validateProfile,
       defaultProfile,
       promptKeyForState,
@@ -6768,6 +6806,7 @@
         LEVEL_EIGHT_BOTH_CARRIES_MIX,
         CURRENT_LEVEL_ADVANCEMENT_TARGET,
         HIGHER_LEVEL_ADVANCEMENT_TARGET,
+        GATED_CURRICULUM_LEVELS,
         HUNDREDS_UNLOCK_LEVEL,
         QUICK_PLAY_HOLD_DURATION,
         DEFAULT_QUICK_PLAY_SPEED,
