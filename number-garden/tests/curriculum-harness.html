@@ -2327,6 +2327,26 @@
         assert(JSON.stringify(tracks) === JSON.stringify(expectedTracks) && aligned && horizontal && contained,
           "multiplication uses addition's horizontal column tracks and stays inside the board at " + viewport + "px");
       }
+      frame.style.width = "480px";
+      frame.style.height = "900px";
+      await new Promise(resolve => frame.contentWindow.requestAnimationFrame(() =>
+        frame.contentWindow.requestAnimationFrame(resolve)));
+      const multiplicationOnesGeometry = ["multiplicand", "multiplier", "product"].map(role => {
+        const panel = multiplicationDoc.querySelector("." + role + " .multiplication-place.ones");
+        const strip = panel.querySelector(".ones-strip");
+        const panelStyle = frame.contentWindow.getComputedStyle(panel);
+        const stripRect = strip.getBoundingClientRect();
+        const contentWidth = panel.clientWidth - parseFloat(panelStyle.paddingLeft) - parseFloat(panelStyle.paddingRight);
+        const blockRects = Array.from(strip.querySelectorAll(".unit, .empty-unit"), block => block.getBoundingClientRect());
+        return {
+          fillsCell: Math.abs(stripRect.width - contentWidth) < .5,
+          squareGrid: blockRects.length === 10 && blockRects.every(rect => Math.abs(rect.width - rect.height) < .5) &&
+            new Set(blockRects.map(rect => Math.round(rect.left))).size === 10 &&
+            blockRects.every(rect => rect.left >= stripRect.left - .5 && rect.right <= stripRect.right + .5)
+        };
+      });
+      assert(multiplicationOnesGeometry.every(geometry => geometry.fillsCell && geometry.squareGrid),
+        "multiplicand, multiplier, and product Ones fill their 480px cell width with the shared square grid");
       frame.style.width = "";
       frame.style.height = "";
       await new Promise(resolve => frame.contentWindow.requestAnimationFrame(resolve));
