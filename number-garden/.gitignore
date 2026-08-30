@@ -1,3 +1,6 @@
 dist/
 ios/
 node_modules/
+*.jks
+*.keystore
+android/keystore.properties

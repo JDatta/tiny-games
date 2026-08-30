@@ -12,6 +12,19 @@ Number Garden is a client-only application implemented as one standalone HTML do
 
 The runtime separates pure problem arithmetic (`problem`), temporary interaction progress (`state`), and durable browser data (`profile`). Rendering is derived from those values; the DOM and CSS classes are never the source of mathematical truth.
 
+## Android delivery state (2026-08-30)
+
+- The tracked Capacitor Android 8.5.0 bootstrap is committed as `fd2dc03` on `pr/apk/develop`; at handoff that branch is one commit ahead of `origin/develop`.
+- The native identity is `io.github.jdatta.numbergarden`, app name `Number Garden`, Android `versionCode 1` / `versionName 1.0`, min SDK 24, and compile/target SDK 36. Core, CLI, Android, and iOS Capacitor packages all resolve to 8.5.0.
+- The verified CLI toolchain uses Android SDK `/home/jd/Android/Sdk` and JDK 21 `/home/jd/.jdks/jbr-21.0.11`. `android/local.properties`, copied web assets, and Gradle outputs are generated/ignored.
+- `npm run build`, `npx cap sync android`, and a JDK-21 `assembleDebug` completed successfully. The ignored debug APK is `android/app/build/outputs/apk/debug/app-debug.apk`.
+- The debug APK was verified, installed over authorized USB, and cold-launched on an OPPO NE2211 running Android 16/API 36. `MainActivity` remained top-resumed with a live process; the initial L1 board rendered correctly with system-bar/safe-area spacing, and filtered startup logs showed no Android runtime, Chromium, or Capacitor errors.
+- This is only a smoke test. Deterministic browser checks, full arithmetic/interaction QA, persistence, offline, accessibility, rotation, API-24 compatibility, emulator coverage, release artwork, policy declarations, release signing, AAB generation, and Play-track testing remain pending.
+- No release keystore, upload key, signing passwords, signed release bundle, or Play Console application has been created. Do not create, move, or commit signing material without the owner's explicit storage/backup decision.
+- Android Studio created untracked files under `android/.idea/`. Treat them as user-local state: do not stage or delete them unless the owner explicitly decides their repository policy.
+- Before Android release, resolve the child-audience/Families policy path, publish and link an applicable privacy policy, and decide how the immediately initialized Google Analytics web tag is handled and disclosed. Do not assume the browser analytics setup is Play-ready.
+- Read `docs/exec-plans/android-play-release-handover.md` before continuing Android QA or release work; it is the operational checklist and records the remaining owner decisions.
+
 ## Glossary
 
 | Term | Meaning |
@@ -45,7 +58,7 @@ Addition follows `counting-ones` → optional Ones carry → `counting-tens` →
 | Path | Purpose |
 | --- | --- |
 | `AGENTS.md` | Project orientation, repository map, and change guidance for coding agents. |
-| `.gitignore` | Excludes generated web output, Capacitor native projects, and installed Node dependencies. |
+| `.gitignore` | Excludes generated web output, generated iOS source, installed Node dependencies, and Android signing secrets; Android source itself remains trackable. |
 | `README.md` | User-facing overview, local startup instructions, gameplay summary, diagnostic query parameters, and test-harness URL. |
 | `index.html` | Shipped application, including markup, styles, arithmetic, state management, rendering, persistence, sound, and animation. |
 | `dist/index.html` | Generated copy of `index.html` used as Capacitor's web asset; produced by `npm run build` and not edited directly. |
@@ -53,6 +66,7 @@ Addition follows `counting-ones` → optional Ones carry → `counting-tens` →
 | `package.json` | Optional Node/Capacitor metadata, dependency declarations, and the web-asset build script. |
 | `package-lock.json` | Locked npm dependency graph for reproducible Capacitor installs. |
 | `capacitor.config.json` | Capacitor app identity and `dist` web-directory configuration for native packaging. |
+| `android/` | Tracked Capacitor Android source. Its internal `.gitignore` excludes copied web/config assets, SDK-local configuration, and native build products. |
 | `../codemagic.yaml` | Repository-root Codemagic workflow that installs dependencies, builds the web asset, generates the iOS project, and runs an unsigned simulator build. |
 | `node_modules/` | Generated, ignored npm dependency installation; recreate it with `npm ci`. |
 | `demos/poc-game.html` | Historical proof of concept for the original idea. Treat it as reference material, not the current implementation. |
@@ -65,6 +79,8 @@ Addition follows `counting-ones` → optional Ones carry → `counting-tens` →
 | `docs/exec-plans/completed/init-game.md` | Original implementation brief and acceptance criteria. Useful for product intent, but the shipped code and current docs describe present behavior. |
 | `docs/exec-plans/completed/codemagic-linux-bootstrap-plan.md` | Completed plan for adding the npm, Capacitor, and Codemagic iOS bootstrap from Linux. |
 | `docs/exec-plans/pending/code-magic-next-steps.md` | Pending manual steps for Codemagic setup, signing, TestFlight, device testing, and the eventual `ios/` tracking decision. |
+| `docs/exec-plans/android-capacitor-next-steps.md` | Manual Android Studio, emulator/device, QA, signing, artifact, and Google Play work following the tracked Android bootstrap. |
+| `docs/exec-plans/android-play-release-handover.md` | Current Android evidence, release gates, ordered QA matrix, signing/AAB workflow, and Play Store handover for the next agent. |
 | `tests/curriculum-harness.html` | Deterministic browser harness for all L1–L20 curriculum rules, arithmetic flows, motion, progression, migration, rewards, Settings, persistence, and operation semantics. |
 
 ## Gotchas
@@ -89,5 +105,7 @@ Addition follows `counting-ones` → optional Ones carry → `counting-tens` →
 - Addition owns blue/green; subtraction owns lavender/deep purple; multiplication owns forest/mint green; gold identifies regrouping; coral is reserved for shared eligible/hint/success emphasis. Remove stale operation classes whenever the operation changes.
 - Keep the bee and current-level badge visible on narrow/fullscreen layouts. Sound belongs in Settings.
 - Maintain touch targets, keyboard access, ARIA announcements, focus handling, and `prefers-reduced-motion` behavior whenever controls or animations change.
+- Treat Google Play release as gated on a written QA report, final target-audience and analytics/privacy decisions, deliberate release icons/splash/store assets, an owner-controlled upload key, and successful Play internal testing. A successful debug install is not release approval.
+- Keep `versionCode` monotonically increasing after any bundle is uploaded to Play. Never reuse a published code, change `io.github.jdatta.numbergarden`, commit signing secrets, or use the debug key as the release upload key.
 - Do not edit `@poc-game.html` to implement product changes. Make shipped behavior changes in `index.html`.
 - The mock and original plan can contain outdated or illustrative details. Prefer current behavior, `docs/PRODUCT.md`, and `docs/ARCHITECTURE.md` when they disagree.

@@ -5626,11 +5626,18 @@
       return items.map((item, position) => (async () => {
         if (position) await pause(position * activeMotionTimings.QUICK_DROP_STAGGER);
         if (!markQueuedItemInFlight(item, session)) return true;
-        return animateDrop(item);
+        recordMotion("drop-start", {
+          place: item.place,
+          column: item.column || item.place,
+          index: item.index,
+          quickPlay: true,
+          batchId: item.batchId || null
+        });
+        return animateDrop(item, true);
       })());
     }
 
-    async function animateDrop(item) {
+    async function animateDrop(item, dropStartRecorded = false) {
       let targetIndex = item.index;
       if (Number.isInteger(item.destructionTargetIndex)) targetIndex = item.destructionTargetIndex;
       else if (problem.operation === "subtraction" && item.place === "subtrahend-ones") targetIndex = state.resultOnes - 1;
@@ -5660,13 +5667,15 @@
       const scaleY = destination.height / item.origin.height;
       const translate = (x, y, xScale, yScale) =>
         "translate(" + x.toFixed(2) + "px," + y.toFixed(2) + "px) scale(" + xScale.toFixed(3) + "," + yScale.toFixed(3) + ")";
-      recordMotion("drop-start", {
-        place: item.place,
-        column: item.column || item.place,
-        index: item.index,
-        quickPlay: Boolean(item.quickPlay),
-        batchId: item.batchId || null
-      });
+      if (!dropStartRecorded) {
+        recordMotion("drop-start", {
+          place: item.place,
+          column: item.column || item.place,
+          index: item.index,
+          quickPlay: Boolean(item.quickPlay),
+          batchId: item.batchId || null
+        });
+      }
       playDropSound(item.column || item.place, activeMotionTimings.BLOCK_FALL_LAND);
       try {
         await animateTracked(overlay, [
