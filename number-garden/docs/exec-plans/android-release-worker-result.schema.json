@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Android release worker result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "item_id",
+    "status",
+    "branch",
+    "session_id",
+    "worktree_id",
+    "commits",
+    "changed_files",
+    "tests",
+    "evidence_paths",
+    "risks",
+    "blocker",
+    "recommended_next_action"
+  ],
+  "properties": {
+    "item_id": { "type": "string", "pattern": "^NG-AND-(00[1-9]|01[0-9]|02[0-4])$" },
+    "status": { "enum": ["ready_for_review", "blocked", "failed"] },
+    "branch": { "type": "string", "minLength": 1 },
+    "session_id": { "type": "string", "minLength": 1 },
+    "worktree_id": { "type": "string", "minLength": 1 },
+    "commits": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" }
+    },
+    "changed_files": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["command", "outcome", "evidence_path"],
+        "properties": {
+          "command": { "type": "string", "minLength": 1 },
+          "outcome": { "enum": ["pass", "fail", "not_run"] },
+          "evidence_path": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "evidence_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "risks": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "blocker": { "type": ["string", "null"] },
+    "recommended_next_action": { "type": "string", "minLength": 1 }
+  }
+}

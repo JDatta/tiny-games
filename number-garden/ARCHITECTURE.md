@@ -2,7 +2,7 @@
 
 ## Overview
 
-Number Garden is a client-only application contained in [`index.html`](../index.html). Markup, responsive CSS, arithmetic, curriculum sampling, session state, persistence, audio, accessibility, and animation live in that standalone file. There is no framework or required network dependency. [`server.py`](../server.py) is optional; direct `file://` play remains supported.
+Number Garden is a client-only application contained in [`index.html`](index.html). Markup, responsive CSS, arithmetic, curriculum sampling, session state, persistence, audio, accessibility, and animation live in that standalone file. There is no framework or required network dependency. [`server.py`](server.py) is optional; direct `file://` play remains supported.
 
 ## Runtime boundaries
 

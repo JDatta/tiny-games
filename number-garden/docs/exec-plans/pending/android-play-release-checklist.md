@@ -1,6 +1,6 @@
 # Android Google Play Release Checklist
 
-Derived from [the Android Play release handover](android-play-release-handover.md). The execution-ranked backlog is [`action-items.md`](action-items.md).
+Derived from [the Android Play release handover](android-play-release-handover.md). The sole execution-ranked tracker is [`../android-release-action-items.json`](../android-release-action-items.json), executed through the [agentic orchestrator spec](android-release-agentic-orchestrator.md) after the [owner preflight](../../runbooks/android-release/preflight.md).
 
 **TOT audit:** 2026-08-31 at `e32ad0c` on `pr/apk/develop` (three commits ahead of `origin/develop`). Only preserved `android/.idea/` files are untracked.
 
@@ -113,8 +113,8 @@ Current blocker detail: the 2026-08-31 HEAD run failed `quick-drop Tens keep lat
 
 ## 8. [TODO] Ordered next steps
 
-Execute the ranked backlog in [`action-items.md`](action-items.md). Its physical row order is the intended temporal order; dependencies and external-owner gates are explicit there.
+Execute the ranked backlog in [`../android-release-action-items.json`](../android-release-action-items.json). Rank is authoritative; dependencies, named external gates, owner approvals, workers, leases, checkpoints, blockers, and next actions are explicit there. Do not maintain this checklist as a second task-status tracker.
 
 ## Restrictions
 
-Do not commit or push, create external accounts, generate replacement signing keys, upload artifacts, invite testers, or submit a Play release without explicit authorization. Preserve `android/.idea/` as user-local state unless the owner decides its repository policy.
+Follow the scoped owner-action runbooks in `docs/runbooks/android-release/owner-actions/`. Local item checkpoints are required by the orchestrator, but pushing, external accounts, replacement signing keys, Play Console mutations, uploads, tester actions, and production each require separate authorization. Preserve `android/.idea/` as user-local state unless the owner decides its repository policy.

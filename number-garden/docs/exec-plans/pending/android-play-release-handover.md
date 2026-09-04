@@ -2,11 +2,11 @@
 
 **Handoff date:** 2026-08-30
 
-**TOT audit:** 2026-08-31 at `e32ad0c`. The checked-out branch is now three commits ahead of `origin/develop`; only preserved `android/.idea/` files are untracked. The execution-ranked backlog is [`action-items.md`](action-items.md).
+**TOT audit:** 2026-08-31 at `e32ad0c`. The execution-ranked backlog and orchestration state live only in [`../android-release-action-items.json`](../android-release-action-items.json). Execute it through the [agentic orchestrator spec](android-release-agentic-orchestrator.md) after completing the [owner preflight](../../runbooks/android-release/preflight.md). Treat this handover’s branch/worktree prose as historical audit context and inspect current Git state on resume.
 
 **Goal:** complete release-grade Android QA, resolve policy and product gates, produce a signed Android App Bundle, distribute it through Google Play testing, and prepare a controlled production release.
 
-This document is the starting point for the next agent. Do not treat the successful debug smoke test as release approval. Work in the order below: preserve the current state, establish a recorded QA baseline, fix and retest defects, obtain the owner decisions, prepare release assets/signing, build the AAB, then test the Play-delivered artifact.
+This document supplies detailed rationale and QA matrices. The JSON tracker is the system of record and its rank/dependencies control execution. Do not treat the successful debug smoke test as release approval.
 
 ## 1. Current repository and application state
 
@@ -435,4 +435,4 @@ The Android Play release is ready only when all are true:
 12. [ ] Prepare approved release artwork, Play listing, secret-free signing wiring, and the signed AAB.
 13. [ ] Upload to Internal testing and QA the Play-delivered build before any production request.
 
-Do not commit, push, create external accounts, generate signing keys, upload artifacts, invite testers, or submit a Play release unless those actions are explicitly authorized in the next task.
+Use the scoped acknowledgements in `docs/runbooks/android-release/owner-actions/`. Starting the orchestrator is not authorization to push, create external accounts, generate signing keys, mutate Play Console, upload artifacts, invite testers, apply for production access, or submit a Play release.

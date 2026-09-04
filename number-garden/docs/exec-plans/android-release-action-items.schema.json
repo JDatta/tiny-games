@@ -1,0 +1,359 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://number-garden.local/schemas/android-release-action-items.schema.json",
+  "title": "Number Garden Android release action tracker",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "metadata",
+    "external_gates",
+    "model_policy",
+    "orchestration",
+    "items",
+    "derived"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "as_of", "source_audit_commit", "source_branch", "purpose", "rank_policy", "writer_policy", "migration"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "as_of": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "source_audit_commit": { "$ref": "#/$defs/commit" },
+        "source_branch": { "type": "string", "minLength": 1 },
+        "purpose": { "type": "string", "minLength": 1 },
+        "rank_policy": { "type": "string", "minLength": 1 },
+        "writer_policy": { "const": "orchestrator_only" },
+        "migration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["legacy_format", "legacy_blob_commit", "validated_on", "row_count", "field_count", "result", "retired", "recovery_source"],
+          "properties": {
+            "legacy_format": { "const": "markdown" },
+            "legacy_blob_commit": { "$ref": "#/$defs/commit" },
+            "validated_on": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+            "row_count": { "const": 24 },
+            "field_count": { "const": 13 },
+            "result": { "const": "pass" },
+            "retired": { "const": true },
+            "recovery_source": { "const": "git_history" }
+          }
+        }
+      }
+    },
+    "external_gates": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/externalGate" }
+    },
+    "model_policy": { "$ref": "#/$defs/modelPolicy" },
+    "orchestration": { "$ref": "#/$defs/orchestration" },
+    "items": {
+      "type": "array",
+      "minItems": 24,
+      "maxItems": 24,
+      "items": { "$ref": "#/$defs/item" }
+    },
+    "derived": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ready_item_ids", "waiting_owner_item_ids", "blocked_external_gate_ids"],
+      "properties": {
+        "ready_item_ids": { "$ref": "#/$defs/itemIdArray" },
+        "waiting_owner_item_ids": { "$ref": "#/$defs/itemIdArray" },
+        "blocked_external_gate_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "checkpointRef": {
+      "type": ["string", "null"],
+      "pattern": "^(SELF|[0-9a-f]{7,40})$"
+    },
+    "commitOrSelf": { "type": "string", "pattern": "^(SELF|[0-9a-f]{7,40})$" },
+    "nullableString": { "type": ["string", "null"] },
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "itemIdArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^NG-AND-(00[1-9]|01[0-9]|02[0-4])$" }
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id"],
+      "properties": {
+        "type": { "enum": ["item", "external_gate"] },
+        "id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "externalGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "status", "owner", "description", "completion_criteria", "evidence_paths", "blocker", "next_action"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "title": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["blocked", "waiting_owner", "satisfied", "not_applicable"] },
+        "owner": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "completion_criteria": { "type": "string", "minLength": 1 },
+        "evidence_paths": { "$ref": "#/$defs/stringArray" },
+        "blocker": { "$ref": "#/$defs/nullableString" },
+        "next_action": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+    "modelDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["context_window_tokens", "allowed_reasoning_efforts", "routing"],
+      "properties": {
+        "context_window_tokens": { "type": "integer", "minimum": 64000, "maximum": 256000 },
+        "allowed_reasoning_efforts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["medium", "high", "xhigh"] }
+        },
+        "routing": { "type": "string", "minLength": 1 }
+      }
+    },
+    "modelPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["orchestrator", "maximum_concurrent_workers", "workers", "escalation_order", "forbidden_model_families"],
+      "properties": {
+        "orchestrator": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["model", "reasoning_effort", "context_window_tokens"],
+          "properties": {
+            "model": { "const": "gpt-5.6-sol" },
+            "reasoning_effort": { "const": "xhigh" },
+            "context_window_tokens": { "const": 1000000 }
+          }
+        },
+        "maximum_concurrent_workers": { "const": 3 },
+        "workers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"],
+          "properties": {
+            "gpt-5.6-luna": { "$ref": "#/$defs/modelDefinition" },
+            "gpt-5.6-terra": { "$ref": "#/$defs/modelDefinition" },
+            "gpt-5.6-sol": { "$ref": "#/$defs/modelDefinition" }
+          }
+        },
+        "escalation_order": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "enum": ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"] }
+        },
+        "forbidden_model_families": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "worker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["worker_id", "item_id", "model", "reasoning_effort", "worktree_id", "session_id", "started_at"],
+      "properties": {
+        "worker_id": { "type": "string", "minLength": 1 },
+        "item_id": { "type": "string", "pattern": "^NG-AND-" },
+        "model": { "enum": ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"] },
+        "reasoning_effort": { "enum": ["medium", "high", "xhigh"] },
+        "worktree_id": { "$ref": "#/$defs/nullableString" },
+        "session_id": { "$ref": "#/$defs/nullableString" },
+        "started_at": { "type": "string", "minLength": 1 }
+      }
+    },
+    "worktree": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "item_id", "path", "branch", "head_commit", "state"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "item_id": { "type": "string", "pattern": "^NG-AND-" },
+        "path": { "type": "string", "minLength": 1 },
+        "branch": { "type": "string", "minLength": 1 },
+        "head_commit": { "$ref": "#/$defs/commit" },
+        "state": { "enum": ["active", "review", "integrated", "interrupted"] }
+      }
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "worker_id", "item_id", "state"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "worker_id": { "type": "string", "minLength": 1 },
+        "item_id": { "type": "string", "pattern": "^NG-AND-" },
+        "state": { "enum": ["running", "idle", "interrupted", "completed", "failed"] }
+      }
+    },
+    "lease": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource", "holder", "item_id", "acquired_at"],
+      "properties": {
+        "resource": { "enum": ["heavy_build", "capacitor_sync", "oppo_webview", "play_console", "release_version", "emulator"] },
+        "holder": { "type": "string", "minLength": 1 },
+        "item_id": { "type": "string", "pattern": "^NG-AND-" },
+        "acquired_at": { "type": "string", "minLength": 1 }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "item_id", "scope", "exact_target", "status", "acknowledged_at", "evidence_path"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "item_id": { "type": "string", "pattern": "^NG-AND-" },
+        "scope": { "type": "string", "minLength": 1 },
+        "exact_target": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["requested", "granted", "used", "expired", "revoked"] },
+        "acknowledged_at": { "type": ["string", "null"] },
+        "evidence_path": { "type": ["string", "null"] }
+      }
+    },
+    "checkpointHistory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "item_id", "message", "tracker_sha256"],
+      "properties": {
+        "commit": { "$ref": "#/$defs/commit" },
+        "item_id": { "type": "string", "pattern": "^NG-AND-" },
+        "message": { "type": "string", "minLength": 1 },
+        "tracker_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "orchestration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode", "baseline_commit", "checkpoint_commit", "checkpoint_history", "current_wave",
+        "active_workers", "worktrees", "sessions", "resource_leases", "owner_approvals",
+        "startup_gates", "blockers", "next_actions", "remediation"
+      ],
+      "properties": {
+        "mode": { "enum": ["preflight_required", "ready", "running", "paused", "blocked", "complete"] },
+        "baseline_commit": { "$ref": "#/$defs/checkpointRef" },
+        "checkpoint_commit": { "$ref": "#/$defs/checkpointRef" },
+        "checkpoint_history": { "type": "array", "items": { "$ref": "#/$defs/checkpointHistory" } },
+        "current_wave": { "type": "integer", "minimum": 0, "maximum": 5 },
+        "active_workers": { "type": "array", "maxItems": 3, "items": { "$ref": "#/$defs/worker" } },
+        "worktrees": { "type": "array", "items": { "$ref": "#/$defs/worktree" } },
+        "sessions": { "type": "array", "items": { "$ref": "#/$defs/session" } },
+        "resource_leases": { "type": "array", "items": { "$ref": "#/$defs/lease" } },
+        "owner_approvals": { "type": "array", "items": { "$ref": "#/$defs/approval" } },
+        "startup_gates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "status", "runbook"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "status": { "enum": ["waiting_owner", "satisfied"] },
+              "runbook": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "blockers": { "$ref": "#/$defs/stringArray" },
+        "next_actions": { "$ref": "#/$defs/stringArray" },
+        "remediation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cycle", "trigger_item_id", "repeat_item_ids", "require_version_code_increment", "history"],
+          "properties": {
+            "cycle": { "type": "integer", "minimum": 0 },
+            "trigger_item_id": { "const": "NG-AND-023" },
+            "repeat_item_ids": { "$ref": "#/$defs/itemIdArray" },
+            "require_version_code_increment": { "const": true },
+            "history": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["cycle", "reason", "from_version_code", "to_version_code", "release_commit", "evidence_paths"],
+                "properties": {
+                  "cycle": { "type": "integer", "minimum": 1 },
+                  "reason": { "type": "string", "minLength": 1 },
+                  "from_version_code": { "type": "integer", "minimum": 1 },
+                  "to_version_code": { "type": "integer", "minimum": 2 },
+                  "release_commit": { "$ref": "#/$defs/commit" },
+                  "evidence_paths": { "$ref": "#/$defs/stringArray" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempts", "assigned_model", "reasoning_effort", "worker_id", "branch", "worktree_id",
+        "session_id", "commits", "checkpoint_commit", "evidence_paths", "blockers", "next_actions"
+      ],
+      "properties": {
+        "attempts": { "type": "integer", "minimum": 0 },
+        "assigned_model": {
+          "type": ["string", "null"],
+          "enum": [null, "gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
+        },
+        "reasoning_effort": {
+          "type": ["string", "null"],
+          "enum": [null, "medium", "high", "xhigh"]
+        },
+        "worker_id": { "$ref": "#/$defs/nullableString" },
+        "branch": { "$ref": "#/$defs/nullableString" },
+        "worktree_id": { "$ref": "#/$defs/nullableString" },
+        "session_id": { "$ref": "#/$defs/nullableString" },
+        "commits": { "type": "array", "items": { "$ref": "#/$defs/commitOrSelf" } },
+        "checkpoint_commit": { "$ref": "#/$defs/checkpointRef" },
+        "evidence_paths": { "$ref": "#/$defs/stringArray" },
+        "blockers": { "$ref": "#/$defs/stringArray" },
+        "next_actions": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rank", "id", "phase", "severity", "priority", "play_store_blocker", "status", "applicability",
+        "owner", "summary", "description", "dependencies", "completion_criteria", "evidence_sources", "execution"
+      ],
+      "properties": {
+        "rank": { "type": "integer", "minimum": 1, "maximum": 24 },
+        "id": { "type": "string", "pattern": "^NG-AND-(00[1-9]|01[0-9]|02[0-4])$" },
+        "phase": { "type": "string", "minLength": 1 },
+        "severity": { "enum": ["Critical", "High", "Medium"] },
+        "priority": { "enum": ["P0", "P1", "P2", "P3"] },
+        "play_store_blocker": { "enum": ["required", "conditional"] },
+        "status": { "enum": ["todo", "in_progress", "blocked", "waiting_owner", "done", "not_applicable"] },
+        "applicability": { "enum": ["always", "unresolved", "required", "not_required"] },
+        "owner": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "dependencies": { "type": "array", "items": { "$ref": "#/$defs/dependency" } },
+        "completion_criteria": { "type": "string", "minLength": 1 },
+        "evidence_sources": { "$ref": "#/$defs/stringArray" },
+        "execution": { "$ref": "#/$defs/execution" }
+      }
+    }
+  }
+}

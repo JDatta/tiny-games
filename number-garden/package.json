@@ -4,7 +4,10 @@
   "private": true,
   "description": "A mobile-first place-value addition, subtraction, and multiplication game.",
   "scripts": {
-    "build": "rm -rf dist && mkdir -p dist && cp index.html dist/index.html"
+    "build": "rm -rf dist && mkdir -p dist && cp index.html dist/index.html",
+    "validate:android-release-tracker": "node scripts/validate-android-release-tracker.mjs --check-git --print-ready",
+    "test:android-release-tracker": "node tests/android-release-tracker.test.mjs",
+    "test:android-release-docs": "node scripts/check-android-release-docs.mjs"
   },
   "engines": {
     "node": ">=22"

@@ -20,10 +20,10 @@ The runtime separates pure problem arithmetic (`problem`), temporary interaction
 - `npm run build`, `npx cap sync android`, and a JDK-21 `assembleDebug` completed successfully. The ignored debug APK is `android/app/build/outputs/apk/debug/app-debug.apk`.
 - The debug APK was verified, installed over authorized USB, and cold-launched on an OPPO NE2211 running Android 16/API 36. `MainActivity` remained top-resumed with a live process; the initial L1 board rendered correctly with system-bar/safe-area spacing, and filtered startup logs showed no Android runtime, Chromium, or Capacitor errors.
 - This is only a smoke test. Deterministic browser checks, full arithmetic/interaction QA, persistence, offline, accessibility, rotation, API-24 compatibility, emulator coverage, release artwork, policy declarations, release signing, AAB generation, and Play-track testing remain pending.
-- No release keystore, upload key, signing passwords, signed release bundle, or Play Console application has been created. Do not create, move, or commit signing material without the owner's explicit storage/backup decision.
+- A dedicated upload key exists outside Git according to the Android release handover, but its custody/backups are incomplete; no signed release bundle or Play Console application exists. Do not inspect, create, move, replace, or commit signing material without the scoped owner decision in the release runbooks.
 - Android Studio created untracked files under `android/.idea/`. Treat them as user-local state: do not stage or delete them unless the owner explicitly decides their repository policy.
 - Before Android release, resolve the child-audience/Families policy path, publish and link an applicable privacy policy, and decide how the immediately initialized Google Analytics web tag is handled and disclosed. Do not assume the browser analytics setup is Play-ready.
-- Read `docs/exec-plans/android-play-release-handover.md` before continuing Android QA or release work; it is the operational checklist and records the remaining owner decisions.
+- Before continuing Android release work, read `docs/exec-plans/android-release-action-items.json`, `docs/exec-plans/pending/android-release-agentic-orchestrator.md`, and `docs/runbooks/android-release/preflight.md`. The JSON is the sole task tracker; the orchestrator spec and runbooks define execution and owner gates.
 
 ## Glossary
 
@@ -58,6 +58,7 @@ Addition follows `counting-ones` → optional Ones carry → `counting-tens` →
 | Path | Purpose |
 | --- | --- |
 | `AGENTS.md` | Project orientation, repository map, and change guidance for coding agents. |
+| `ARCHITECTURE.md` | Canonical runtime structure, state flow, persistence boundaries, diagnostics, and architectural change guidance. |
 | `.gitignore` | Excludes generated web output, generated iOS source, installed Node dependencies, and Android signing secrets; Android source itself remains trackable. |
 | `README.md` | User-facing overview, local startup instructions, gameplay summary, diagnostic query parameters, and test-harness URL. |
 | `index.html` | Shipped application, including markup, styles, arithmetic, state management, rendering, persistence, sound, and animation. |
@@ -75,12 +76,26 @@ Addition follows `counting-ones` → optional Ones carry → `counting-tens` →
 | `demos/tutorial-frames/frame-*.png` | Generated 480×900 PNG frames from the tutorial recording run. |
 | `mocks/mock.png` | Visual inspiration for the mobile layout and garden theme; it is not an authoritative description of arithmetic or state. |
 | `docs/PRODUCT.md` | Product goals, audience, learning flow, supported problem categories, accessibility principles, and scope boundaries. |
-| `docs/ARCHITECTURE.md` | Runtime structure, state flow, persistence boundaries, diagnostics, and architectural change guidance. |
+| `docs/DESIGN.md` | Grounded implementation beliefs, recurring patterns, anti-patterns, and style guidance. |
+| `docs/FRONTEND.md` | Standalone frontend structure, styling, state, and accessibility conventions. |
+| `docs/PLANS.md` | Execution-plan lifecycle and planning conventions. |
+| `docs/PRODUCT_SENSE.md` | Learner needs, product principles, non-goals, and domain vocabulary. |
+| `docs/QUALITY_SCORE.md` | Evidence-based quality scorecard and highest-value gaps. |
+| `docs/RELIABILITY.md` | Critical journeys, failure modes, and operational gaps. |
+| `docs/SECURITY.md` | Trust boundaries, local data, analytics, secrets, and release risks. |
+| `docs/design-docs/index.md` | Catalog of the project’s long-form architecture and design material. |
+| `docs/product-specs/index.md` | Catalog of the product specification material. |
 | `docs/exec-plans/completed/init-game.md` | Original implementation brief and acceptance criteria. Useful for product intent, but the shipped code and current docs describe present behavior. |
 | `docs/exec-plans/completed/codemagic-linux-bootstrap-plan.md` | Completed plan for adding the npm, Capacitor, and Codemagic iOS bootstrap from Linux. |
+| `docs/exec-plans/android-release-action-items.json` | Authoritative Android release tracker for NG-AND-001 through NG-AND-024, including dependencies and orchestration state. |
+| `docs/exec-plans/android-release-action-items.schema.json` | Schema enforced for the Android release tracker. |
+| `docs/exec-plans/android-release-worker-result.schema.json` | Structured return contract for persistent Android release workers. |
 | `docs/exec-plans/pending/code-magic-next-steps.md` | Pending manual steps for Codemagic setup, signing, TestFlight, device testing, and the eventual `ios/` tracking decision. |
-| `docs/exec-plans/android-capacitor-next-steps.md` | Manual Android Studio, emulator/device, QA, signing, artifact, and Google Play work following the tracked Android bootstrap. |
-| `docs/exec-plans/android-play-release-handover.md` | Current Android evidence, release gates, ordered QA matrix, signing/AAB workflow, and Play Store handover for the next agent. |
+| `docs/exec-plans/pending/android-capacitor-next-steps.md` | Manual Android Studio, emulator/device, QA, signing, artifact, and Google Play work following the tracked Android bootstrap. |
+| `docs/exec-plans/pending/android-play-release-handover.md` | Current Android evidence, release gates, ordered QA matrix, signing/AAB workflow, and Play Store handover for the next agent. |
+| `docs/exec-plans/pending/android-release-agentic-orchestrator.md` | Pending resumable execution specification for the ranked Android release program; activate only after its hard preflight. |
+| `docs/runbooks/android-release/` | Beginner-friendly host preflight and scoped owner-action guides for privacy, signing, Play, artwork, listing, testing, and production. |
+| `scripts/validate-android-release-tracker.mjs` | Dependency-free schema, DAG, readiness, checkpoint, and migration validator for the authoritative tracker. |
 | `tests/curriculum-harness.html` | Deterministic browser harness for all L1–L20 curriculum rules, arithmetic flows, motion, progression, migration, rewards, Settings, persistence, and operation semantics. |
 
 ## Gotchas
@@ -106,6 +121,7 @@ Addition follows `counting-ones` → optional Ones carry → `counting-tens` →
 - Keep the bee and current-level badge visible on narrow/fullscreen layouts. Sound belongs in Settings.
 - Maintain touch targets, keyboard access, ARIA announcements, focus handling, and `prefers-reduced-motion` behavior whenever controls or animations change.
 - Treat Google Play release as gated on a written QA report, final target-audience and analytics/privacy decisions, deliberate release icons/splash/store assets, an owner-controlled upload key, and successful Play internal testing. A successful debug install is not release approval.
+- Only the release orchestrator may edit `docs/exec-plans/android-release-action-items.json`. Workers return schema-validated results and never maintain a second task tracker.
 - Keep `versionCode` monotonically increasing after any bundle is uploaded to Play. Never reuse a published code, change `io.github.jdatta.numbergarden`, commit signing secrets, or use the debug key as the release upload key.
 - Do not edit `@poc-game.html` to implement product changes. Make shipped behavior changes in `index.html`.
-- The mock and original plan can contain outdated or illustrative details. Prefer current behavior, `docs/PRODUCT.md`, and `docs/ARCHITECTURE.md` when they disagree.
+- The mock and original plan can contain outdated or illustrative details. Prefer current behavior, `docs/PRODUCT.md`, and `ARCHITECTURE.md` when they disagree.
