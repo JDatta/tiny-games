@@ -2,6 +2,8 @@
 
 **Handoff date:** 2026-08-30
 
+**TOT audit:** 2026-08-31 at `e32ad0c`. The checked-out branch is now three commits ahead of `origin/develop`; only preserved `android/.idea/` files are untracked. The execution-ranked backlog is [`action-items.md`](action-items.md).
+
 **Goal:** complete release-grade Android QA, resolve policy and product gates, produce a signed Android App Bundle, distribute it through Google Play testing, and prepare a controlled production release.
 
 This document is the starting point for the next agent. Do not treat the successful debug smoke test as release approval. Work in the order below: preserve the current state, establish a recorded QA baseline, fix and retest defects, obtain the owner decisions, prepare release assets/signing, build the AAB, then test the Play-delivered artifact.
@@ -12,7 +14,7 @@ This document is the starting point for the next agent. Do not treat the success
 | --- | --- |
 | Repository root | `/home/jd/workspace/tiny-games` |
 | Project directory | `/home/jd/workspace/tiny-games/number-garden` |
-| Branch at handoff | `pr/apk/develop`, one commit ahead of `origin/develop` |
+| Current branch | `pr/apk/develop`, three commits ahead of `origin/develop` |
 | Android bootstrap commit | `fd2dc03 Add Capacitor Android project bootstrap` |
 | App/package ID | `io.github.jdatta.numbergarden` — do not change after Play app creation |
 | App name | `Number Garden` |
@@ -21,12 +23,12 @@ This document is the starting point for the next agent. Do not treat the success
 | Android versions | Source currently has `versionCode 1`, `versionName 1.0`; owner selected `versionName 3.1.0` and `versionCode 1` for the first real Play upload. Make that deliberate source change during release signing/configuration. |
 | Android SDK range | min 24, compile 36, target 36 |
 | Native permissions observed | `INTERNET` plus the AndroidX-generated non-exported receiver permission; no `AD_ID`, location, camera, microphone, or storage permission observed |
-| Debug build | Completed successfully from the CLI |
+| Debug build | Completed successfully from the CLI; current recorded APK SHA-256 is `29e48b353bcd66dd0723c0fbf6d6e00441907febf9b4efd90f46b59018ad63a9` |
 | Physical smoke | Installed and cold-launched successfully on OPPO NE2211, Android 16/API 36 |
 | Release build/signing | No signed AAB exists. A dedicated owner-controlled upload keystore has been generated outside Git; encrypted backups and secret-free Gradle wiring remain pending. |
 | Play Console | No app creation, package registration, policy declarations, testing track, or production submission has been performed |
 
-At handoff, documentation changes are intentionally uncommitted and Android Studio has created untracked files under `android/.idea/`. Begin with `git status --short --branch --untracked-files=all`. Preserve all current changes. Do not stage `.idea/` by default and do not delete it without an explicit repository-policy decision from the owner.
+The QA, policy, plan, instrumentation-assertion, and quick-drop source changes described by the 2026-08-30 run were subsequently committed in `a5984ee` and `e32ad0c`. At this audit, only Android Studio's untracked files under `android/.idea/` remain outside Git. Begin every continuation with `git status --short --branch --untracked-files=all`. Do not stage `.idea/` by default or delete it without an explicit repository-policy decision from the owner.
 
 The root ignore rules already exclude `*.jks`, `*.keystore`, and `android/keystore.properties`. The generated `android/.gitignore` excludes `local.properties`, Gradle/build output, and copied Capacitor web/config assets.
 
@@ -56,10 +58,10 @@ The ignored artifact is:
 android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Evidence from that artifact:
+Current recorded evidence from the rebuilt artifact:
 
-- Size: 4,210,772 bytes.
-- APK SHA-256: `af7cecaf048c8a363b8b48a922dbc07788f8041f8125e5cb826ef2050d7e98aa`.
+- Size: 4,210,796 bytes.
+- APK SHA-256: `29e48b353bcd66dd0723c0fbf6d6e00441907febf9b4efd90f46b59018ad63a9`.
 - Debug signing-certificate SHA-256: `0958ec23ba60f62991ae1f02bab5d729553e8bebbee4a2d4ce2e85794150f3b9`.
 - Package/version: `io.github.jdatta.numbergarden`, code 1, name 1.0.
 - Android manifest: min 24, target 36.
@@ -85,7 +87,7 @@ The streamed install returned `Success`. The launch was cold, returned `Status: 
 
 This proves only installation, startup, and initial rendering on one API-36 phone. It does not prove arithmetic correctness, touch/hold behavior, persistence, offline operation, accessibility, rotation, minimum-SDK compatibility, or Play-distributed signing/install behavior.
 
-## 4. Release gates requiring owner input
+## 4. [PARTIAL] Owner decisions recorded; implementation and external gates remain
 
 Do not silently choose these on the owner's behalf. Present concrete recommendations and obtain direction before the release implementation that depends on them.
 
@@ -178,9 +180,9 @@ Do not create a replacement key merely to make Gradle pass.
 
 Because the debug-signed package was installed on a certified Android device before a Play Console app was created, the 2026 Android developer-verification flow may ask for proof of ownership of that known signing key. This is an inference from Google's current package-registration guide, not a confirmed Play Console outcome. Create/register the Play app early and preserve the current machine's debug keystore until package registration succeeds. If Play requests proof, use the existing debug private key only for that verification step; do not make it the release upload key. See [Play Console developer verification guide](https://developer.android.com/developer-verification/guides/pdf-guides/pdc-guide.pdf).
 
-## 5. Required QA record
+## 5. [DONE — ACTIVE RECORD] Required QA record created
 
-Create `docs/qa/android-release-qa.md` during execution. Each pass must record:
+`docs/qa/android-release-qa.md` was created during execution. It is a living evidence record; each later pass must refresh or append:
 
 - Date, tester/agent, exact Git commit, and whether the worktree was clean.
 - `index.html` hash and APK/AAB hash.
@@ -194,7 +196,7 @@ Create `docs/qa/android-release-qa.md` during execution. Each pass must record:
 
 No release candidate is ready while required rows are unrecorded, any P0/P1 defect remains open, or a policy/signing gate is unresolved.
 
-## 6. QA phase A — deterministic browser and packaging baseline
+## 6. [PARTIAL] QA phase A — deterministic browser and packaging baseline
 
 Start from the canonical web app before device testing:
 
@@ -224,7 +226,7 @@ Also confirm:
 - The only required app content is local; blocking the analytics request does not block play.
 - Default addition and forced diagnostic URLs still behave as documented in `README.md`.
 
-## 7. QA phase B — arithmetic and interaction matrix
+## 7. [PARTIAL] QA phase B — arithmetic and interaction matrix
 
 Run manual focused checks in a browser first, then repeat representative and high-risk paths in the Android app.
 
@@ -262,7 +264,7 @@ Run manual focused checks in a browser first, then repeat representative and hig
 - L1–L20 progression gates and operation/theme transitions.
 - Rapid taps, competing input during locks, keyboard activation, and 1.5-second holds.
 
-## 8. QA phase C — Android device, lifecycle, offline, and accessibility
+## 8. [PARTIAL] QA phase C — Android device, lifecycle, offline, and accessibility
 
 ### Device/API matrix
 
@@ -314,7 +316,7 @@ The current SDK has an Android 37.1 system image but no confirmed API-24 image. 
 
 Use `chrome://inspect/#devices` for WebView console, DOM, Network, and IndexedDB inspection. Capture a clean filtered logcat around each cold launch and all failures.
 
-## 9. Defect loop and release-candidate freeze
+## 9. [IN PROGRESS] Defect loop and release-candidate freeze
 
 For every defect:
 
@@ -328,7 +330,7 @@ For every defect:
 
 After all release-blocking defects are fixed, freeze a specific Git commit as the release candidate. Rebuild from a clean dependency install and do not change code, assets, privacy behavior, or version metadata between QA sign-off and AAB generation.
 
-## 10. Release artwork and store listing
+## 10. [TODO] Release artwork and store listing
 
 The generated Capacitor launcher/splash assets are placeholders and are not release-approved. Obtain deliberate Number Garden source artwork and generate Android assets for all densities. Verify Android 12+ system splash masking and transition on device.
 
@@ -344,7 +346,7 @@ The existing smoke screenshot contains notification icons and is evidence only; 
 
 See [Google Play preview-asset requirements](https://support.google.com/googleplay/android-developer/answer/9866151?hl=en).
 
-## 11. Play Console registration and policy setup
+## 11. [PARTIAL] Play policy decisions recorded; Console registration remains TODO
 
 Perform these owner-account actions before final signing integration:
 
@@ -359,7 +361,7 @@ As of 2026-08-30, the project target SDK 36 meets Google's announced requirement
 
 For personal developer accounts created after 2023-11-13, Google currently requires a closed test with at least 12 testers continuously opted in for 14 days before applying for production access. Determine whether this account is subject to that requirement; do not assume internal testing satisfies it. See [new personal-account testing requirements](https://support.google.com/googleplay/android-developer/answer/14151465?hl=en-GB).
 
-## 12. Release signing and AAB generation
+## 12. [PARTIAL] Upload key generated; custody, signing integration, and AAB remain TODO
 
 Only after the owner approves key custody:
 
@@ -388,7 +390,7 @@ Validate the bundle's package, version, manifest, certificate, contents, and SHA
 
 Android App Bundles uploaded for new Play apps must use Play App Signing; the upload bundle is signed with the upload key and Play signs device APKs with the app-signing key. See [Android app signing](https://developer.android.com/studio/publish/app-signing) and [uploading an app bundle](https://developer.android.com/studio/publish/upload-bundle).
 
-## 13. Play testing and production sequence
+## 13. [TODO] Play testing and production sequence
 
 1. Upload the signed AAB to Internal testing first.
 2. Resolve Play Console errors/warnings, inspect App Bundle Explorer output, and review the pre-launch report.
@@ -399,7 +401,7 @@ Android App Bundles uploaded for new Play apps must use Play App Signing; the up
 7. Apply for production access only after the testing requirement, QA report, policy declarations, privacy URL, and store assets are complete.
 8. Use a staged production rollout where available; monitor Android vitals, crashes/ANRs, reviews, and policy messages before broadening distribution.
 
-## 14. Definition of done
+## 14. [TODO] Definition of done
 
 The Android Play release is ready only when all are true:
 
@@ -417,16 +419,20 @@ The Android Play release is ready only when all are true:
 - The release commit, AAB hash, signing certificate fingerprint, QA report, listing copy, and release notes are archived.
 - The owner explicitly approves production submission/rollout.
 
-## 15. Immediate next-agent checklist
+## 15. [PARTIAL] Immediate next-agent checklist
 
-1. Read `AGENTS.md`, this handover, `docs/PRODUCT.md`, `docs/ARCHITECTURE.md`, and the existing Android next-steps document.
-2. Inspect and preserve the working tree; do not stage/delete `android/.idea/` by default.
-3. Create `docs/qa/android-release-qa.md` and run QA phase A.
-4. Execute phases B and C, beginning with the already authorized OPPO device and then API-24/API-36 emulators.
-5. Fix and regress defects until a release candidate can be frozen.
-6. Present the owner with the target-audience, analytics/privacy, versioning, store classification, and signing-custody decisions.
-7. Create/register the Play Console app early enough to resolve the possible debug-key ownership check.
-8. Prepare approved release artwork, privacy link, Play listing, secret-free signing wiring, and the signed AAB.
-9. Upload to Internal testing and QA the Play-delivered build before any production request.
+1. [x] Read and reconcile `AGENTS.md`, this handover, the Android next-steps/checklist documents, current source/configuration, and the QA/policy evidence.
+2. [x] Inspect and preserve the working tree; do not stage/delete `android/.idea/` by default.
+3. [x] Create `docs/qa/android-release-qa.md` and execute the recorded packaging/device baseline.
+4. [ ] Stabilize the curriculum harness and make the full current-HEAD run pass. The 2026-08-31 audit failed the quick-drop Tens visibility assertion, while the prior QA report recorded a later multiplication visibility failure.
+5. [ ] Resolve or explicitly isolate the aggregate Android-test Kotlin duplicate-class conflict.
+6. [ ] Complete phases B and C on the authorized OPPO and required API-24/API-30/API-36 emulators.
+7. [ ] Fix and regress all release blockers until a release candidate can be frozen.
+8. [x] Record the target-audience, analytics/privacy, versioning, store classification, and upload-key decisions.
+9. [ ] Implement the analytics/privacy decision, audit traffic, finalize/publish the privacy policy, and add the in-app link.
+10. [ ] Complete owner custody of the upload keystore.
+11. [ ] Create/register the Play Console app early enough to resolve the possible debug-key ownership check.
+12. [ ] Prepare approved release artwork, Play listing, secret-free signing wiring, and the signed AAB.
+13. [ ] Upload to Internal testing and QA the Play-delivered build before any production request.
 
 Do not commit, push, create external accounts, generate signing keys, upload artifacts, invite testers, or submit a Play release unless those actions are explicitly authorized in the next task.

@@ -1,139 +1,147 @@
 # Android Capacitor Next Steps
 
-For current execution order, release gates, and QA evidence requirements, continue with [`android-play-release-handover.md`](android-play-release-handover.md). This document retains the broader post-bootstrap reference checklist.
+**TOT audit:** 2026-08-31 at `e32ad0c` on `pr/apk/develop` (three commits ahead of `origin/develop`). Only the preserved, user-local `android/.idea/` files are untracked.
 
-The Capacitor Android 8.5.0 platform has already been generated and synchronized for Number Garden. The `android/` directory is tracked native source, while its copied web assets and generated build output are ignored. A debug APK has now been compiled successfully from the command line with JDK 21 and Android SDK Platform 36, verified with Android's `aapt` and `apksigner` tools, installed over USB, and cold-launched successfully on an OPPO NE2211 physical device. Full functional QA and emulator coverage remain pending.
+**Status key:** `[DONE]` is complete and supported by repository or recorded QA evidence; `[PARTIAL]` has completed evidence but still contains open work; `[TODO]` has no completion evidence. Checked boxes are complete; unchecked boxes are open.
 
-Android Studio setup and the remaining manual work can continue from this state. No release credentials or signing material have been created.
+For the authoritative execution order and release gates, use [`action-items.md`](action-items.md). [`android-play-release-handover.md`](android-play-release-handover.md) retains the detailed rationale and QA matrices.
 
-## 1. Install and configure the Android toolchain
+The Capacitor Android 8.5.0 platform is generated and synchronized. The `android/` directory is tracked native source, while copied web assets and generated build output are ignored. A debug APK was compiled with JDK 21 and Android SDK Platform 36, verified with Android tooling, installed over USB, and exercised on an OPPO NE2211 Android 16/API 36 device. Focused arithmetic, shared-control, persistence, orientation, and native smoke checks passed, but deterministic-harness sign-off, full device QA, and emulator coverage remain open.
 
-Install Android Studio 2025.2.1 or newer from an official distribution. Use Android Studio's embedded JDK 21 for Gradle rather than the host's current runtime-only Java installation, which does not include `javac`.
+A dedicated upload keystore has been generated outside Git. Owner-controlled password storage, two encrypted backups, removal of the temporary plaintext handoff, Gradle signing integration, and a signed AAB remain open. No Play Console app or release upload exists.
 
-Use Android Studio's SDK Manager to install:
+## 1. [PARTIAL] Install and configure the Android toolchain
 
-- Android SDK Platform 36.
-- The current compatible Android SDK Build Tools.
-- Android SDK Platform Tools.
-- Android SDK Command-line Tools.
-- Android Emulator.
-- At least one API 24 or newer system image; API 36 should be the primary test image.
+- [x] Install Android Studio. The audited installation identifies itself as Android Studio `2026.1.3` and requires Java 21.
+- [x] Install and verify JDK 21 at `/home/jd/.jdks/jbr-21.0.11` for reproducible CLI Gradle work.
+- [x] Install Android SDK Platform 36.
+- [x] Install Android SDK Build Tools 36.0.0.
+- [x] Install Android SDK Platform Tools; `adb` is available from `/home/jd/Android/Sdk/platform-tools/adb`.
+- [x] Install the Android Emulator.
+- [ ] Install Android SDK Command-line Tools; `sdkmanager` and `avdmanager` are not currently available.
+- [ ] Install Google APIs system images for API 24, API 30, and API 36 and create the required AVDs. Only an Android 37.1 image/AVD is currently present.
+- [ ] Provide working hardware acceleration for x86_64 emulation. The available Android 37.1 AVD cannot cold-boot because `/dev/kvm` is unavailable.
 
-Accept the required SDK licenses, then confirm Android Studio's SDK location and Gradle JDK settings. If command-line tools will also be used, verify `ANDROID_HOME` or `ANDROID_SDK_ROOT`, `PATH`, `adb`, and `sdkmanager` against that same SDK installation. Do not blindly install operating-system packages: first identify which JDK, SDK, or path component is actually missing.
+The successful CLI builds prove that the selected JDK, Platform 36, Build Tools 36.0.0, SDK path, and required build licenses are usable. Do not change project SDK versions to work around missing emulator tooling or images.
 
-## 2. First open and Gradle sync
+## 2. [DONE] First open and Gradle/bootstrap sync
 
-From `number-garden/`, run:
+- [x] Open the tracked Android project in Android Studio; preserve generated `android/.idea/` as user-local state.
+- [x] Resolve Gradle dependencies and compile the app successfully with the verified JDK 21.
+- [x] Keep machine-specific `android/local.properties` ignored.
+- [x] Complete Capacitor web build/sync and verify the copied application asset.
+
+For later IDE sessions, open the project with:
 
 ```bash
 npx cap open android
 ```
 
-Allow Android Studio to complete its first Gradle dependency sync and any explicitly requested SDK downloads. If sync fails, check Android Studio's selected JDK, SDK Platform 36 availability, accepted licenses, proxy/network settings, and SDK path before changing project versions.
+If a future sync fails, check the selected JDK, Platform 36, accepted licenses, proxy/network settings, and SDK path before changing project versions.
 
-Android Studio may create `android/local.properties` with a machine-specific SDK path. It is already ignored and must not be committed.
+## 3. [TODO] Emulator workflow
 
-## 3. Emulator workflow
+- [ ] Create and cold-boot an API 24 Pixel 2 AVD.
+- [ ] Create and cold-boot an API 30 Pixel 5 AVD.
+- [ ] Create and cold-boot an API 36 Pixel 6 AVD with default density/navigation.
+- [ ] Run the app from bundled local assets on each AVD and complete the required QA matrix.
+- [ ] Record emulator configuration, results, screenshots, logs, and target-specific differences in `docs/qa/android-release-qa.md`.
 
-Create an API 36 Android Virtual Device in Device Manager and use it for the primary run/debug pass. An API 24 AVD is also useful for validating the configured minimum SDK; additional intermediate/current devices can be added when compatibility findings justify them.
+Do not raise `minSdkVersion` merely to avoid API-24 testing.
 
-Select the `app` run configuration, start the AVD, and run or debug the project. Confirm that Number Garden launches from the assets bundled in the app rather than loading GitHub Pages or any other remote application URL.
+## 4. [DONE] Physical-device smoke workflow
 
-## 4. Physical-device workflow
+- [x] Enable Developer Options and USB debugging on the OPPO NE2211.
+- [x] Connect by USB and approve the computer RSA prompt.
+- [x] Confirm the device is authorized with `adb devices`.
+- [x] Install the debug APK with `adb install -r`.
+- [x] Force-stop and cold-launch `io.github.jdatta.numbergarden/.MainActivity`.
+- [x] Verify a live, top-resumed activity, correct L1 rendering, safe-area/system-bar spacing, and no filtered startup errors.
+- [x] Run and pass `:app:connectedDebugAndroidTest` on the device.
 
-On the Android phone or tablet:
+This section closes the physical-device bootstrap/smoke task only. The broader functional, lifecycle, offline, and accessibility work remains open below.
 
-1. Enable Developer Options and USB debugging.
-2. Connect the device over USB.
-3. Approve the computer's RSA debugging prompt on the device.
-4. Run `adb devices` and confirm that the device is listed as `device`, not `unauthorized` or `offline`.
+## 5. [PARTIAL] Android functional QA
 
-On Linux, change USB/udev permissions only if the device is not visible after the cable, USB mode, RSA prompt, and `adb` server have been checked. Then select the device in Android Studio and run/debug the `app` configuration. Force-stop and relaunch the installed app during validation rather than relying only on a warm debug session.
+- [x] Exercise representative on-device addition: `4+3`, `9+7`, `50+50`, and `99+99=198`, including wrong-answer correction, Drop All, and Ones/Tens/both carry paths.
+- [x] Exercise representative on-device subtraction: `42−42`, `40−7`, `42−17`, and `20−19`, including zero difference and borrowing.
+- [x] Exercise representative on-device multiplication: `6×20`, `19×9`, and `27×37=999`, including explicit Tens conversion, Pull All, and product regrouping.
+- [x] Verify the focused shared-control subset: keyboard Quick Drop, sound toggle/restore, fullscreen response, reward-free Tutorial, typed reward behavior, force-stop/cold relaunch, update persistence, portrait, and restored landscape.
+- [ ] Stabilize and pass the complete deterministic curriculum harness. A 2026-08-31 HEAD run failed the quick-drop Tens visibility assertion; the earlier QA run recorded that assertion passing and later failed a multiplication visibility assertion, so the gate is not deterministic or complete.
+- [ ] Finish addition, subtraction, multiplication, and shared-flow coverage for resets, progression, holds, rapid taps/input locks, stationary multiplicand, interrupted motion, role language, themes, and all required level layouts.
+- [ ] Finish lifecycle and persistence coverage: background/foreground, lock/unlock, reboot, process recovery, reset, explicit clear-data behavior, all durable preferences, and soft-keyboard behavior.
+- [ ] Finish airplane-mode/offline and analytics/network-failure coverage.
+- [ ] Finish accessibility, font/display scaling, reduced motion, contrast/touch targets, and audio interruption coverage.
+- [ ] Repeat the required matrix on API 24, API 30, and clean API 36 emulators.
+- [ ] Resolve or explicitly isolate the aggregate `connectedDebugAndroidTest` Kotlin duplicate-class failure; the app-targeted instrumentation task alone is not aggregate-task sign-off.
 
-The first CLI device smoke test completed successfully on an authorized OPPO NE2211: `adb install -r` succeeded, `MainActivity` cold-launched, and the app remained the top resumed fullscreen activity with a live process. A captured screen showed the L1 addition board rendered correctly, including system-bar and safe-area spacing, and filtered startup logs contained no Android runtime, Chromium, or Capacitor errors. This smoke test does not replace the interaction, persistence, offline, rotation, and accessibility checks below.
+Do not add an orientation lock solely to conceal a layout defect. Test portrait and landscape first.
 
-## 5. Android functional QA
+## 6. [PARTIAL] WebView debugging
 
-Exercise the full learning flow on both an emulator and at least one physical device. In particular, verify:
+- [x] Inspect and drive the real Capacitor WebView at `https://localhost/` through its debug socket for the focused device-QA run.
+- [x] Confirm the packaged app uses local web content and that startup/relaunch filtered logcat contains no Android runtime, Chromium fatal, or Capacitor startup error.
+- [x] Verify persistence across force-stop/relaunch for the exercised score, level, and difficulty state.
+- [ ] Capture a complete WebView console/DOM/computed-style/Network/IndexedDB audit for remaining functional failures and lifecycle paths.
+- [ ] Audit cold launch, declined analytics consent, granted consent, gameplay, withdrawal, and offline traffic after the consent implementation exists.
 
-- Touch targets, ordinary taps, 1.5-second holds, Drop All, and multiplication Pull All.
-- The answer keypad, settings and other dialogs, focus behavior, fullscreen behavior, and audio.
-- Narrow portrait layouts, wider/landscape layouts, and the visibility of the bee and level badge.
-- IndexedDB-backed profile, settings, rewards, and progress persistence across force-stop and app restart, without clearing app data or reinstalling.
-- A cold launch in airplane mode with no prior network connection; gameplay must work and the optional analytics request must fail harmlessly.
-- The existing `viewport-fit=cover` and safe-area CSS with status/navigation bars, display cutouts, gesture navigation, and current Android edge-to-edge behavior.
+Use `chrome://inspect/#devices` for the remaining console, DOM, Network, and IndexedDB evidence.
 
-Test both portrait and landscape before deciding whether an orientation lock is educationally or ergonomically necessary. Do not add a lock solely because one layout needs correction.
+## 7. [DONE] Normal development loop exercised
 
-## 6. WebView debugging
+- [x] Edit the canonical root `index.html`, not copied assets.
+- [x] Run `npm run build`.
+- [x] Run `npx cap sync android`.
+- [x] Verify `index.html`, `dist/index.html`, and `android/app/src/main/assets/public/index.html` are byte-identical.
+- [x] Rebuild, install, and retest the changed debug application.
 
-Connect a running emulator or USB-debugged device, open `chrome://inspect/#devices` in desktop Chrome, and inspect the Number Garden WebView. Use DevTools to check:
+Repeat this loop for every future web, Capacitor configuration, or native-plugin change. A completed development loop does not imply that the current release QA gates pass.
 
-- JavaScript console errors and failed resource requests.
-- Network activity, especially that no remote application page is required and analytics failure is harmless.
-- DOM, computed styles, safe-area layout, touch states, and accessibility attributes.
-- IndexedDB and other Application storage used by the durable profile.
+## 8. [TODO] Icons and splash screen
 
-## 7. Normal development loop
+- [ ] Obtain deliberate, reviewed Number Garden source artwork.
+- [ ] Replace the generated Capacitor launcher and splash placeholders for all Android densities.
+- [ ] Verify launcher masking, safe zones, background color, light/dark appearance, and Android 12+ splash transition on real devices and emulators.
 
-Edit the canonical root `index.html`; never edit `android/app/src/main/assets/public/index.html`, because Capacitor replaces that copied file during sync. Run the relevant browser and curriculum-harness checks, then refresh Android assets with:
+If `@capacitor/assets` is used, follow its current guide, generate Android assets only, and inspect every density. Raster icon sources should be at least 1024×1024 and raster splash sources at least 2732×2732; SVG sources may also be used.
 
-```bash
-npm run build
-npx cap sync android
-```
+## 9. [DONE] Debug APK
 
-Rebuild or relaunch the Android app afterward. Repeat the sync whenever web code, Capacitor configuration, or native plugin dependencies change.
+- [x] Build with `android/gradlew -p android assembleDebug -Dorg.gradle.java.home=/home/jd/.jdks/jbr-21.0.11`.
+- [x] Produce the ignored artifact at `android/app/build/outputs/apk/debug/app-debug.apk`.
+- [x] Verify package `io.github.jdatta.numbergarden`, version code `1`, version name `1.0`, min SDK `24`, target SDK `36`, and a valid Android debug signature.
+- [x] Verify the current recorded artifact SHA-256: `29e48b353bcd66dd0723c0fbf6d6e00441907febf9b4efd90f46b59018ad63a9`.
 
-## 8. Icons and splash screen
+Repeat the build and verification after future source, asset, version, or native changes. Build outputs remain ignored and must not be committed.
 
-The generated Capacitor icons and splash screens are bootstrap placeholders. Replace them later from deliberate, reviewed Number Garden source artwork.
+## 10. [PARTIAL] Release signing and artifacts
 
-The optional `@capacitor/assets` package can generate Android assets. Follow its current guide and keep source images in the expected `assets/` locations. Raster icon sources should be at least 1024×1024, and raster splash sources should be at least 2732×2732; SVG sources may also be used. Provide foreground/background or dark-mode variants only when the artwork has been designed for those roles. Generate Android only, for example with the package's `generate --android` command, and inspect every density afterward.
+- [x] Choose the first Play-upload version plan: `versionName 3.1.0`, `versionCode 1`.
+- [x] Generate a dedicated upload keystore outside Git with alias `numbergarden-upload`; record only its public certificate fingerprint in release documentation.
+- [ ] Store the password in an owner-controlled password manager, create two encrypted keystore backups in separate owner-controlled locations, and remove the temporary plaintext handoff only after verifying both backups.
+- [ ] Add secret-free Gradle signing wiring using ignored properties or CI environment variables; keep debug builds unaffected.
+- [ ] Change `android/app/build.gradle` deliberately from `versionName "1.0"` to `versionName "3.1.0"` for the first real upload. Never reuse a published `versionCode`.
+- [ ] Freeze a QA-approved release-candidate commit.
+- [ ] Build and validate a signed AAB; no release AAB exists at current TOT.
 
-Android 12 and newer use the system splash-screen model, which centers a constrained icon over a background rather than showing an unrestricted full-screen launch image. Check masking, safe zones, background color, light/dark appearance, and the transition into the WebView on real devices. Do not regenerate assets until the source artwork and intended Android 12+ behavior are settled.
+Never commit the keystore, passwords, `keystore.properties`, CI secrets, or exported credentials. Use Play App Signing for Play distribution.
 
-## 9. Debug APK (completed)
+## 11. [TODO] Google Play workflow
 
-The first command-line debug build completed successfully using:
+- [ ] Verify the owner Play developer account and create the app with immutable package name `io.github.jdatta.numbergarden`.
+- [ ] Resolve any developer-verification or prior debug-key package-ownership prompt.
+- [ ] Enable Play App Signing while retaining the separate owner-controlled upload key.
+- [ ] Complete the store listing, public privacy-policy URL, Data safety, Ads, App access, target-audience/Families, IARC, screenshots, icon, feature graphic, countries, and release notes.
+- [ ] Upload the signed AAB to Internal testing and review Console validation, App Bundle Explorer, and the pre-launch report.
+- [ ] Install and complete critical QA on the Play-delivered build.
+- [ ] Determine and, if applicable, complete the required closed test before requesting production access.
+- [ ] Obtain explicit owner approval before production submission or staged rollout.
 
-```bash
-android/gradlew -p android assembleDebug
-```
+Google Play rules change. Recheck current requirements at submission time rather than treating this checklist as a permanent policy source.
 
-The expected artifact is:
+## 12. [DONE — NO CURRENT ACTION] Native plugins
 
-```text
-android/app/build/outputs/apk/debug/app-debug.apk
-```
+- [x] Keep the app plugin-free while browser APIs meet product requirements; no current release requirement justifies a native plugin.
+- [ ] If a concrete native need later appears, select a Capacitor-compatible plugin, sync Android, and inspect permissions, manifest entries, SDK requirements, privacy implications, and generated native changes before adoption.
 
-The APK was verified as package `io.github.jdatta.numbergarden`, version code 1, version name 1.0, min SDK 24, target SDK 36, and a valid Android debug signature. Build outputs are ignored and should not be committed. Repeat the build after later web syncs or native changes.
-
-## 10. Release signing and artifacts
-
-Before the first release, choose a monotonically increasing integer `versionCode` and a user-facing `versionName` in `android/app/build.gradle`. Never reuse a published version code.
-
-Create the upload keystore outside the repository and back it up securely in more than one controlled location. Never commit the keystore, passwords, `keystore.properties`, CI secrets, or exported credentials. The root ignore rules cover `*.jks`, `*.keystore`, and `android/keystore.properties`; keep only secret-free signing logic and property lookups in Gradle source.
-
-Configure Play App Signing for Play distribution. Generate a signed Android App Bundle (`.aab`) for Google Play. Generate a release APK only when direct installation or a non-Play distribution channel specifically requires one. Verify the signed artifact and archive the associated version metadata and release notes.
-
-## 11. Google Play workflow
-
-Create the Play Console application with the immutable package name `io.github.jdatta.numbergarden`. Configure Play App Signing and complete the store listing, privacy-policy URL, Data safety disclosure (including the optional Google Analytics request), content/age rating, screenshots, high-resolution icon, target-API compliance, and release notes.
-
-Upload the first signed AAB to the internal testing track, add testers, and review automated pre-launch reports. Promote only after emulator and physical-device QA has covered offline cold launch, profile persistence, force-stop/relaunch, interaction holds, audio, safe areas, and orientation behavior.
-
-Google Play policy and target-API deadlines change. Recheck the current Play Console requirements and official policy documentation at release time instead of treating bootstrap-era requirements as permanent.
-
-## 12. When to add native plugins
-
-Keep the app plugin-free while browser APIs provide the required behavior. Add a version-compatible Capacitor plugin only for a concrete native need, such as status/system-bar control, orientation locking, haptics, network-state awareness, or stronger storage durability.
-
-After installing any plugin:
-
-```bash
-npm run build
-npx cap sync android
-```
-
-Inspect the plugin's Android permissions, manifest entries, SDK requirements, privacy implications, and generated native changes. Commit applicable dependency and Android source changes, but continue excluding copied assets, build output, SDK-local paths, and secrets.
+Commit applicable dependency and Android source changes, but continue excluding copied assets, build output, SDK-local paths, user-local IDE files, and secrets.

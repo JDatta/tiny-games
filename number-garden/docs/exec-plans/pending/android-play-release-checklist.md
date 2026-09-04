@@ -1,80 +1,99 @@
 # Android Google Play Release Checklist
 
-Derived from [the Android Play release handover](android-play-release-handover.md).
+Derived from [the Android Play release handover](android-play-release-handover.md). The execution-ranked backlog is [`action-items.md`](action-items.md).
 
-## Current execution status — 2026-08-30
+**TOT audit:** 2026-08-31 at `e32ad0c` on `pr/apk/develop` (three commits ahead of `origin/develop`). Only preserved `android/.idea/` files are untracked.
 
-The connected OPPO NE2211 is now authorized and has been used for a focused release-QA pass. The debug APK was rebuilt from canonical `index.html`, synced into Capacitor, installed with `adb install -r`, and exercised through the real Capacitor WebView. Arithmetic and the listed shared-control subset passed on that device, and the corrected native smoke test passed. This is meaningful progress, but it is not full device-QA sign-off.
+**Status key:** `[DONE]` is fully evidenced; `[PARTIAL]` contains both complete and open work; `[TODO]` is not started or lacks completion evidence; `[BLOCKED]` needs a prerequisite or external capability. Checked boxes are done; unchecked boxes remain open.
 
-The exact source and APK hashes, commands, device details, screenshots, logcat result, browser-harness failure, and Gradle duplicate-class failure are recorded in [the Android QA report](../../qa/android-release-qa.md). The report is the evidence record; this checklist is the execution and release-gate index.
+The OPPO NE2211 Android 16/API 36 focused QA pass, debug packaging, app-targeted instrumentation smoke, and several owner decisions are complete. This is not release-QA sign-off. A fresh current-HEAD harness run on 2026-08-31 failed the quick-drop Tens visibility assertion, while the prior report recorded that assertion passing and later failed a multiplication visibility assertion. Treat the deterministic harness as unstable or regressed until one root cause and a repeatable full PASS are demonstrated.
 
-The current blocking items are: the curriculum harness still fails one multiplication visibility assertion; the aggregate Android instrumentation task still fails on a Kotlin duplicate-class conflict even though the app-targeted smoke task passes; required API 24, API 30, and API 36 emulator targets could not be created; and substantial lifecycle, accessibility, offline/network, and interaction coverage remains open on the OPPO.
+The detailed 2026-08-30 device evidence is in [the Android QA report](../../qa/android-release-qa.md). That report began from bootstrap commit `fd2dc03`; its tested source changes were later committed, and its source/APK hashes still match the current generated copies and debug APK. Refresh the report at the next retest rather than treating its old commit/worktree prose as a current status snapshot.
 
-## QA baseline
+## 1. [PARTIAL] QA baseline
 
 - [x] Inspect and preserve the worktree; do not stage or delete `android/.idea/` by default.
 - [x] Create `docs/qa/android-release-qa.md` with commit, worktree, build, device, install, evidence, and defect details.
-- [x] Run `npm ci`, `npm run build`, `npx cap sync android`, packaging comparisons, `npm ls`, and `git diff --check`.
-- [ ] Run the curriculum harness and confirm direct `file://`, local-server, diagnostic URL, and analytics-blocked playability.
-  Direct `file://`, local-server, and documented diagnostic URLs passed. The harness ran but does not yet reach its required PASS state: the multiplication visibility assertion recorded in `docs/qa/android-release-qa.md` remains failing.
+- [x] Run `npm ci`, `npm run build`, `npx cap sync android`, packaging comparisons, `npm ls`, and `git diff --check` for the recorded QA pass.
+- [x] Confirm direct `file://`, local-server, documented diagnostic URLs, and local-content playability.
+- [x] Confirm that blocking the optional analytics request does not make remote gameplay content necessary.
+- [ ] Make the deterministic curriculum harness reliably reach `PASS: Number Garden curriculum checks` on current HEAD.
+- [ ] Refresh the QA report with current release-candidate commit, worktree, source hash, generated-copy hashes, APK/AAB hash, and rerun results.
 
-## Functional and Android QA
+Current blocker detail: the 2026-08-31 HEAD run failed `quick-drop Tens keep later bars fully colored until their own staggered flight begins` at `tests/curriculum-harness.html:1190`. The 2026-08-30 report instead recorded that check passing and a later multiplication visibility check failing at then-line 2449. Do not mark the harness done until the inconsistency is reproduced, fixed, and covered deterministically.
 
-- [ ] Test addition: no carry, Ones carry, Tens carry, both carries, empty places, Hundreds results, Drop All, holds, resets, and L1–L6+ rendering.
-  On-device subset passed: `4+3`, `9+7`, `50+50`, and `99+99=198`, including a wrong-answer correction, Drop All, Ones/Tens/both carries, and Hundreds result. Reset and level-layout coverage are not complete on the device.
-- [ ] Test subtraction: zero/equal results, `40−7`, `42−17`, `20−19`, `42−42`, borrowing, resumed removal, holds, resets, language, and theme.
-  On-device subset passed: `42−42`, `40−7`, `42−17`, and `20−19`, including the borrow path and typed completions. Holds, resets, terminology, and theme still need deliberate device checks.
-- [ ] Test multiplication: zero Ones, multiplier Tens conversion, `19×9`, `27×37=999`, stationary multiplicand, Pull All boundaries, regrouping, interruptions, language, and theme.
-  On-device subset passed: `6×20`, `19×9`, and `27×37=999`; the last consumed 37 multiplier Ones across three explicit Tens conversions and ended at 999. Stationary-multiplicand, interruption, terminology, and theme checks remain open.
-- [ ] Test shared flows: wrong-answer correction, exactly 10-coin rewards, Tutorial, progression, settings, sound, fullscreen, reset, keyboard, rapid taps, and locks.
-  Wrong-answer correction and a single 10-coin typed reward were observed on-device. Keyboard Quick Drop, Settings sound toggle, fullscreen control response, and reward-free Tutorial also passed. Progression, reset, rapid-tap, and input-lock coverage remain open.
-- [ ] Test on the OPPO Android 16 device, API 24 emulator, clean API 36 emulator, and an intermediate version if available.
-  OPPO NE2211 Android 16/API 36 focused subset and `:app:connectedDebugAndroidTest` pass. API 24/30/36 emulator targets remain blocked by missing images/tooling and unavailable KVM acceleration.
-- [ ] Test lifecycle, persistence, update install, clear-data behavior, offline operation, network failures, orientation, safe areas, system UI, accessibility, scaling, reduced motion, and audio interruptions.
-  In-place `adb install -r`, force-stop/cold relaunch, persisted score/level/difficulty, portrait, and restored-landscape layout passed. `pm clear` was blocked by device policy; all remaining lifecycle/accessibility/network coverage is open.
-- [ ] Capture filtered logcat, console, screenshots, and reproduction evidence for failures.
-  Filtered startup/relaunch logcat and launch/relaunch/landscape screenshots were captured. The remaining browser-harness multiplication visibility failure and aggregate Android-test Kotlin duplicate-class failure are documented in `docs/qa/android-release-qa.md`.
+## 2. [PARTIAL] Functional and Android QA
 
-## Defects and release candidate
+- [ ] Complete addition coverage: no carry, Ones carry, Tens carry, both carries, empty places, Hundreds results, Drop All, holds, resets, and L1–L6+ rendering.
+  - [x] OPPO subset: `4+3`, `9+7`, `50+50`, and `99+99=198`, including wrong-answer correction, Drop All, carry paths, and a Hundreds result.
+  - [ ] Remaining: reset/queued-motion interruption, hold boundaries, empty-place skipping, and deliberate L1–L6+ layout coverage.
+- [ ] Complete subtraction coverage: zero/equal results, `40−7`, `42−17`, `20−19`, `42−42`, borrowing, resumed removal, holds, resets, language, and theme.
+  - [x] OPPO subset: all four required arithmetic cases, including equal/zero result, borrowing, and typed completions.
+  - [ ] Remaining: hold boundaries, reset/interruption, role terminology, and operation theme.
+- [ ] Complete multiplication coverage: zero Ones, multiplier Tens conversion, `19×9`, `27×37=999`, stationary multiplicand, Pull All boundaries, regrouping, interruptions, language, and theme.
+  - [x] OPPO subset: `6×20`, `19×9`, and `27×37=999`, including explicit Tens conversions, Pull All, and Ones/Tens regrouping.
+  - [ ] Remaining: stationary-multiplicand evidence, interruption/reset paths, zero-Ones boundary, explicit Pull All stop boundary, terminology, and theme.
+- [ ] Complete shared flows: wrong-answer correction, exactly 10-coin rewards, Tutorial, progression, settings, sound, fullscreen, reset, keyboard, rapid taps, and locks.
+  - [x] OPPO subset: wrong-answer correction, typed 10-coin reward, keyboard Quick Drop, sound toggle/restore, fullscreen response, and reward-free Tutorial.
+  - [ ] Remaining: progression, reset, rapid taps, competing input locks, and complete settings/persistence matrix.
+- [ ] Complete the required device matrix.
+  - [x] OPPO NE2211 Android 16/API 36 focused subset.
+  - [x] `:app:connectedDebugAndroidTest` on the OPPO.
+  - [ ] API 24 Pixel 2 emulator.
+  - [ ] API 30 Pixel 5 emulator.
+  - [ ] Clean API 36 Pixel 6 emulator.
+- [ ] Complete lifecycle, persistence, update, clear-data, offline/network, orientation, safe-area/system-UI, accessibility, scaling, reduced-motion, and audio-interruption coverage.
+  - [x] In-place `adb install -r`, force-stop/cold relaunch, observed score/level/difficulty persistence, portrait, and restored landscape.
+  - [ ] Remaining lifecycle and accessibility matrix; `pm clear` was blocked by device policy and needs an explicit alternate test target.
+- [ ] Complete failure evidence capture.
+  - [x] Preserve filtered startup/relaunch logcat, launch/relaunch/landscape screenshots, and recorded reproduction details for the prior harness and aggregate Android-test failures.
+  - [ ] Add WebView console/Network/IndexedDB evidence, screenshots, and retest results for every new or unresolved failure.
 
-- [ ] Reproduce each defect, add deterministic coverage, fix canonical `index.html` or tracked Android source, rebuild/sync, and retest.
-  The quick-drop Tens timing defect was fixed, rebuilt, synced, and retested. The separate multiplication visibility failure remains unresolved, so this release gate remains open.
-- [ ] Confirm no P0/P1 defects remain and document accepted lower risks.
-- [ ] Freeze a clean release-candidate commit after QA sign-off; make no code, asset, privacy, or version changes afterward.
+## 3. [IN PROGRESS] Defects and release candidate
 
-## Ordered next steps
+- [ ] Stabilize the quick-drop Tens visibility check, reconcile it with the prior later multiplication visibility failure, add deterministic coverage, fix canonical `index.html` or the harness as warranted, rebuild/sync, and rerun to a complete PASS.
+- [ ] Resolve the aggregate `connectedDebugAndroidTest` Kotlin duplicate-class conflict, or document and isolate the non-app test-variant defect with explicit owner acceptance.
+- [x] Correct the template instrumentation package assertion to `io.github.jdatta.numbergarden` and pass `:app:connectedDebugAndroidTest` on the OPPO.
+- [ ] Reproduce every remaining defect, add or extend deterministic coverage, fix canonical source, rebuild/sync, and retest all affected targets.
+- [ ] Confirm no P0/P1 defects remain and document owner-accepted lower risks.
+- [ ] Freeze a clean release-candidate commit only after QA sign-off; make no code, asset, privacy, or version changes afterward.
 
-1. Diagnose the remaining multiplication visibility assertion in `tests/curriculum-harness.html`, add or extend deterministic coverage as appropriate, fix only canonical source, rebuild/sync, and rerun until the harness prints `PASS: Number Garden curriculum checks`.
-2. Resolve the aggregate Android-test Kotlin duplicate-class conflict, or document and isolate the non-app test-variant defect with owner approval; rerun both the aggregate task and `:app:connectedDebugAndroidTest`.
-3. Complete the remaining OPPO checks: reset and progression, settings and persistence matrix, rapid taps/input locks, stationary multiplicand and interruption cases, terminology/themes, background/foreground, lock/unlock, reboot/process recovery, airplane-mode/offline play, analytics/network failure behavior, keyboard occlusion, scaling, reduced motion, TalkBack, and audio interruption.
-4. Install the required API 24, API 30, and API 36 Google APIs images/AVDs through Android Studio SDK Manager, cold-boot without snapshots, and repeat the same smoke and functional matrix on Pixel 2, Pixel 5, and Pixel 6 targets. Record any display/navigation differences.
-5. For every failure, retain filtered logcat, WebView console/Network/IndexedDB evidence, screenshots, and deterministic reproduction steps in the QA report; rerun all affected targets after each fix.
-6. Rebuild from the final tested canonical source, rerun packaging/hash checks, update the report and every checklist row, and only then request QA sign-off and release-candidate freezing.
-7. Complete the owner-controlled Play gates: target audience/Families, privacy policy and in-app link, analytics/Data Safety, versioning, artwork, signing-key custody, signed AAB validation, Play internal testing, and Play-delivered-build QA.
+## 4. [PARTIAL] Owner decisions and privacy/policy implementation
 
-## Owner decisions and policy
+- [x] Record intended ages 3–8; all Play-supported countries/territories; **App → Education**; publisher Joydip Datta; support `mail.joydip@gmail.com`; no ads or in-app purchases; and unrestricted/no-login access. Complete IARC rather than preselecting a rating.
+- [x] Create the conditional draft at `docs/privacy-policy-draft.md`.
+- [x] Select basic parent/guardian analytics consent for Android.
+- [ ] Implement persistent, revocable parent/guardian consent so `gtag.js` and analytics requests cannot occur before permission; preserve tag ID `G-C3PJ0VBNH0`.
+- [ ] Inspect Android WebView traffic for cold launch, declined consent, granted consent, gameplay, withdrawal, and offline paths; record hosts, request/payload categories, and timing.
+- [ ] Finalize, approve, and publish the privacy policy at an owner-controlled public HTTPS URL; add an accessible in-app link.
+- [ ] Align shipped behavior and evidence with Play Data safety, Ads, App access, Families, target-audience, country availability, and IARC declarations.
+- [x] Choose first-upload `versionName 3.1.0` and `versionCode 1`.
+- [ ] Change Android source from `versionName "1.0"` only during deliberate release signing/configuration; increment `versionCode` after every uploaded bundle.
+- [x] Generate the separate upload keystore outside Git with alias `numbergarden-upload` and record public SHA-256 fingerprint `CE:36:BB:68:C4:ED:B3:F3:25:4C:69:3F:47:4B:7D:DF:9F:F8:AD:D1:7A:A8:B5:83:BF:8A:18:39:A4:D4:51:E2`.
+- [ ] Put the password in an owner-controlled password manager, create two verified encrypted backups, and remove the temporary local plaintext handoff.
 
-- [x] Record the owner decisions: intended ages 3–8; all Play-supported countries/territories; **App → Education**; publisher Joydip Datta; support contact `mail.joydip@gmail.com`; no ads or in-app purchases; no login/restricted app access. Complete the IARC questionnaire rather than preselecting a rating.
-- [ ] Publish and approve the privacy policy at a public HTTPS URL; add an accessible in-app link. A conditional draft is at `docs/privacy-policy-draft.md`; it cannot be published until the analytics implementation and traffic audit are complete.
-- [ ] Implement the owner's analytics decision for Android: basic parent/guardian consent. Do not load `gtag.js` or send any analytics request until permission is granted; support withdrawal in Settings. The current source still initializes the tag at page load.
-- [ ] Inspect Android WebView traffic on cold launch, declined consent, granted consent, gameplay, withdrawal, and offline paths. Record hosts, requests, headers/payload categories, and timing in the QA report; use that evidence to complete Data Safety and the final policy.
-- [ ] Align shipped behavior with Play Data Safety, Ads (none), App access (unrestricted), Families, target-audience, and IARC declarations. Target ages 3–8 require the applicable Families path.
-- [x] Choose the first Play-upload version plan: `versionName 3.1.0`, `versionCode 1`. The source still has Android `versionName "1.0"`; change it deliberately with the release signing/configuration work. Every later uploaded bundle must increment `versionCode`.
-- [ ] Complete signing custody: the separate upload keystore was generated outside Git with alias `numbergarden-upload` and public SHA-256 fingerprint `CE:36:BB:68:C4:ED:B3:F3:25:4C:69:3F:47:4B:7D:DF:9F:F8:AD:D1:7A:A8:B5:83:BF:8A:18:39:A4:D4:51:E2`. The owner must place its password in an owner-controlled password manager, make two encrypted backups of the keystore, and remove the temporary local plaintext handoff before signing integration.
+## 5. [TODO] Emulator capability
 
-## Play Console and release assets
+- [ ] Install Android SDK Command-line Tools or use Android Studio SDK Manager for managed image/AVD creation.
+- [ ] Install API 24, API 30, and API 36 Google APIs images and create the specified Pixel AVDs.
+- [ ] Provide `/dev/kvm` or another supported hardware-accelerated runner; the available Android 37.1 AVD cannot boot without it.
+- [ ] Cold-boot without snapshots and record display, density, navigation, WebView, and OS differences.
+
+## 6. [TODO] Play Console and release assets
 
 - [ ] Verify the Play developer account and create the app as `io.github.jdatta.numbergarden`.
 - [ ] Resolve any developer-verification or prior debug-key ownership prompt.
-- [ ] Enable Play App Signing and keep a separate owner-controlled upload key.
+- [ ] Enable Play App Signing and retain the separate owner-controlled upload key.
 - [ ] Replace placeholder launcher/splash artwork and verify Android 12+ behavior.
-- [ ] Prepare the 512×512 icon, 1024×500 feature graphic, clean screenshots, listing copy, support details, privacy URL, and release notes.
+- [ ] Prepare the 512×512 icon, 1024×500 feature graphic, clean screenshots, screenshot alt text, listing copy, support details, privacy URL, countries, and release notes.
+- [ ] Complete the policy declarations only after implementation and traffic evidence are final.
 
-## Signing, testing, and rollout
+## 7. [PARTIAL] Signing, bundle, testing, and rollout
 
-- [ ] Finish backing up the generated dedicated upload keystore outside the repository; record only the public fingerprint above. Do not commit its path, credentials, or private material.
+- [x] Generate a dedicated upload keystore outside Git and keep its private path/material out of repository documentation.
+- [ ] Complete owner custody and backups before signing integration.
 - [ ] Add secret-free Gradle signing wiring using ignored properties or CI environment variables; keep debug builds unaffected.
-- [ ] Build and validate the signed bundle:
+- [ ] Build the release candidate with the verified JDK:
 
   ```bash
   npm ci
@@ -87,11 +106,15 @@ The current blocking items are: the curriculum harness still fails one multiplic
 - [ ] Validate package ID, version, manifest, certificate, contents, signature, and SHA-256 of `android/app/build/outputs/bundle/release/app-release.aab`.
 - [ ] Upload to Internal testing; review Console errors, App Bundle Explorer, and the pre-launch report.
 - [ ] Install and test the Play-delivered build for launch, offline play, persistence, updates, all operations, holds, Tutorial, sound, orientation, safe areas, analytics/privacy, and accessibility.
-- [ ] If required, complete the Closed test with at least 12 continuously opted-in testers for 14 days.
+- [ ] Determine whether the account requires a closed test and, if so, complete the currently applicable tester-count/duration requirement.
 - [ ] Resolve or explicitly accept pre-launch findings and increment `versionCode` for every replacement bundle.
-- [ ] Archive the release commit, hashes, certificate fingerprint, QA report, listing copy, and release notes.
+- [ ] Archive the release commit, hashes, certificate fingerprint, QA report, listing copy, policy version, and release notes.
 - [ ] Obtain explicit owner approval before production submission or staged rollout.
+
+## 8. [TODO] Ordered next steps
+
+Execute the ranked backlog in [`action-items.md`](action-items.md). Its physical row order is the intended temporal order; dependencies and external-owner gates are explicit there.
 
 ## Restrictions
 
-Do not commit or push, create signing keys, upload artifacts, invite testers, or submit a Play release without explicit authorization.
+Do not commit or push, create external accounts, generate replacement signing keys, upload artifacts, invite testers, or submit a Play release without explicit authorization. Preserve `android/.idea/` as user-local state unless the owner decides its repository policy.
