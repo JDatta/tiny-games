@@ -68,7 +68,7 @@ After preflight:
 6. Move this spec from `pending/` to `active/` and make a separate activation commit. Do not mix an item implementation into activation.
 7. Change the startup gate to `satisfied`, set orchestration mode to `ready`, set `current_wave` to `1`, recalculate `derived`, and checkpoint the activation.
 
-The repository root is `/home/jd/workspace/tiny-games`; the project path is `/home/jd/workspace/tiny-games/number-garden`. The orchestrator needs write access to the repository root’s `.git` directory. The preflight must grant that narrow capability; do not use a broad unsandboxed mode.
+The repository root is `/home/jd/workspace/tiny-games`; the project path is `/home/jd/workspace/tiny-games/number-garden`. Keep the orchestrator’s working directory at the project path and use only standard Git commands there. Git discovers and manages the parent repository metadata itself. Never request direct `.git` filesystem access, set `GIT_DIR`, or edit repository metadata manually. If an ordinary Git command or an explicit sibling worktree path needs tool approval, request approval for only that command/path.
 
 ## Checkpoint protocol
 
@@ -94,14 +94,16 @@ An item may become `done` only when its completion criteria are met, its depende
 Checkpoint commands are intentionally local:
 
 ```bash
+cd /home/jd/workspace/tiny-games/number-garden
 node scripts/validate-android-release-tracker.mjs
 git diff --check
+git add -- REVIEWED_EXPLICIT_PATHS
 git diff --cached --name-status
 git commit -m "NG-AND-###: concise result"
 node scripts/validate-android-release-tracker.mjs --check-git --print-ready
 ```
 
-Never stage with a repository-wide wildcard. Explicitly name reviewed files, then confirm `android/.idea/` and secrets are absent from the index.
+Never stage with a repository-wide wildcard. Replace `REVIEWED_EXPLICIT_PATHS` with individually reviewed paths, then confirm `android/.idea/` and secrets are absent from the index. Checkpointing uses Git’s normal index and commit plumbing; the orchestrator never writes `.git` files itself.
 
 ## Resume and recovery
 
@@ -122,7 +124,7 @@ On mismatch, set orchestration mode to `paused`, record the discrepancy in `bloc
 
 Use native sub-agents only for short, read-only investigations that need no persistent session. Use persisted Codex CLI sessions for long, mutable, device, or resumable work. Each implementation worker receives a dedicated branch and Git worktree outside the main checkout. A worker may commit its scoped implementation branch, but never edits the authoritative tracker.
 
-Create a worktree only after recording its intended ID/path/branch and item assignment in the tracker. Use a branch such as `agent/ng-and-001-harness` and a narrowly named sibling path. Do not reuse a dirty or interrupted worktree.
+Create a worktree only after recording its intended ID/path/branch and item assignment in the tracker. From `number-garden`, use a standard command such as `git worktree add EXPLICIT_SIBLING_PATH -b agent/ng-and-001-harness BASELINE_COMMIT`. Do not access `.git` directly and do not reuse a dirty or interrupted worktree.
 
 Worker commands use installed CLI features documented by the [official Codex command reference](https://learn.chatgpt.com/docs/developer-commands?surface=cli): `--model`, `-c` configuration overrides, `--output-schema`, `--output-last-message`, and `codex exec resume`. The current configuration reference defines `model_reasoning_effort` and `model_context_window`.
 

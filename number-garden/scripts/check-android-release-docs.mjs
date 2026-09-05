@@ -51,10 +51,19 @@ for (const required of [
   "codex exec resume SESSION_ID",
   "--output-schema",
   "Never use `--dangerously-bypass-approvals-and-sandbox`",
+  "Never request direct `.git` filesystem access",
+  "git add -- REVIEWED_EXPLICIT_PATHS",
   "pending/` to `active/",
   "NG-AND-018",
   "NG-AND-024"
 ]) assert(spec.includes(required), `Orchestrator spec is missing required text: ${required}`);
+assert(!spec.includes("needs write access to the repository root’s `.git` directory"), "Spec must not require direct .git write access");
+
+const preflight = readFileSync(resolve(runbookRoot, "preflight.md"), "utf8");
+for (const required of ["## 6. Verify standard Git checkpointing", "git rev-parse --show-toplevel", "git var GIT_AUTHOR_IDENT", "git add", "git commit", "No direct .git access"]) {
+  assert(preflight.includes(required), `Preflight is missing standard Git guidance: ${required}`);
+}
+assert(!preflight.includes("test -w /home/jd/workspace/tiny-games/.git"), "Preflight must not test direct .git writability");
 
 const runbooks = filesUnder(runbookRoot).filter((path) => path.endsWith(".md"));
 assert.equal(runbooks.length, 10, "Expected one preflight and nine owner-action runbooks");

@@ -2,7 +2,7 @@
 
 This is a hard gate. Complete it on the Lenovo 20DSA0FV00 before starting the agentic Android release orchestrator. Do not postpone the BIOS change until an agent session is running.
 
-The goal is to prove that the host can run one accelerated Android emulator at a time, the required test images exist, the OPPO can be tested outside the restricted sandbox, and the orchestrator can make local Git checkpoints. Ask for help at any failed step; do not work around a failure with an unaccelerated emulator or an unrestricted agent sandbox.
+The goal is to prove that the host can run one accelerated Android emulator at a time, the required test images exist, the OPPO can be tested outside the restricted sandbox, and the project is ready for ordinary local Git checkpoints. Ask for help at any failed step; do not work around a failure with an unaccelerated emulator or an unrestricted agent sandbox.
 
 ## 1. Enable Intel virtualization in BIOS/UEFI
 
@@ -94,18 +94,23 @@ This host has two CPU cores and about 11 GiB RAM. Never run two AVDs concurrentl
 
 The ADB device list displays a serial. Look at it only long enough to confirm authorization. Do not copy it into chat, commands, screenshots, tracker state, evidence, or Git. Evidence should say only “one authorized OPPO NE2211 detected.”
 
-## 6. Grant narrow Git checkpoint access
+## 6. Verify standard Git checkpointing
 
-The repository root is `/home/jd/workspace/tiny-games`, while the project is its `number-garden` child. The current project-only sandbox cannot write `/home/jd/workspace/tiny-games/.git` and therefore cannot create worktrees or checkpoint commits.
+Run Git from the Number Garden project directory. Although the repository root is `/home/jd/workspace/tiny-games`, Git discovers and manages the parent repository metadata automatically. The orchestrator does not need direct filesystem access to `.git` and must never edit files there itself.
 
-Configure the orchestrator so it may write the repository’s exact Git directory and approved sibling worktree paths. Verify:
+Verify repository discovery, current state, and commit identity without creating a commit:
 
 ```bash
-test -w /home/jd/workspace/tiny-games/.git
-git -C /home/jd/workspace/tiny-games/number-garden status --short --branch
+cd /home/jd/workspace/tiny-games/number-garden
+git rev-parse --show-toplevel
+git status --short --branch --untracked-files=all
+git var GIT_AUTHOR_IDENT
+git worktree list --porcelain
 ```
 
-Do not grant blanket filesystem access and do not use `--dangerously-bypass-approvals-and-sandbox`.
+The top-level command should report `/home/jd/workspace/tiny-games`, and `git var GIT_AUTHOR_IDENT` must show that Git can resolve a commit identity. Review the identity locally, but do not copy its email into release evidence or change Git configuration unless the owner asks. The orchestrator creates checkpoints with standard `git add`, `git diff --cached`, and `git commit` commands while its working directory remains `number-garden`. It creates or inspects worker worktrees only through standard `git worktree` commands from the same directory.
+
+If the tool asks for approval for a standard Git command or an explicit sibling worktree path, approve only that scoped command/path. Do not grant direct `.git` access, set `GIT_DIR`, manually change Git metadata, grant blanket filesystem access, or use `--dangerously-bypass-approvals-and-sandbox`.
 
 ## 7. Note bundletool status
 
@@ -120,5 +125,5 @@ Return only pass/fail facts, versions, AVD names/configurations, and safe eviden
 Copy this text and replace each bracketed value:
 
 ```text
-I completed the Number Garden Android release preflight on the Lenovo 20DSA0FV00. VT-x/vmx: [PASS]. /dev/kvm: [PASS]. Fresh-login kvm group: [PASS]. emulator -accel-check: [PASS]. NumberGarden_API24 Pixel 2/API 24 Google APIs x86 cold boot: [PASS]. NumberGarden_API30 Pixel 5/API 30 Google APIs x86_64 cold boot: [PASS]. NumberGarden_API36 Pixel 6/API 36 Google APIs x86_64 cold boot: [PASS]. Only one AVD ran at a time: [CONFIRMED]. OPPO USB ADB authorization outside the restricted sandbox: [PASS; serial not recorded]. Write access to /home/jd/workspace/tiny-games/.git: [PASS]. bundletool: [DEFERRED UNTIL NG-AND-019 or VERSION + OFFICIAL SOURCE]. Safe evidence paths: [PATHS]. I authorize activation of the local orchestrator only; this is not permission to use signing secrets, mutate Play Console, upload an artifact, invite testers, push commits, or submit production.
+I completed the Number Garden Android release preflight on the Lenovo 20DSA0FV00. VT-x/vmx: [PASS]. /dev/kvm: [PASS]. Fresh-login kvm group: [PASS]. emulator -accel-check: [PASS]. NumberGarden_API24 Pixel 2/API 24 Google APIs x86 cold boot: [PASS]. NumberGarden_API30 Pixel 5/API 30 Google APIs x86_64 cold boot: [PASS]. NumberGarden_API36 Pixel 6/API 36 Google APIs x86_64 cold boot: [PASS]. Only one AVD ran at a time: [CONFIRMED]. OPPO USB ADB authorization outside the restricted sandbox: [PASS; serial not recorded]. Standard Git repository discovery/status/identity/worktree checks from /home/jd/workspace/tiny-games/number-garden: [PASS]. No direct .git access or metadata edit was granted: [CONFIRMED]. bundletool: [DEFERRED UNTIL NG-AND-019 or VERSION + OFFICIAL SOURCE]. Safe evidence paths: [PATHS]. I authorize activation of the local orchestrator only; this is not permission to use signing secrets, mutate Play Console, upload an artifact, invite testers, push commits, or submit production.
 ```

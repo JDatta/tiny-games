@@ -3,14 +3,14 @@
   "metadata": {
     "title": "Android Release Action Items",
     "as_of": "2026-08-31",
-    "source_audit_commit": "e32ad0c",
+    "source_audit_commit": "ffb995b",
     "source_branch": "pr/apk/develop",
     "purpose": "Authoritative execution-ranked backlog for completing Android QA and a controlled Google Play release.",
     "rank_policy": "Rank is authoritative. Independent owner or infrastructure preparation may start early, but completion is recorded in ranked dependency order.",
     "writer_policy": "orchestrator_only",
     "migration": {
       "legacy_format": "markdown",
-      "legacy_blob_commit": "d5ec022",
+      "legacy_blob_commit": "ffb995b",
       "validated_on": "2026-09-04",
       "row_count": 24,
       "field_count": 13,
@@ -25,7 +25,7 @@
       "title": "Owner and system access for emulator provisioning",
       "status": "waiting_owner",
       "owner": "Owner",
-      "description": "The Lenovo host must expose usable VT-x/KVM, the required SDK components and AVDs, authorized OPPO ADB access, and Git-root write access.",
+      "description": "The Lenovo host must expose usable VT-x/KVM, the required SDK components and AVDs, authorized OPPO ADB access, and standard Git repository/status/identity/worktree commands from the Number Garden directory.",
       "completion_criteria": "Every check in docs/runbooks/android-release/preflight.md is evidenced without recording a device serial or other secret.",
       "evidence_paths": [],
       "blocker": "Required BIOS, host, device, SDK, and sandbox work has not been evidenced.",
@@ -89,8 +89,7 @@
       }
     ],
     "blockers": [
-      "The owner preflight is incomplete.",
-      "The current project-only sandbox cannot write the repository Git directory at /home/jd/workspace/tiny-games/.git."
+      "The owner preflight is incomplete."
     ],
     "next_actions": [
       "Complete and acknowledge docs/runbooks/android-release/preflight.md.",

@@ -131,8 +131,8 @@ assert.deepEqual(computeDerived(base).ready_item_ids, ["NG-AND-001", "NG-AND-002
 
 {
   const tracker = clone();
-  tracker.orchestration.baseline_commit = "d5ec022";
-  tracker.orchestration.checkpoint_commit = "d5ec022";
+  tracker.orchestration.baseline_commit = base.metadata.migration.legacy_blob_commit;
+  tracker.orchestration.checkpoint_commit = base.metadata.migration.legacy_blob_commit;
   expectValid(tracker, "an existing ancestor checkpoint should be resumable");
   assert.deepEqual(validateGitState(tracker, trackerPath, projectRoot), [], "recorded checkpoint must agree with Git state");
   tracker.orchestration.checkpoint_commit = "deadbee";
