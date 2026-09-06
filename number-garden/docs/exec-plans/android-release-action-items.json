@@ -98,6 +98,12 @@
         "item_id": "NG-AND-001",
         "message": "NG-AND-001: Resume Wave 1 workers",
         "tracker_sha256": "c5acb9b7095abb8841f34f0c9e83fddf90992583cc5c19e58e2c16b22a90df71"
+      },
+      {
+        "commit": "ae47c8e425b13fbb390bf495fcaf8ffb26794673",
+        "item_id": "NG-AND-012",
+        "message": "NG-AND-012: Refresh owner lane evidence",
+        "tracker_sha256": "7d56bf10a7032b4e1afcdf1f8e1e726e66da7f72ea3b7ae179f4d8f9ca5eeada"
       }
     ],
     "current_wave": 1,

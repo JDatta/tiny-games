@@ -1,6 +1,7 @@
 # Android release owner-lane evidence
 
-Checked: 2026-09-06  
+Checked: 2026-09-06
+
 Scope: non-secret preparation for NG-AND-012, NG-AND-013, and NG-AND-014. No signing material, private paths, account data, Play Console state, or device identifiers were inspected or recorded.
 
 ## NG-AND-012 — upload-key custody
