@@ -86,6 +86,12 @@
         "item_id": "NG-AND-002",
         "message": "NG-AND-002: Lease Wave 1 instrumentation resources",
         "tracker_sha256": "b2f676079badde5a31810cdeb887a74c958bc408da5bdc11d6624550d36ac985"
+      },
+      {
+        "commit": "e626cd8eda52f2bd05d63c18a98878dbcf57f21a",
+        "item_id": "NG-AND-001",
+        "message": "NG-AND-001: Repair worker result handoff",
+        "tracker_sha256": "b538fbfed688fc7b9d87c4085687229fc579d916b12875555de4f50906921459"
       }
     ],
     "current_wave": 1,
@@ -149,19 +155,19 @@
         "id": "01a075b4-c90c-7ce1-8fb1-d698074a47d2",
         "worker_id": "ng-and-001-worker-1",
         "item_id": "NG-AND-001",
-        "state": "idle"
+        "state": "running"
       },
       {
         "id": "01a075b4-c986-7463-8eee-69385388a441",
         "worker_id": "ng-and-002-worker-1",
         "item_id": "NG-AND-002",
-        "state": "idle"
+        "state": "running"
       },
       {
         "id": "01a075b4-c9b4-7aa3-85ef-b22c26ab753e",
         "worker_id": "ng-and-003-worker-1",
         "item_id": "NG-AND-003",
-        "state": "idle"
+        "state": "running"
       }
     ],
     "resource_leases": [
