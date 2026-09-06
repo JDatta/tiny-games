@@ -53,7 +53,7 @@ Result meanings: Pass means executed and verified; Partial means the listed subs
 | Shared controls / OPPO NE2211 API 36 | Same target; real WebView controls | Fresh debug reinstall after instrumentation-run cleanup | Pass | Keyboard Quick Drop, Settings sound toggle (changed then restored), fullscreen control response, and Tutorial all passed. Tutorial completed `3+2=5` with score unchanged at `0 → 0` and announced that no coins or level progress were awarded. |
 | Lifecycle, update, and layout subset / OPPO NE2211 API 36 | Portrait plus forced landscape with original rotation settings restored | `adb install -r` debug update | Partial | In-place update, force-stop/cold relaunch, score/level/difficulty persistence (230 coins, L15, Standard after relaunch), and landscape rendering passed. Android’s instrumentation runner later removed its test deployment, so the final debug APK was reinstalled for the shared-controls check. `pm clear` was blocked by the device security policy; reboot, background/foreground, lock/unlock, offline, scaling, TalkBack, audio-interruption, and soft-keyboard coverage remain open. |
 | Device logs and visual evidence / OPPO NE2211 API 36 | Same target | Debug update | Pass | Cold launches completed in 1.14 s and 1.02 s. Filtered logcat had no Android runtime fatal exception, Chromium fatal error, or Capacitor startup error. Launch/relaunch and landscape screenshots were captured during the run. |
-| Aggregate Android instrumentation task / host + OPPO | Gradle Android-test variants | N/A | Fail | `connectedDebugAndroidTest` ran the app test but failed afterward in `:capacitor-cordova-android-plugins:checkDebugAndroidTestDuplicateClasses`: Kotlin stdlib 1.8.22 collides with kotlin-stdlib-jdk7/jdk8 1.6.21. This is an unresolved test-variant dependency defect; `:app:connectedDebugAndroidTest` is the passing smoke result above. |
+| Aggregate Android instrumentation task / host + OPPO | Gradle Android-test variants | N/A | Pass | NG-AND-002 forces the legacy Kotlin JDK compatibility artifacts to the existing 1.8.22 stdlib baseline. The duplicate-class task passed, aggregate `connectedDebugAndroidTest` passed all 154 tasks with the app smoke test, and focused `:app:connectedDebugAndroidTest` passed again. |
 | Full functional Android matrix / NumberGarden_API24 | Required Pixel 2, Android 7/API 24, Google APIs x86 | Fresh debug install | Blocked | API-24 image/AVD is not installed; `sdkmanager`/command-line tools are unavailable in the environment. |
 | Full functional Android matrix / NumberGarden_API30 | Required Pixel 5, Android 11/API 30, Google APIs x86_64 | Fresh debug install | Blocked | API-30 image/AVD is not installed; `sdkmanager`/command-line tools are unavailable. |
 | Full functional Android matrix / NumberGarden_API36 | Required Pixel 6, Android 16/API 36, Google APIs x86_64 | Fresh debug install | Blocked | API-36 image/AVD is not installed. |
@@ -70,6 +70,8 @@ The harness now captures quick-drop and multiplication source cues synchronously
 The tracker test now derives its activation-state scenarios from a normalized fixture instead of assuming the live authoritative tracker never advances. This preserves readiness/gate regression coverage after real items enter `in_progress` or `done`.
 
 The template native instrumentation assertion was corrected from `com.getcapacitor.app` to `io.github.jdatta.numbergarden`. It passed on the authorized OPPO through `:app:connectedDebugAndroidTest`.
+
+NG-AND-002 traced the aggregate-only failure to `kotlinx-coroutines-android:1.6.4` requesting split `kotlin-stdlib-jdk7`/`jdk8` 1.6.21 artifacts while AndroidX resolved the merged Kotlin 1.8.22 stdlib. The root Android Gradle configuration now aligns both compatibility artifacts to 1.8.22 for every subproject configuration. In the integration checkout, the specific duplicate-class task, aggregate instrumentation task, and focused app instrumentation task all passed with JDK 21 and the recorded Android SDK. The authorized OPPO was the only device target and its serial was not recorded.
 
 ## NG-AND-001 reproduction and retest — 2026-09-06
 
@@ -95,17 +97,18 @@ Lifecycle evidence currently covers `adb install -r`, force-stop/cold relaunch, 
 
 Native test commands and outcomes:
 
-- `android/gradlew -p android connectedDebugAndroidTest ...`: the app test ran on `NE2211 - 16`, but the aggregate task failed afterward at `:capacitor-cordova-android-plugins:checkDebugAndroidTestDuplicateClasses` because Kotlin stdlib `1.8.22` conflicts with `kotlin-stdlib-jdk7/jdk8` `1.6.21`.
-- `android/gradlew -p android :app:connectedDebugAndroidTest ...`: passed; one corrected instrumentation smoke test ran and passed on `NE2211 - 16`.
+- `android/gradlew -p android :capacitor-cordova-android-plugins:checkDebugAndroidTestDuplicateClasses ...`: passed after Kotlin compatibility-artifact alignment.
+- `android/gradlew -p android connectedDebugAndroidTest ...`: passed; 154 tasks completed and the corrected app instrumentation test ran successfully.
+- `android/gradlew -p android :app:connectedDebugAndroidTest ...`: passed again; one corrected instrumentation smoke test ran and passed on `NE2211 - 16`.
 
 ## Retest plan and evidence to add
 
-Before sign-off, resolve or isolate the aggregate instrumentation dependency defect, complete the remaining OPPO lifecycle/interaction/accessibility/offline matrix, and run the same matrix on API 24, API 30, and API 36 Google APIs emulators. Each defect retest must add its reproduction steps plus filtered logcat, WebView console/Network/IndexedDB evidence, and screenshots. After all rows pass, regenerate the APK/hash baseline from the final canonical source and update this report and the release checklist.
+Before sign-off, complete the remaining OPPO lifecycle/interaction/accessibility/offline matrix and run the same matrix on API 24, API 30, and API 36 Google APIs emulators. Each defect retest must add its reproduction steps plus filtered logcat, WebView console/Network/IndexedDB evidence, and screenshots. After all rows pass, regenerate the APK/hash baseline from the final canonical source and update this report and the release checklist.
 
 ## Final risks and release status
 
-- Device QA is **not signed off**: the deterministic browser harness is now stable and passing, but the required API 24/30/36 full functional matrix remains unexecuted; required physical-device lifecycle/accessibility/offline coverage remains incomplete, and the aggregate instrumentation task has a Kotlin duplicate-class defect.
-- The NG-AND-001 P0 browser-harness blocker is resolved in the scoped source and tests. The aggregate instrumentation failure remains release-blocking until NG-AND-002 records and retests its resolution or accepted isolation.
+- Device QA is **not signed off**: the deterministic browser harness and aggregate/focused instrumentation tasks now pass, but the required API 24/30/36 full functional matrix remains unexecuted and required physical-device lifecycle/accessibility/offline coverage remains incomplete.
+- The NG-AND-001 browser-harness blocker and NG-AND-002 Kotlin duplicate-class blocker are resolved in scoped source with integration-context retests.
 - No release keystore, signed release APK/AAB, Play Console app, upload, policy declaration, or production artifact was created.
 - Play target-audience/Families, privacy-policy URL/in-app link, Google Analytics release behavior, version naming, release artwork, signing ownership, and Play-delivered-build QA remain owner/release gates outside this run.
 - `android/.idea/` was not staged, deleted, or altered.

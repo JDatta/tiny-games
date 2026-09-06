@@ -24,6 +24,18 @@ allprojects {
     }
 }
 
+subprojects {
+    configurations.configureEach {
+        // kotlinx-coroutines 1.6.4 requests the legacy split JDK artifacts,
+        // while AndroidX resolves the merged Kotlin stdlib. Keep the Kotlin
+        // stdlib family aligned so Android test variants contain one copy.
+        resolutionStrategy.force(
+            'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22',
+            'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'
+        )
+    }
+}
+
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
