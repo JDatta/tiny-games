@@ -128,28 +128,24 @@
         "item_id": "NG-AND-001",
         "message": "NG-AND-001: Resume interrupted Wave 1 work",
         "tracker_sha256": "9ea2ff9d204998b08f8a192d54e0e041e217409288350c872557e33a7cdddaf2"
+      },
+      {
+        "commit": "0fc8d98bcaed157c88f297b29254ba8c7dfb4181",
+        "item_id": "NG-AND-002",
+        "message": "NG-AND-002: Record instrumentation worker result",
+        "tracker_sha256": "b83b4e0c72ffd40fe4da4b33c8ce607c5ba306bfdb14408a3e088bf0d7d0da2d"
       }
     ],
     "current_wave": 1,
-    "active_workers": [
-      {
-        "worker_id": "ng-and-001-worker-1",
-        "item_id": "NG-AND-001",
-        "model": "gpt-5.6-sol",
-        "reasoning_effort": "xhigh",
-        "worktree_id": "ng-and-001-worktree-1",
-        "session_id": "01a075b4-c90c-7ce1-8fb1-d698074a47d2",
-        "started_at": "2026-09-06T13:19:07+05:30"
-      }
-    ],
+    "active_workers": [],
     "worktrees": [
       {
         "id": "ng-and-001-worktree-1",
         "item_id": "NG-AND-001",
         "path": "/tmp/number-garden-android-release-wave1/ng-and-001",
         "branch": "agent/ng-and-001-harness",
-        "head_commit": "5c5d1bf6518074b51607f533ce5b7e0d324e906d",
-        "state": "active"
+        "head_commit": "130a2b4a37cccf50994fc96957516e4582baa9e7",
+        "state": "review"
       },
       {
         "id": "ng-and-002-worktree-1",
@@ -173,7 +169,7 @@
         "id": "01a075b4-c90c-7ce1-8fb1-d698074a47d2",
         "worker_id": "ng-and-001-worker-1",
         "item_id": "NG-AND-001",
-        "state": "running"
+        "state": "completed"
       },
       {
         "id": "01a075b4-c986-7463-8eee-69385388a441",
@@ -188,7 +184,14 @@
         "state": "completed"
       }
     ],
-    "resource_leases": [],
+    "resource_leases": [
+      {
+        "resource": "capacitor_sync",
+        "holder": "orchestrator",
+        "item_id": "NG-AND-001",
+        "acquired_at": "2026-09-06T18:33:20+05:30"
+      }
+    ],
     "owner_approvals": [],
     "startup_gates": [
       {
@@ -228,7 +231,7 @@
       "dependencies": [],
       "completion_criteria": "Repeated current-HEAD runs reach `PASS: Number Garden curriculum checks`; affected generated copies are rebuilt/synced; failure/retest details are in the QA report.",
       "evidence_sources": ["`tests/curriculum-harness.html`", "`docs/qa/android-release-qa.md`", "release checklist §1/§3"],
-      "execution": { "attempts": 1, "assigned_model": "gpt-5.6-sol", "reasoning_effort": "xhigh", "worker_id": "ng-and-001-worker-1", "branch": "agent/ng-and-001-harness", "worktree_id": "ng-and-001-worktree-1", "session_id": "01a075b4-c90c-7ce1-8fb1-d698074a47d2", "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": [], "next_actions": ["Resume after the usage-window reset, run the new deterministic headless harness repeatedly, review concurrency coverage, and commit only if all checks pass."] }
+      "execution": { "attempts": 1, "assigned_model": "gpt-5.6-sol", "reasoning_effort": "xhigh", "worker_id": "ng-and-001-worker-1", "branch": "agent/ng-and-001-harness", "worktree_id": "ng-and-001-worktree-1", "session_id": "01a075b4-c90c-7ce1-8fb1-d698074a47d2", "commits": ["130a2b4a37cccf50994fc96957516e4582baa9e7"], "checkpoint_commit": null, "evidence_paths": ["docs/qa/android-release-qa.md", "tests/curriculum-harness.html", "tests/run-curriculum-harness.mjs", "/tmp/number-garden-android-release-wave1/ng-and-001-result.json"], "blockers": [], "next_actions": ["Apply the reviewed worker commit in the integration checkout, rerun the deterministic harness, rebuild and sync generated web assets under the recorded lease, then checkpoint NG-AND-001."] }
     },
     {
       "rank": 2,
