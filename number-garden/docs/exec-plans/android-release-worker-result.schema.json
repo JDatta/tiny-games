@@ -29,7 +29,6 @@
     },
     "changed_files": {
       "type": "array",
-      "uniqueItems": true,
       "items": { "type": "string", "minLength": 1 }
     },
     "tests": {

@@ -80,6 +80,12 @@
         "item_id": "NG-AND-001",
         "message": "NG-AND-001: Start Wave 1 investigations",
         "tracker_sha256": "26ef0e562795c5ecccef08d2c4500c60dbb50ba384de8212e0b8408b25e85e85"
+      },
+      {
+        "commit": "f3c52a4f3f6a9e0d91bdbdbc0ebac4ce92df5907",
+        "item_id": "NG-AND-002",
+        "message": "NG-AND-002: Lease Wave 1 instrumentation resources",
+        "tracker_sha256": "b2f676079badde5a31810cdeb887a74c958bc408da5bdc11d6624550d36ac985"
       }
     ],
     "current_wave": 1,
@@ -90,7 +96,7 @@
         "model": "gpt-5.6-sol",
         "reasoning_effort": "xhigh",
         "worktree_id": "ng-and-001-worktree-1",
-        "session_id": null,
+        "session_id": "01a075b4-c90c-7ce1-8fb1-d698074a47d2",
         "started_at": "2026-09-06T13:19:07+05:30"
       },
       {
@@ -99,7 +105,7 @@
         "model": "gpt-5.6-terra",
         "reasoning_effort": "high",
         "worktree_id": "ng-and-002-worktree-1",
-        "session_id": null,
+        "session_id": "01a075b4-c986-7463-8eee-69385388a441",
         "started_at": "2026-09-06T13:19:07+05:30"
       },
       {
@@ -108,7 +114,7 @@
         "model": "gpt-5.6-sol",
         "reasoning_effort": "xhigh",
         "worktree_id": "ng-and-003-worktree-1",
-        "session_id": null,
+        "session_id": "01a075b4-c9b4-7aa3-85ef-b22c26ab753e",
         "started_at": "2026-09-06T13:19:07+05:30"
       }
     ],
@@ -138,7 +144,26 @@
         "state": "active"
       }
     ],
-    "sessions": [],
+    "sessions": [
+      {
+        "id": "01a075b4-c90c-7ce1-8fb1-d698074a47d2",
+        "worker_id": "ng-and-001-worker-1",
+        "item_id": "NG-AND-001",
+        "state": "idle"
+      },
+      {
+        "id": "01a075b4-c986-7463-8eee-69385388a441",
+        "worker_id": "ng-and-002-worker-1",
+        "item_id": "NG-AND-002",
+        "state": "idle"
+      },
+      {
+        "id": "01a075b4-c9b4-7aa3-85ef-b22c26ab753e",
+        "worker_id": "ng-and-003-worker-1",
+        "item_id": "NG-AND-003",
+        "state": "idle"
+      }
+    ],
     "resource_leases": [
       {
         "resource": "heavy_build",
@@ -192,7 +217,7 @@
       "dependencies": [],
       "completion_criteria": "Repeated current-HEAD runs reach `PASS: Number Garden curriculum checks`; affected generated copies are rebuilt/synced; failure/retest details are in the QA report.",
       "evidence_sources": ["`tests/curriculum-harness.html`", "`docs/qa/android-release-qa.md`", "release checklist §1/§3"],
-      "execution": { "attempts": 1, "assigned_model": "gpt-5.6-sol", "reasoning_effort": "xhigh", "worker_id": "ng-and-001-worker-1", "branch": "agent/ng-and-001-harness", "worktree_id": "ng-and-001-worktree-1", "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": [], "next_actions": ["Reproduce both visibility failures, establish deterministic coverage, and return a schema-valid worker result for review."] }
+      "execution": { "attempts": 1, "assigned_model": "gpt-5.6-sol", "reasoning_effort": "xhigh", "worker_id": "ng-and-001-worker-1", "branch": "agent/ng-and-001-harness", "worktree_id": "ng-and-001-worktree-1", "session_id": "01a075b4-c90c-7ce1-8fb1-d698074a47d2", "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": [], "next_actions": ["Resume the recorded session with the CLI-compatible result schema and reproduce both visibility failures."] }
     },
     {
       "rank": 2,
@@ -209,7 +234,7 @@
       "dependencies": [],
       "completion_criteria": "Aggregate `connectedDebugAndroidTest` passes, or the owner accepts a documented isolation; `:app:connectedDebugAndroidTest` still passes.",
       "evidence_sources": ["`docs/qa/android-release-qa.md` test matrix"],
-      "execution": { "attempts": 1, "assigned_model": "gpt-5.6-terra", "reasoning_effort": "high", "worker_id": "ng-and-002-worker-1", "branch": "agent/ng-and-002-instrumentation", "worktree_id": "ng-and-002-worktree-1", "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": [], "next_actions": ["Reproduce the aggregate task, inspect the resolved test classpath, and return a schema-valid worker result for review."] }
+      "execution": { "attempts": 1, "assigned_model": "gpt-5.6-terra", "reasoning_effort": "high", "worker_id": "ng-and-002-worker-1", "branch": "agent/ng-and-002-instrumentation", "worktree_id": "ng-and-002-worktree-1", "session_id": "01a075b4-c986-7463-8eee-69385388a441", "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": [], "next_actions": ["Resume the recorded session with the CLI-compatible result schema and reproduce the aggregate instrumentation task."] }
     },
     {
       "rank": 3,
@@ -226,7 +251,7 @@
       "dependencies": [],
       "completion_criteria": "Cold launch and declined consent generate no analytics request; granted consent enables reviewed events; withdrawal stops future analytics; storage/migration/accessibility tests pass.",
       "evidence_sources": ["`index.html`", "`docs/privacy-policy-draft.md`", "checklist §4"],
-      "execution": { "attempts": 1, "assigned_model": "gpt-5.6-sol", "reasoning_effort": "xhigh", "worker_id": "ng-and-003-worker-1", "branch": "agent/ng-and-003-consent-analysis", "worktree_id": "ng-and-003-worktree-1", "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": [], "next_actions": ["Analyze consent, storage, migration, accessibility, and test impacts without implementing until NG-AND-001 is integrated."] }
+      "execution": { "attempts": 1, "assigned_model": "gpt-5.6-sol", "reasoning_effort": "xhigh", "worker_id": "ng-and-003-worker-1", "branch": "agent/ng-and-003-consent-analysis", "worktree_id": "ng-and-003-worktree-1", "session_id": "01a075b4-c9b4-7aa3-85ef-b22c26ab753e", "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": [], "next_actions": ["Resume the recorded session with the CLI-compatible result schema and complete analysis without implementation."] }
     },
     {
       "rank": 4,
