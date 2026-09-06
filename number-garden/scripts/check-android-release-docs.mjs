@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { validateSchema } from "./validate-android-release-tracker.mjs";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const specPath = resolve(projectRoot, "docs/exec-plans/pending/android-release-agentic-orchestrator.md");
+const specPath = resolve(projectRoot, "docs/exec-plans/active/android-release-agentic-orchestrator.md");
 const runbookRoot = resolve(projectRoot, "docs/runbooks/android-release");
 
 function filesUnder(directory) {

@@ -44,7 +44,7 @@ function expectError(tracker, pattern, label) {
 }
 
 assert.deepEqual(validateDocument(base, schema), [], "authoritative tracker must validate");
-assert.deepEqual(computeDerived(base).ready_item_ids, ["NG-AND-001", "NG-AND-002", "NG-AND-003"]);
+assert.deepEqual(computeDerived(base).ready_item_ids, ["NG-AND-001", "NG-AND-002", "NG-AND-003", "NG-AND-009"]);
 
 {
   const tracker = clone();
@@ -52,7 +52,7 @@ assert.deepEqual(computeDerived(base).ready_item_ids, ["NG-AND-001", "NG-AND-002
   tracker.orchestration.baseline_commit = "e32ad0c";
   tracker.orchestration.checkpoint_commit = "e32ad0c";
   expectValid(tracker, "a checkpointed rank-one completion should validate");
-  assert.deepEqual(tracker.derived.ready_item_ids, ["NG-AND-002", "NG-AND-003"]);
+  assert.deepEqual(tracker.derived.ready_item_ids, ["NG-AND-002", "NG-AND-003", "NG-AND-009"]);
 }
 
 {

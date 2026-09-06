@@ -2,7 +2,7 @@
   "schema_version": 1,
   "metadata": {
     "title": "Android Release Action Items",
-    "as_of": "2026-08-31",
+    "as_of": "2026-09-06",
     "source_audit_commit": "ffb995b",
     "source_branch": "pr/apk/develop",
     "purpose": "Authoritative execution-ranked backlog for completing Android QA and a controlled Google Play release.",
@@ -23,13 +23,13 @@
     {
       "id": "owner_system_access",
       "title": "Owner and system access for emulator provisioning",
-      "status": "waiting_owner",
+      "status": "satisfied",
       "owner": "Owner",
       "description": "The Lenovo host must expose usable VT-x/KVM, the required SDK components and AVDs, authorized OPPO ADB access, and standard Git repository/status/identity/worktree commands from the Number Garden directory.",
       "completion_criteria": "Every check in docs/runbooks/android-release/preflight.md is evidenced without recording a device serial or other secret.",
-      "evidence_paths": [],
-      "blocker": "Required BIOS, host, device, SDK, and sandbox work has not been evidenced.",
-      "next_action": "Complete docs/runbooks/android-release/preflight.md and return its exact acknowledgement."
+      "evidence_paths": ["docs/qa/android-release-qa.md", "/tmp/number-garden-android-preflight-20260906/"],
+      "blocker": null,
+      "next_action": "Use the provisioned host, authorized OPPO, and three cold-booted AVDs for scoped release QA."
     },
     {
       "id": "artwork_approval",
@@ -71,11 +71,11 @@
     "forbidden_model_families": ["gpt-5.5", "gpt-5.4", "gpt-5", "gpt-4"]
   },
   "orchestration": {
-    "mode": "preflight_required",
-    "baseline_commit": null,
-    "checkpoint_commit": null,
+    "mode": "ready",
+    "baseline_commit": "21daed87706345041dd54a02453332bd3ba8e513",
+    "checkpoint_commit": "SELF",
     "checkpoint_history": [],
-    "current_wave": 0,
+    "current_wave": 1,
     "active_workers": [],
     "worktrees": [],
     "sessions": [],
@@ -84,17 +84,16 @@
     "startup_gates": [
       {
         "id": "android_release_preflight",
-        "status": "waiting_owner",
+        "status": "satisfied",
         "runbook": "docs/runbooks/android-release/preflight.md"
       }
     ],
-    "blockers": [
-      "The owner preflight is incomplete."
-    ],
+    "blockers": [],
     "next_actions": [
-      "Complete and acknowledge docs/runbooks/android-release/preflight.md.",
-      "Review and commit the intended existing harness/spec baseline while excluding android/.idea/.",
-      "Move the orchestrator spec from pending to active in a separate activation commit."
+      "Investigate NG-AND-001 and NG-AND-002 concurrently under the recorded model policy.",
+      "Analyze NG-AND-003 in parallel, but do not implement it until NG-AND-001 is integrated.",
+      "Finish NG-AND-009 app install/debug verification on the three provisioned AVDs.",
+      "Await separate owner acknowledgements for NG-AND-012, NG-AND-013, and NG-AND-014."
     ],
     "remediation": {
       "cycle": 0,
@@ -248,7 +247,7 @@
       "severity": "High",
       "priority": "P1",
       "play_store_blocker": "required",
-      "status": "blocked",
+      "status": "todo",
       "applicability": "always",
       "owner": "Owner + QA",
       "summary": "Provision emulator tooling and acceleration",
@@ -256,7 +255,7 @@
       "dependencies": [{ "type": "external_gate", "id": "owner_system_access" }],
       "completion_criteria": "All three required AVDs cold-boot without snapshots and can install/debug the app; configurations are recorded.",
       "evidence_sources": ["Next steps §1/§3", "checklist §5"],
-      "execution": { "attempts": 0, "assigned_model": null, "reasoning_effort": null, "worker_id": null, "branch": null, "worktree_id": null, "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": ["The owner_system_access gate is unsatisfied."], "next_actions": ["Complete the preflight and record cold-boot evidence for all three AVDs."] }
+      "execution": { "attempts": 0, "assigned_model": null, "reasoning_effort": null, "worker_id": null, "branch": null, "worktree_id": null, "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": ["docs/qa/android-release-qa.md", "/tmp/number-garden-android-preflight-20260906/"], "blockers": [], "next_actions": ["Install and debug the app on each provisioned AVD, one emulator at a time, and record the configurations and results."] }
     },
     {
       "rank": 10,
@@ -515,8 +514,8 @@
     }
   ],
   "derived": {
-    "ready_item_ids": ["NG-AND-001", "NG-AND-002", "NG-AND-003"],
+    "ready_item_ids": ["NG-AND-001", "NG-AND-002", "NG-AND-003", "NG-AND-009"],
     "waiting_owner_item_ids": ["NG-AND-012", "NG-AND-013", "NG-AND-014", "NG-AND-024"],
-    "blocked_external_gate_ids": ["owner_system_access", "artwork_approval"]
+    "blocked_external_gate_ids": ["artwork_approval"]
   }
 }

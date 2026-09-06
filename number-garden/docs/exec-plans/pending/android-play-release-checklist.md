@@ -1,6 +1,6 @@
 # Android Google Play Release Checklist
 
-Derived from [the Android Play release handover](android-play-release-handover.md). The sole execution-ranked tracker is [`../android-release-action-items.json`](../android-release-action-items.json), executed through the [agentic orchestrator spec](android-release-agentic-orchestrator.md) after the [owner preflight](../../runbooks/android-release/preflight.md).
+Derived from [the Android Play release handover](android-play-release-handover.md). The sole execution-ranked tracker is [`../android-release-action-items.json`](../android-release-action-items.json), executed through the [active agentic orchestrator spec](../active/android-release-agentic-orchestrator.md); its [owner preflight](../../runbooks/android-release/preflight.md) passed on 2026-09-06.
 
 **TOT audit:** 2026-08-31 at `e32ad0c` on `pr/apk/develop` (three commits ahead of `origin/develop`). Only preserved `android/.idea/` files are untracked.
 

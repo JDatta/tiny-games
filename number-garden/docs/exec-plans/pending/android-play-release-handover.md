@@ -2,7 +2,7 @@
 
 **Handoff date:** 2026-08-30
 
-**TOT audit:** 2026-08-31 at `e32ad0c`. The execution-ranked backlog and orchestration state live only in [`../android-release-action-items.json`](../android-release-action-items.json). Execute it through the [agentic orchestrator spec](android-release-agentic-orchestrator.md) after completing the [owner preflight](../../runbooks/android-release/preflight.md). Treat this handover’s branch/worktree prose as historical audit context and inspect current Git state on resume.
+**TOT audit:** 2026-08-31 at `e32ad0c`. The execution-ranked backlog and orchestration state live only in [`../android-release-action-items.json`](../android-release-action-items.json). Execute it through the [active agentic orchestrator spec](../active/android-release-agentic-orchestrator.md); its [owner preflight](../../runbooks/android-release/preflight.md) passed on 2026-09-06. Treat this handover’s branch/worktree prose as historical audit context and inspect current Git state on resume.
 
 **Goal:** complete release-grade Android QA, resolve policy and product gates, produce a signed Android App Bundle, distribute it through Google Play testing, and prepare a controlled production release.
 

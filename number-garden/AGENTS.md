@@ -23,7 +23,7 @@ The runtime separates pure problem arithmetic (`problem`), temporary interaction
 - A dedicated upload key exists outside Git according to the Android release handover, but its custody/backups are incomplete; no signed release bundle or Play Console application exists. Do not inspect, create, move, replace, or commit signing material without the scoped owner decision in the release runbooks.
 - Android Studio created untracked files under `android/.idea/`. Treat them as user-local state: do not stage or delete them unless the owner explicitly decides their repository policy.
 - Before Android release, resolve the child-audience/Families policy path, publish and link an applicable privacy policy, and decide how the immediately initialized Google Analytics web tag is handled and disclosed. Do not assume the browser analytics setup is Play-ready.
-- Before continuing Android release work, read `docs/exec-plans/android-release-action-items.json`, `docs/exec-plans/pending/android-release-agentic-orchestrator.md`, and `docs/runbooks/android-release/preflight.md`. The JSON is the sole task tracker; the orchestrator spec and runbooks define execution and owner gates.
+- Before continuing Android release work, read `docs/exec-plans/android-release-action-items.json`, `docs/exec-plans/active/android-release-agentic-orchestrator.md`, and `docs/runbooks/android-release/preflight.md`. The JSON is the sole task tracker; the orchestrator spec and runbooks define execution and owner gates.
 
 ## Glossary
 
@@ -93,7 +93,7 @@ Addition follows `counting-ones` → optional Ones carry → `counting-tens` →
 | `docs/exec-plans/pending/code-magic-next-steps.md` | Pending manual steps for Codemagic setup, signing, TestFlight, device testing, and the eventual `ios/` tracking decision. |
 | `docs/exec-plans/pending/android-capacitor-next-steps.md` | Manual Android Studio, emulator/device, QA, signing, artifact, and Google Play work following the tracked Android bootstrap. |
 | `docs/exec-plans/pending/android-play-release-handover.md` | Current Android evidence, release gates, ordered QA matrix, signing/AAB workflow, and Play Store handover for the next agent. |
-| `docs/exec-plans/pending/android-release-agentic-orchestrator.md` | Pending resumable execution specification for the ranked Android release program; activate only after its hard preflight. |
+| `docs/exec-plans/active/android-release-agentic-orchestrator.md` | Active resumable execution specification for the ranked Android release program; its hard preflight passed on 2026-09-06. |
 | `docs/runbooks/android-release/` | Beginner-friendly host preflight and scoped owner-action guides for privacy, signing, Play, artwork, listing, testing, and production. |
 | `scripts/validate-android-release-tracker.mjs` | Dependency-free schema, DAG, readiness, checkpoint, and migration validator for the authoritative tracker. |
 | `tests/curriculum-harness.html` | Deterministic browser harness for all L1–L20 curriculum rules, arithmetic flows, motion, progression, migration, rewards, Settings, persistence, and operation semantics. |

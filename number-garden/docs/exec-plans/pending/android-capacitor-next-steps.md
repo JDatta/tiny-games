@@ -4,7 +4,7 @@
 
 **Status key:** `[DONE]` is complete and supported by repository or recorded QA evidence; `[PARTIAL]` has completed evidence but still contains open work; `[TODO]` has no completion evidence. Checked boxes are complete; unchecked boxes are open.
 
-For the authoritative execution order and release state, use [`../android-release-action-items.json`](../android-release-action-items.json). Execute it through [`android-release-agentic-orchestrator.md`](android-release-agentic-orchestrator.md) only after the [owner preflight](../../runbooks/android-release/preflight.md). [`android-play-release-handover.md`](android-play-release-handover.md) retains the detailed rationale and QA matrices.
+For the authoritative execution order and release state, use [`../android-release-action-items.json`](../android-release-action-items.json). Execute it through the [active orchestrator](../active/android-release-agentic-orchestrator.md); its [owner preflight](../../runbooks/android-release/preflight.md) passed on 2026-09-06. [`android-play-release-handover.md`](android-play-release-handover.md) retains the detailed rationale and QA matrices.
 
 The Capacitor Android 8.5.0 platform is generated and synchronized. The `android/` directory is tracked native source, while copied web assets and generated build output are ignored. A debug APK was compiled with JDK 21 and Android SDK Platform 36, verified with Android tooling, installed over USB, and exercised on an OPPO NE2211 Android 16/API 36 device. Focused arithmetic, shared-control, persistence, orientation, and native smoke checks passed, but deterministic-harness sign-off, full device QA, and emulator coverage remain open.
 

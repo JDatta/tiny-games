@@ -1,6 +1,6 @@
 # Android release agentic orchestrator
 
-**State:** pending; move this file to `docs/exec-plans/active/` only in the activation commit described below  
+**State:** active; local orchestrator activated on 2026-09-06 after the owner preflight passed
 **Scope:** execute `NG-AND-001` through `NG-AND-024`  
 **Authoritative tracker:** [`../android-release-action-items.json`](../android-release-action-items.json)  
 **Tracker schema:** [`../android-release-action-items.schema.json`](../android-release-action-items.schema.json)  
