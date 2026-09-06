@@ -19,6 +19,24 @@ Initial worktree: dirty with pre-existing project/document changes and untracked
 | Required commands | `npm ci`, `npm run build`, `npx cap sync android`, `git diff --check`, Gradle unit tests, and debug assemble passed |
 | Unit test detail | `testDebugUnitTest` passed; app module has no local unit-test sources beyond the template arithmetic test |
 
+## Host preflight update — 2026-09-06
+
+The owner preflight in `docs/runbooks/android-release/preflight.md` passed on the Lenovo 20DSA0FV00. CPU virtualization exposes the `vmx` flag; `/dev/kvm` exists; the freshly logged-in account belongs to `kvm`; and `emulator -accel-check` reports KVM version 12 installed and usable. The host's `0666` `/dev/kvm` mode comes from `/usr/lib/udev/rules.d/50-udev-default.rules`, not a project-side permission workaround.
+
+All required SDK packages are installed: platform-tools, emulator, command-line tools, Android 24/30/36 platforms, and the specified Google APIs x86/x86_64 system images. SDK license verification exits successfully and reports that the legacy `--licenses` action is no longer needed by the installed Android CLI.
+
+Android Emulator 37.1.11 stable was reinstalled from the official SDK repository but consistently crashed before ADB startup in its bundled SwiftShader `libGLESv2.so`; the diagnosis was confirmed from host core-dump backtraces on both API 24 x86 and API 30 x86_64. The archived official Emulator 36.6.11 Linux package (build 15507667) was therefore installed using Google's documented archive procedure. Its downloaded archive SHA-256 was verified as `1eade4cf2df6ea8eeead4902c635897ba12aaa32aac4389eaae0fdb498a5b830`. The two 37.1.11 SDK directories remain outside the repository as rollback backups.
+
+The three required AVDs were created and cold-booted sequentially with snapshots disabled, host OpenGL, and Vulkan disabled to bypass the confirmed SwiftShader fault:
+
+- `NumberGarden_API24`: Pixel 2, Google APIs API 24 x86; `sys.boot_completed=1`, boot animation stopped, and `com.android.launcher3/.Launcher` resumed.
+- `NumberGarden_API30`: Pixel 5, Google APIs API 30 x86_64; `sys.boot_completed=1`, boot animation stopped, and `com.google.android.apps.nexuslauncher/.NexusLauncherActivity` resumed. The first boot displayed one temporary System UI timeout; selecting **Wait** allowed initialization to complete, after which the launcher was responsive.
+- `NumberGarden_API36`: Pixel 6, Google APIs API 36 x86_64; `sys.boot_completed=1`, boot animation stopped, and `com.google.android.apps.nexuslauncher/.NexusLauncherActivity` resumed.
+
+Only one AVD ran at a time, and every AVD was shut down before the next target. Safe screenshots are in `/tmp/number-garden-android-preflight-20260906/api24-home.png`, `api30-home.png`, and `api36-home.png`; they contain emulator home screens only.
+
+With no emulator running, host ADB detected exactly one authorized OPPO NE2211 over USB. It reported API 36 and completed a harmless shell command. Its serial was not printed, copied, or recorded. Standard Git discovery, status, commit-identity, and worktree checks from the project directory passed: the repository root is `/home/jd/workspace/tiny-games`, commit identity resolves, and the sole worktree is on `pr/apk/develop`. No direct `.git` access or metadata edit was granted. Bundletool remains absent and is deliberately deferred until `NG-AND-019`.
+
 ## Test matrix
 
 Result meanings: Pass means executed and verified; Partial means the listed subset ran but the complete scope did not; Blocked means the environment prevented execution; Fail means an executed assertion failed.
@@ -72,7 +90,7 @@ Before sign-off, rerun the complete browser harness to its required `PASS: Numbe
 
 ## Final risks and release status
 
-- Device QA is **not signed off**: the OPPO has a passing focused subset, but API 24/30/36 emulators are still unavailable, required physical-device lifecycle/accessibility/offline coverage remains incomplete, the aggregate instrumentation task has a Kotlin duplicate-class defect, and the deterministic harness still has one failing assertion.
+- Device QA is **not signed off**: the OPPO has a passing focused subset and the required API 24/30/36 AVDs now pass host preflight cold boots, but their full functional matrix remains unexecuted; required physical-device lifecycle/accessibility/offline coverage remains incomplete, the aggregate instrumentation task has a Kotlin duplicate-class defect, and the deterministic harness still has one failing assertion.
 - No P0/P1 classification was assigned to the remaining browser-harness or aggregate-test failure; both are release-blocking unresolved defects until reproduced and retested.
 - No release keystore, signed release APK/AAB, Play Console app, upload, policy declaration, or production artifact was created.
 - Play target-audience/Families, privacy-policy URL/in-app link, Google Analytics release behavior, version naming, release artwork, signing ownership, and Play-delivered-build QA remain owner/release gates outside this run.
