@@ -71,13 +71,66 @@
     "forbidden_model_families": ["gpt-5.5", "gpt-5.4", "gpt-5", "gpt-4"]
   },
   "orchestration": {
-    "mode": "ready",
+    "mode": "running",
     "baseline_commit": "21daed87706345041dd54a02453332bd3ba8e513",
     "checkpoint_commit": "SELF",
     "checkpoint_history": [],
     "current_wave": 1,
-    "active_workers": [],
-    "worktrees": [],
+    "active_workers": [
+      {
+        "worker_id": "ng-and-001-worker-1",
+        "item_id": "NG-AND-001",
+        "model": "gpt-5.6-sol",
+        "reasoning_effort": "xhigh",
+        "worktree_id": "ng-and-001-worktree-1",
+        "session_id": null,
+        "started_at": "2026-09-06T13:19:07+05:30"
+      },
+      {
+        "worker_id": "ng-and-002-worker-1",
+        "item_id": "NG-AND-002",
+        "model": "gpt-5.6-terra",
+        "reasoning_effort": "high",
+        "worktree_id": "ng-and-002-worktree-1",
+        "session_id": null,
+        "started_at": "2026-09-06T13:19:07+05:30"
+      },
+      {
+        "worker_id": "ng-and-003-worker-1",
+        "item_id": "NG-AND-003",
+        "model": "gpt-5.6-sol",
+        "reasoning_effort": "xhigh",
+        "worktree_id": "ng-and-003-worktree-1",
+        "session_id": null,
+        "started_at": "2026-09-06T13:19:07+05:30"
+      }
+    ],
+    "worktrees": [
+      {
+        "id": "ng-and-001-worktree-1",
+        "item_id": "NG-AND-001",
+        "path": "/tmp/number-garden-android-release-wave1/ng-and-001",
+        "branch": "agent/ng-and-001-harness",
+        "head_commit": "5c5d1bf6518074b51607f533ce5b7e0d324e906d",
+        "state": "active"
+      },
+      {
+        "id": "ng-and-002-worktree-1",
+        "item_id": "NG-AND-002",
+        "path": "/tmp/number-garden-android-release-wave1/ng-and-002",
+        "branch": "agent/ng-and-002-instrumentation",
+        "head_commit": "5c5d1bf6518074b51607f533ce5b7e0d324e906d",
+        "state": "active"
+      },
+      {
+        "id": "ng-and-003-worktree-1",
+        "item_id": "NG-AND-003",
+        "path": "/tmp/number-garden-android-release-wave1/ng-and-003",
+        "branch": "agent/ng-and-003-consent-analysis",
+        "head_commit": "5c5d1bf6518074b51607f533ce5b7e0d324e906d",
+        "state": "active"
+      }
+    ],
     "sessions": [],
     "resource_leases": [],
     "owner_approvals": [],
@@ -90,8 +143,8 @@
     ],
     "blockers": [],
     "next_actions": [
-      "Investigate NG-AND-001 and NG-AND-002 concurrently under the recorded model policy.",
-      "Analyze NG-AND-003 in parallel, but do not implement it until NG-AND-001 is integrated.",
+      "Review the concurrent NG-AND-001 and NG-AND-002 worker results and integrate them in rank order.",
+      "Review the NG-AND-003 analysis, but do not authorize implementation until NG-AND-001 is integrated.",
       "Finish NG-AND-009 app install/debug verification on the three provisioned AVDs.",
       "Await separate owner acknowledgements for NG-AND-012, NG-AND-013, and NG-AND-014."
     ],
@@ -111,7 +164,7 @@
       "severity": "Critical",
       "priority": "P0",
       "play_store_blocker": "required",
-      "status": "todo",
+      "status": "in_progress",
       "applicability": "always",
       "owner": "Engineering",
       "summary": "Stabilize the deterministic curriculum harness",
@@ -119,7 +172,7 @@
       "dependencies": [],
       "completion_criteria": "Repeated current-HEAD runs reach `PASS: Number Garden curriculum checks`; affected generated copies are rebuilt/synced; failure/retest details are in the QA report.",
       "evidence_sources": ["`tests/curriculum-harness.html`", "`docs/qa/android-release-qa.md`", "release checklist §1/§3"],
-      "execution": { "attempts": 0, "assigned_model": null, "reasoning_effort": null, "worker_id": null, "branch": null, "worktree_id": null, "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": [], "next_actions": ["Reproduce both visibility failures and establish deterministic coverage."] }
+      "execution": { "attempts": 1, "assigned_model": "gpt-5.6-sol", "reasoning_effort": "xhigh", "worker_id": "ng-and-001-worker-1", "branch": "agent/ng-and-001-harness", "worktree_id": "ng-and-001-worktree-1", "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": [], "next_actions": ["Reproduce both visibility failures, establish deterministic coverage, and return a schema-valid worker result for review."] }
     },
     {
       "rank": 2,
@@ -128,7 +181,7 @@
       "severity": "High",
       "priority": "P0",
       "play_store_blocker": "required",
-      "status": "todo",
+      "status": "in_progress",
       "applicability": "always",
       "owner": "Engineering",
       "summary": "Resolve aggregate Android instrumentation dependency failure",
@@ -136,7 +189,7 @@
       "dependencies": [],
       "completion_criteria": "Aggregate `connectedDebugAndroidTest` passes, or the owner accepts a documented isolation; `:app:connectedDebugAndroidTest` still passes.",
       "evidence_sources": ["`docs/qa/android-release-qa.md` test matrix"],
-      "execution": { "attempts": 0, "assigned_model": null, "reasoning_effort": null, "worker_id": null, "branch": null, "worktree_id": null, "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": [], "next_actions": ["Reproduce the aggregate task and inspect the resolved test classpath."] }
+      "execution": { "attempts": 1, "assigned_model": "gpt-5.6-terra", "reasoning_effort": "high", "worker_id": "ng-and-002-worker-1", "branch": "agent/ng-and-002-instrumentation", "worktree_id": "ng-and-002-worktree-1", "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": [], "next_actions": ["Reproduce the aggregate task, inspect the resolved test classpath, and return a schema-valid worker result for review."] }
     },
     {
       "rank": 3,
@@ -145,7 +198,7 @@
       "severity": "Critical",
       "priority": "P0",
       "play_store_blocker": "required",
-      "status": "todo",
+      "status": "in_progress",
       "applicability": "always",
       "owner": "Engineering",
       "summary": "Implement parent/guardian analytics consent and withdrawal",
@@ -153,7 +206,7 @@
       "dependencies": [],
       "completion_criteria": "Cold launch and declined consent generate no analytics request; granted consent enables reviewed events; withdrawal stops future analytics; storage/migration/accessibility tests pass.",
       "evidence_sources": ["`index.html`", "`docs/privacy-policy-draft.md`", "checklist §4"],
-      "execution": { "attempts": 0, "assigned_model": null, "reasoning_effort": null, "worker_id": null, "branch": null, "worktree_id": null, "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": [], "next_actions": ["Analyze in parallel with NG-AND-001, then implement only after NG-AND-001 is integrated."] }
+      "execution": { "attempts": 1, "assigned_model": "gpt-5.6-sol", "reasoning_effort": "xhigh", "worker_id": "ng-and-003-worker-1", "branch": "agent/ng-and-003-consent-analysis", "worktree_id": "ng-and-003-worktree-1", "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": [], "next_actions": ["Analyze consent, storage, migration, accessibility, and test impacts without implementing until NG-AND-001 is integrated."] }
     },
     {
       "rank": 4,
@@ -514,7 +567,7 @@
     }
   ],
   "derived": {
-    "ready_item_ids": ["NG-AND-001", "NG-AND-002", "NG-AND-003", "NG-AND-009"],
+    "ready_item_ids": ["NG-AND-009"],
     "waiting_owner_item_ids": ["NG-AND-012", "NG-AND-013", "NG-AND-014", "NG-AND-024"],
     "blocked_external_gate_ids": ["artwork_approval"]
   }
