@@ -104,6 +104,12 @@
         "item_id": "NG-AND-012",
         "message": "NG-AND-012: Refresh owner lane evidence",
         "tracker_sha256": "7d56bf10a7032b4e1afcdf1f8e1e726e66da7f72ea3b7ae179f4d8f9ca5eeada"
+      },
+      {
+        "commit": "7d9b3e2d4be8371df87c6e0abdb8fe7549c3f8c0",
+        "item_id": "NG-AND-012",
+        "message": "NG-AND-012: Fix owner evidence formatting",
+        "tracker_sha256": "935ee9c66c9f952daca1972e8a5c84b74f10d54e3fb32139e2dcb61624295e44"
       }
     ],
     "current_wave": 1,
@@ -124,15 +130,6 @@
         "reasoning_effort": "high",
         "worktree_id": "ng-and-002-worktree-1",
         "session_id": "01a075b4-c986-7463-8eee-69385388a441",
-        "started_at": "2026-09-06T13:19:07+05:30"
-      },
-      {
-        "worker_id": "ng-and-003-worker-1",
-        "item_id": "NG-AND-003",
-        "model": "gpt-5.6-sol",
-        "reasoning_effort": "xhigh",
-        "worktree_id": "ng-and-003-worktree-1",
-        "session_id": "01a075b4-c9b4-7aa3-85ef-b22c26ab753e",
         "started_at": "2026-09-06T13:19:07+05:30"
       }
     ],
@@ -159,7 +156,7 @@
         "path": "/tmp/number-garden-android-release-wave1/ng-and-003",
         "branch": "agent/ng-and-003-consent-analysis",
         "head_commit": "5c5d1bf6518074b51607f533ce5b7e0d324e906d",
-        "state": "active"
+        "state": "review"
       }
     ],
     "sessions": [
@@ -179,7 +176,7 @@
         "id": "01a075b4-c9b4-7aa3-85ef-b22c26ab753e",
         "worker_id": "ng-and-003-worker-1",
         "item_id": "NG-AND-003",
-        "state": "running"
+        "state": "completed"
       }
     ],
     "resource_leases": [
@@ -269,7 +266,7 @@
       "dependencies": [],
       "completion_criteria": "Cold launch and declined consent generate no analytics request; granted consent enables reviewed events; withdrawal stops future analytics; storage/migration/accessibility tests pass.",
       "evidence_sources": ["`index.html`", "`docs/privacy-policy-draft.md`", "checklist §4"],
-      "execution": { "attempts": 1, "assigned_model": "gpt-5.6-sol", "reasoning_effort": "xhigh", "worker_id": "ng-and-003-worker-1", "branch": "agent/ng-and-003-consent-analysis", "worktree_id": "ng-and-003-worktree-1", "session_id": "01a075b4-c9b4-7aa3-85ef-b22c26ab753e", "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": [], "next_actions": ["Resume the recorded session with the CLI-compatible result schema and complete analysis without implementation."] }
+      "execution": { "attempts": 1, "assigned_model": "gpt-5.6-sol", "reasoning_effort": "xhigh", "worker_id": "ng-and-003-worker-1", "branch": "agent/ng-and-003-consent-analysis", "worktree_id": "ng-and-003-worktree-1", "session_id": "01a075b4-c9b4-7aa3-85ef-b22c26ab753e", "commits": [], "checkpoint_commit": null, "evidence_paths": ["docs/qa/ng-and-003-consent-analysis.md", "/tmp/number-garden-android-release-wave1/ng-and-003-result.json"], "blockers": [], "next_actions": ["After NG-AND-001 is integrated, start a fresh implementation worktree from the current checkpoint and apply the reviewed consent design with deterministic coverage."] }
     },
     {
       "rank": 4,
