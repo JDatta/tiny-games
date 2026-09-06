@@ -71,7 +71,7 @@
     "forbidden_model_families": ["gpt-5.5", "gpt-5.4", "gpt-5", "gpt-4"]
   },
   "orchestration": {
-    "mode": "running",
+    "mode": "paused",
     "baseline_commit": "21daed87706345041dd54a02453332bd3ba8e513",
     "checkpoint_commit": "SELF",
     "checkpoint_history": [
@@ -152,6 +152,12 @@
         "item_id": "NG-AND-002",
         "message": "NG-AND-002: Stage instrumentation integration",
         "tracker_sha256": "72d858dbb700e5552e709cde692e9cba8636a379bf86738ac9b3f5827e1110f4"
+      },
+      {
+        "commit": "3df675f58e14177bc148f2d611276108d3c9c17c",
+        "item_id": "NG-AND-002",
+        "message": "NG-AND-002: Resolve aggregate instrumentation dependencies",
+        "tracker_sha256": "f99ce4efee99eb96ab7e8c7a56e91fa79e511385db0b82ee0f8a8149ef8af86f"
       }
     ],
     "current_wave": 1,
@@ -213,10 +219,10 @@
     ],
     "blockers": [],
     "next_actions": [
-      "Normalize the completed NG-AND-003 analysis as ready work without starting implementation, then create the owner-requested pause checkpoint.",
-      "Resume with NG-AND-003 implementation from its reviewed consent analysis.",
-      "Finish NG-AND-009 app install/debug verification on the three provisioned AVDs.",
-      "Await separate owner acknowledgements for NG-AND-012, NG-AND-013, and NG-AND-014."
+      "Resume with NG-AND-003 implementation in a fresh worktree from this checkpoint, using docs/qa/ng-and-003-consent-analysis.md.",
+      "Keep NG-AND-006 and NG-AND-009 as dependency-ready preparation lanes, but preserve ranked completion order.",
+      "Await separate owner acknowledgements for NG-AND-012, NG-AND-013, and exact source artwork for NG-AND-014.",
+      "Do not push; all checkpoints remain local."
     ],
     "remediation": {
       "cycle": 0,
@@ -259,7 +265,7 @@
       "dependencies": [],
       "completion_criteria": "Aggregate `connectedDebugAndroidTest` passes, or the owner accepts a documented isolation; `:app:connectedDebugAndroidTest` still passes.",
       "evidence_sources": ["`docs/qa/android-release-qa.md` test matrix"],
-      "execution": { "attempts": 1, "assigned_model": "gpt-5.6-terra", "reasoning_effort": "high", "worker_id": "ng-and-002-worker-1", "branch": "agent/ng-and-002-instrumentation", "worktree_id": "ng-and-002-worktree-1", "session_id": "01a075b4-c986-7463-8eee-69385388a441", "commits": ["ee6e4a7260f4e7834475967c8f768eff90cfb7c2", "SELF"], "checkpoint_commit": "SELF", "evidence_paths": ["android/build.gradle", "docs/qa/android-release-qa.md", "/tmp/number-garden-android-release-wave1/ng-and-002-result.json"], "blockers": [], "next_actions": [] }
+      "execution": { "attempts": 1, "assigned_model": "gpt-5.6-terra", "reasoning_effort": "high", "worker_id": "ng-and-002-worker-1", "branch": "agent/ng-and-002-instrumentation", "worktree_id": "ng-and-002-worktree-1", "session_id": "01a075b4-c986-7463-8eee-69385388a441", "commits": ["ee6e4a7260f4e7834475967c8f768eff90cfb7c2", "3df675f58e14177bc148f2d611276108d3c9c17c"], "checkpoint_commit": "3df675f58e14177bc148f2d611276108d3c9c17c", "evidence_paths": ["android/build.gradle", "docs/qa/android-release-qa.md", "/tmp/number-garden-android-release-wave1/ng-and-002-result.json"], "blockers": [], "next_actions": [] }
     },
     {
       "rank": 3,
@@ -268,7 +274,7 @@
       "severity": "Critical",
       "priority": "P0",
       "play_store_blocker": "required",
-      "status": "in_progress",
+      "status": "todo",
       "applicability": "always",
       "owner": "Engineering",
       "summary": "Implement parent/guardian analytics consent and withdrawal",
@@ -276,7 +282,7 @@
       "dependencies": [],
       "completion_criteria": "Cold launch and declined consent generate no analytics request; granted consent enables reviewed events; withdrawal stops future analytics; storage/migration/accessibility tests pass.",
       "evidence_sources": ["`index.html`", "`docs/privacy-policy-draft.md`", "checklist §4"],
-      "execution": { "attempts": 1, "assigned_model": "gpt-5.6-sol", "reasoning_effort": "xhigh", "worker_id": "ng-and-003-worker-1", "branch": "agent/ng-and-003-consent-analysis", "worktree_id": "ng-and-003-worktree-1", "session_id": "01a075b4-c9b4-7aa3-85ef-b22c26ab753e", "commits": [], "checkpoint_commit": null, "evidence_paths": ["docs/qa/ng-and-003-consent-analysis.md", "/tmp/number-garden-android-release-wave1/ng-and-003-result.json"], "blockers": [], "next_actions": ["After NG-AND-001 is integrated, start a fresh implementation worktree from the current checkpoint and apply the reviewed consent design with deterministic coverage."] }
+      "execution": { "attempts": 1, "assigned_model": "gpt-5.6-sol", "reasoning_effort": "xhigh", "worker_id": "ng-and-003-worker-1", "branch": "agent/ng-and-003-consent-analysis", "worktree_id": "ng-and-003-worktree-1", "session_id": "01a075b4-c9b4-7aa3-85ef-b22c26ab753e", "commits": [], "checkpoint_commit": null, "evidence_paths": ["docs/qa/ng-and-003-consent-analysis.md", "/tmp/number-garden-android-release-wave1/ng-and-003-result.json"], "blockers": [], "next_actions": ["Start implementation in a fresh worktree from the paused checkpoint and apply the reviewed consent design with deterministic coverage."] }
     },
     {
       "rank": 4,
@@ -637,7 +643,7 @@
     }
   ],
   "derived": {
-    "ready_item_ids": ["NG-AND-006", "NG-AND-009"],
+    "ready_item_ids": ["NG-AND-003", "NG-AND-006", "NG-AND-009"],
     "waiting_owner_item_ids": ["NG-AND-012", "NG-AND-013", "NG-AND-014", "NG-AND-024"],
     "blocked_external_gate_ids": ["artwork_approval"]
   }
