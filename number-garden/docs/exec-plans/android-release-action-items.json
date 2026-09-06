@@ -74,7 +74,14 @@
     "mode": "running",
     "baseline_commit": "21daed87706345041dd54a02453332bd3ba8e513",
     "checkpoint_commit": "SELF",
-    "checkpoint_history": [],
+    "checkpoint_history": [
+      {
+        "commit": "43ef7e34a3b37f8cfb747160b07d229f490513ce",
+        "item_id": "NG-AND-001",
+        "message": "NG-AND-001: Start Wave 1 investigations",
+        "tracker_sha256": "26ef0e562795c5ecccef08d2c4500c60dbb50ba384de8212e0b8408b25e85e85"
+      }
+    ],
     "current_wave": 1,
     "active_workers": [
       {
@@ -132,7 +139,20 @@
       }
     ],
     "sessions": [],
-    "resource_leases": [],
+    "resource_leases": [
+      {
+        "resource": "heavy_build",
+        "holder": "ng-and-002-worker-1",
+        "item_id": "NG-AND-002",
+        "acquired_at": "2026-09-06T13:21:35+05:30"
+      },
+      {
+        "resource": "oppo_webview",
+        "holder": "ng-and-002-worker-1",
+        "item_id": "NG-AND-002",
+        "acquired_at": "2026-09-06T13:21:35+05:30"
+      }
+    ],
     "owner_approvals": [],
     "startup_gates": [
       {
