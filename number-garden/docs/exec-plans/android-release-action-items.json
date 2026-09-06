@@ -116,6 +116,12 @@
         "item_id": "NG-AND-003",
         "message": "NG-AND-003: Record consent implementation analysis",
         "tracker_sha256": "6b26bc735b04d6631f6cf559491ff977ec90a3c2fb76938d372339aceb16bda5"
+      },
+      {
+        "commit": "3c1eeecd2f6d64d910ee01e17045a5d1b9c47b59",
+        "item_id": "NG-AND-002",
+        "message": "NG-AND-002: Reconcile completed worker commit",
+        "tracker_sha256": "eb1e53dcb315212b2bd65c7a3bad04292dab1d113703bd364c5c76e1d93e66cc"
       }
     ],
     "current_wave": 1,
@@ -170,13 +176,13 @@
         "id": "01a075b4-c90c-7ce1-8fb1-d698074a47d2",
         "worker_id": "ng-and-001-worker-1",
         "item_id": "NG-AND-001",
-        "state": "idle"
+        "state": "running"
       },
       {
         "id": "01a075b4-c986-7463-8eee-69385388a441",
         "worker_id": "ng-and-002-worker-1",
         "item_id": "NG-AND-002",
-        "state": "idle"
+        "state": "running"
       },
       {
         "id": "01a075b4-c9b4-7aa3-85ef-b22c26ab753e",
