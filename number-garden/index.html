@@ -770,6 +770,7 @@
       background-color: color-mix(in srgb, var(--unit-fill) var(--carry-leftover-block-luminosity), black);
       background-image: repeating-linear-gradient(135deg, transparent 0 3px, rgba(255,255,255,.7) 3px 5px);
     }
+    .unit.counted[data-motion-role="source"].traded { opacity: .45; }
 
     .unit.eligible {
       z-index: 2;
@@ -3113,9 +3114,11 @@
     }
 
     function recordMotion(type, detail = {}) {
-      motionEvents.push(Object.freeze({ type, ...detail, at: Math.round(performance.now()) }));
+      const entry = Object.freeze({ type, ...detail, at: Math.round(performance.now()) });
+      motionEvents.push(entry);
       if (motionEvents.length > 320) motionEvents.splice(0, motionEvents.length - 320);
       document.body.dataset.motionEvent = type;
+      if (harnessMode) document.dispatchEvent(new CustomEvent("numbergardenmotion", { detail: entry }));
     }
 
     function getAudioContext() {

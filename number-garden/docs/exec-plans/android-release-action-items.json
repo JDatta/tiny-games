@@ -134,6 +134,12 @@
         "item_id": "NG-AND-002",
         "message": "NG-AND-002: Record instrumentation worker result",
         "tracker_sha256": "b83b4e0c72ffd40fe4da4b33c8ce607c5ba306bfdb14408a3e088bf0d7d0da2d"
+      },
+      {
+        "commit": "b7dd232c0a8dcc040c57ff6134bc21a279cc4a54",
+        "item_id": "NG-AND-001",
+        "message": "NG-AND-001: Stage reviewed harness integration",
+        "tracker_sha256": "0c9b2a53d88e74c63e475c086383e70b4d682405bff50319a136d2bf68149306"
       }
     ],
     "current_wave": 1,
@@ -145,7 +151,7 @@
         "path": "/tmp/number-garden-android-release-wave1/ng-and-001",
         "branch": "agent/ng-and-001-harness",
         "head_commit": "130a2b4a37cccf50994fc96957516e4582baa9e7",
-        "state": "review"
+        "state": "integrated"
       },
       {
         "id": "ng-and-002-worktree-1",
@@ -184,14 +190,7 @@
         "state": "completed"
       }
     ],
-    "resource_leases": [
-      {
-        "resource": "capacitor_sync",
-        "holder": "orchestrator",
-        "item_id": "NG-AND-001",
-        "acquired_at": "2026-09-06T18:33:20+05:30"
-      }
-    ],
+    "resource_leases": [],
     "owner_approvals": [],
     "startup_gates": [
       {
@@ -202,8 +201,8 @@
     ],
     "blockers": [],
     "next_actions": [
-      "Review the concurrent NG-AND-001 and NG-AND-002 worker results and integrate them in rank order.",
-      "Review the NG-AND-003 analysis, but do not authorize implementation until NG-AND-001 is integrated.",
+      "Integrate and checkpoint the reviewed NG-AND-002 Kotlin alignment, then rerun aggregate and focused instrumentation.",
+      "Start NG-AND-003 implementation from the reviewed consent analysis now that NG-AND-001 is integrated.",
       "Finish NG-AND-009 app install/debug verification on the three provisioned AVDs.",
       "Await separate owner acknowledgements for NG-AND-012, NG-AND-013, and NG-AND-014."
     ],
@@ -223,7 +222,7 @@
       "severity": "Critical",
       "priority": "P0",
       "play_store_blocker": "required",
-      "status": "in_progress",
+      "status": "done",
       "applicability": "always",
       "owner": "Engineering",
       "summary": "Stabilize the deterministic curriculum harness",
@@ -231,7 +230,7 @@
       "dependencies": [],
       "completion_criteria": "Repeated current-HEAD runs reach `PASS: Number Garden curriculum checks`; affected generated copies are rebuilt/synced; failure/retest details are in the QA report.",
       "evidence_sources": ["`tests/curriculum-harness.html`", "`docs/qa/android-release-qa.md`", "release checklist §1/§3"],
-      "execution": { "attempts": 1, "assigned_model": "gpt-5.6-sol", "reasoning_effort": "xhigh", "worker_id": "ng-and-001-worker-1", "branch": "agent/ng-and-001-harness", "worktree_id": "ng-and-001-worktree-1", "session_id": "01a075b4-c90c-7ce1-8fb1-d698074a47d2", "commits": ["130a2b4a37cccf50994fc96957516e4582baa9e7"], "checkpoint_commit": null, "evidence_paths": ["docs/qa/android-release-qa.md", "tests/curriculum-harness.html", "tests/run-curriculum-harness.mjs", "/tmp/number-garden-android-release-wave1/ng-and-001-result.json"], "blockers": [], "next_actions": ["Apply the reviewed worker commit in the integration checkout, rerun the deterministic harness, rebuild and sync generated web assets under the recorded lease, then checkpoint NG-AND-001."] }
+      "execution": { "attempts": 1, "assigned_model": "gpt-5.6-sol", "reasoning_effort": "xhigh", "worker_id": "ng-and-001-worker-1", "branch": "agent/ng-and-001-harness", "worktree_id": "ng-and-001-worktree-1", "session_id": "01a075b4-c90c-7ce1-8fb1-d698074a47d2", "commits": ["130a2b4a37cccf50994fc96957516e4582baa9e7", "SELF"], "checkpoint_commit": "SELF", "evidence_paths": ["docs/qa/android-release-qa.md", "tests/curriculum-harness.html", "tests/run-curriculum-harness.mjs", "/tmp/number-garden-android-release-wave1/ng-and-001-result.json"], "blockers": [], "next_actions": [] }
     },
     {
       "rank": 2,
@@ -308,7 +307,7 @@
       "severity": "High",
       "priority": "P1",
       "play_store_blocker": "required",
-      "status": "blocked",
+      "status": "todo",
       "applicability": "always",
       "owner": "QA",
       "summary": "Complete remaining OPPO arithmetic and interaction matrix",
@@ -316,7 +315,7 @@
       "dependencies": [{ "type": "item", "id": "NG-AND-001" }],
       "completion_criteria": "Every required addition, subtraction, multiplication, and shared-flow row is Pass or has a tracked defect/retest; evidence is recorded.",
       "evidence_sources": ["Handover §7", "checklist §2"],
-      "execution": { "attempts": 0, "assigned_model": null, "reasoning_effort": null, "worker_id": null, "branch": null, "worktree_id": null, "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": ["NG-AND-001 is incomplete."], "next_actions": ["Complete the remaining OPPO matrix after the deterministic harness is stable."] }
+      "execution": { "attempts": 0, "assigned_model": null, "reasoning_effort": null, "worker_id": null, "branch": null, "worktree_id": null, "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": [], "next_actions": ["Complete the remaining OPPO arithmetic and interaction matrix after ranked Wave 1 integration work."] }
     },
     {
       "rank": 7,
@@ -384,7 +383,7 @@
       "dependencies": [{ "type": "item", "id": "NG-AND-001" }, { "type": "item", "id": "NG-AND-009" }],
       "completion_criteria": "Required emulator rows pass with configuration, WebView version, screenshots/logs, and reproducible defect records.",
       "evidence_sources": ["Handover §8", "checklist §2/§5"],
-      "execution": { "attempts": 0, "assigned_model": null, "reasoning_effort": null, "worker_id": null, "branch": null, "worktree_id": null, "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": ["NG-AND-001 and NG-AND-009 are incomplete."], "next_actions": ["Run one AVD at a time across API 24, 30, and 36."] }
+      "execution": { "attempts": 0, "assigned_model": null, "reasoning_effort": null, "worker_id": null, "branch": null, "worktree_id": null, "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": ["NG-AND-009 is incomplete."], "next_actions": ["Run one AVD at a time across API 24, 30, and 36 after NG-AND-009 is complete."] }
     },
     {
       "rank": 11,
@@ -626,7 +625,7 @@
     }
   ],
   "derived": {
-    "ready_item_ids": ["NG-AND-009"],
+    "ready_item_ids": ["NG-AND-006", "NG-AND-009"],
     "waiting_owner_item_ids": ["NG-AND-012", "NG-AND-013", "NG-AND-014", "NG-AND-024"],
     "blocked_external_gate_ids": ["artwork_approval"]
   }

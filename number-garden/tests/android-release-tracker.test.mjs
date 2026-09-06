@@ -13,8 +13,44 @@ const schemaPath = resolve(projectRoot, "docs/exec-plans/android-release-action-
 const base = JSON.parse(readFileSync(trackerPath, "utf8"));
 const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
 
+function activationFixture(source) {
+  const tracker = structuredClone(source);
+  const todoIds = new Set(["NG-AND-001", "NG-AND-002", "NG-AND-003", "NG-AND-009"]);
+  const waitingOwnerIds = new Set(["NG-AND-012", "NG-AND-013", "NG-AND-014", "NG-AND-024"]);
+  tracker.orchestration.mode = "ready";
+  tracker.orchestration.checkpoint_commit = tracker.orchestration.baseline_commit;
+  tracker.orchestration.checkpoint_history = [];
+  tracker.orchestration.current_wave = 1;
+  tracker.orchestration.active_workers = [];
+  tracker.orchestration.worktrees = [];
+  tracker.orchestration.sessions = [];
+  tracker.orchestration.resource_leases = [];
+  tracker.orchestration.owner_approvals = [];
+  tracker.orchestration.blockers = [];
+  tracker.orchestration.remediation.cycle = 0;
+  tracker.orchestration.remediation.history = [];
+  for (const item of tracker.items) {
+    item.status = todoIds.has(item.id) ? "todo" : waitingOwnerIds.has(item.id) ? "waiting_owner" : "blocked";
+    item.execution.attempts = 0;
+    item.execution.assigned_model = null;
+    item.execution.reasoning_effort = null;
+    item.execution.worker_id = null;
+    item.execution.branch = null;
+    item.execution.worktree_id = null;
+    item.execution.session_id = null;
+    item.execution.commits = [];
+    item.execution.checkpoint_commit = null;
+    item.execution.evidence_paths = [];
+    if (item.status === "todo") item.execution.blockers = [];
+    else if (item.execution.blockers.length === 0) item.execution.blockers = [`${item.id} is blocked in the activation fixture.`];
+  }
+  return refreshDerived(tracker);
+}
+
+const fixture = activationFixture(base);
+
 function clone() {
-  return structuredClone(base);
+  return structuredClone(fixture);
 }
 
 function refreshDerived(tracker) {
@@ -44,7 +80,8 @@ function expectError(tracker, pattern, label) {
 }
 
 assert.deepEqual(validateDocument(base, schema), [], "authoritative tracker must validate");
-assert.deepEqual(computeDerived(base).ready_item_ids, ["NG-AND-001", "NG-AND-002", "NG-AND-003", "NG-AND-009"]);
+assert.deepEqual(computeDerived(base), base.derived, "authoritative tracker derived state must be current");
+assert.deepEqual(computeDerived(fixture).ready_item_ids, ["NG-AND-001", "NG-AND-002", "NG-AND-003", "NG-AND-009"]);
 
 {
   const tracker = clone();

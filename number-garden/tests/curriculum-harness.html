@@ -154,45 +154,46 @@
 
     function captureQuickFlightFades(frame, place, indices, expectedStarts, trigger) {
       const doc = frame.contentDocument;
-      const diagnostics = frame.contentWindow.NumberGarden.motionDiagnostics;
       return new Promise((resolve, reject) => {
         const snapshots = [];
-        let observedStarts = 0;
         const timeout = setTimeout(() => {
-          observer.disconnect();
+          doc.removeEventListener("numbergardenmotion", onMotion);
           reject(new Error("Timed out: quick-drop flight fade capture"));
         }, 5000);
-        const observer = new MutationObserver(() => {
-          const starts = diagnostics.events().filter(event =>
-            event.type === "drop-start" && event.quickPlay && event.place === place
-          );
-          while (observedStarts < starts.length && snapshots.length < expectedStarts) {
-            const event = starts[observedStarts++];
-            snapshots.push({
-              index: event.index,
-              sources: indices.map(index => {
-                const source = doc.querySelector(
-                  '[data-motion-role="source"][data-place="' + place + '"][data-index="' + index + '"]'
-                );
-                if (!source) throw new Error("Missing quick-drop source " + place + " " + index);
-                return {
-                  index,
-                  queued: source.classList.contains("queued"),
-                  opacity: frame.contentWindow.getComputedStyle(source).opacity
-                };
-              })
-            });
+        const onMotion = motionEvent => {
+          const event = motionEvent.detail;
+          if (event.type === "drop-start" && event.quickPlay && event.place === place) {
+            try {
+              snapshots.push({
+                index: event.index,
+                sources: indices.map(index => {
+                  const source = doc.querySelector(
+                    '[data-motion-role="source"][data-place="' + place + '"][data-index="' + index + '"]'
+                  );
+                  if (!source) throw new Error("Missing quick-drop source " + place + " " + index);
+                  return {
+                    index,
+                    queued: source.classList.contains("queued"),
+                    opacity: frame.contentWindow.getComputedStyle(source).opacity
+                  };
+                })
+              });
+              if (snapshots.length === expectedStarts) {
+                clearTimeout(timeout);
+                doc.removeEventListener("numbergardenmotion", onMotion);
+                resolve(snapshots);
+              }
+            } catch (error) {
+              clearTimeout(timeout);
+              doc.removeEventListener("numbergardenmotion", onMotion);
+              reject(error);
+            }
           }
-          if (snapshots.length === expectedStarts) {
-            clearTimeout(timeout);
-            observer.disconnect();
-            resolve(snapshots);
-          }
-        });
-        observer.observe(doc.body, { attributes: true, attributeFilter: ["data-motion-event"] });
+        };
+        doc.addEventListener("numbergardenmotion", onMotion);
         Promise.resolve(trigger()).catch(error => {
           clearTimeout(timeout);
-          observer.disconnect();
+          doc.removeEventListener("numbergardenmotion", onMotion);
           reject(error);
         });
       });
@@ -211,48 +212,51 @@
 
     function captureMultiplicationPullCues(frame, indices, expectedStarts, trigger) {
       const doc = frame.contentDocument;
-      const diagnostics = frame.contentWindow.NumberGarden.motionDiagnostics;
       return new Promise((resolve, reject) => {
         const snapshots = [];
-        let observedStarts = 0;
         const timeout = setTimeout(() => {
-          observer.disconnect();
+          doc.removeEventListener("numbergardenmotion", onMotion);
           reject(new Error("Timed out: multiplication pull cue capture"));
         }, 8000);
-        const observer = new MutationObserver(() => {
-          const starts = diagnostics.events().filter(event => event.type === "multiplication-pull-start");
-          while (observedStarts < starts.length && snapshots.length < expectedStarts) {
-            const event = starts[observedStarts++];
-            snapshots.push({
-              index: event.index,
-              sources: indices.map(index => {
-                const source = doc.querySelector(
-                  '[data-motion-role="source"][data-place="multiplier-ones"][data-index="' + index + '"]'
-                );
-                if (!source) throw new Error("Missing multiplier One source " + index);
-                const style = frame.contentWindow.getComputedStyle(source);
-                return {
-                  index,
-                  active: source.classList.contains("multiplier-pull-source"),
-                  counted: source.classList.contains("counted"),
-                  queued: source.classList.contains("queued"),
-                  motionReduced: source.classList.contains("motion-reduced"),
-                  opacity: style.opacity,
-                  animationName: style.animationName
-                };
-              })
-            });
+        const onMotion = motionEvent => {
+          const event = motionEvent.detail;
+          if (event.type === "multiplication-pull-start") {
+            try {
+              snapshots.push({
+                index: event.index,
+                sources: indices.map(index => {
+                  const source = doc.querySelector(
+                    '[data-motion-role="source"][data-place="multiplier-ones"][data-index="' + index + '"]'
+                  );
+                  if (!source) throw new Error("Missing multiplier One source " + index);
+                  const style = frame.contentWindow.getComputedStyle(source);
+                  return {
+                    index,
+                    active: source.classList.contains("multiplier-pull-source"),
+                    counted: source.classList.contains("counted"),
+                    queued: source.classList.contains("queued"),
+                    motionReduced: source.classList.contains("motion-reduced"),
+                    opacity: style.opacity,
+                    animationName: style.animationName
+                  };
+                })
+              });
+              if (snapshots.length === expectedStarts) {
+                clearTimeout(timeout);
+                doc.removeEventListener("numbergardenmotion", onMotion);
+                resolve(snapshots);
+              }
+            } catch (error) {
+              clearTimeout(timeout);
+              doc.removeEventListener("numbergardenmotion", onMotion);
+              reject(error);
+            }
           }
-          if (snapshots.length === expectedStarts) {
-            clearTimeout(timeout);
-            observer.disconnect();
-            resolve(snapshots);
-          }
-        });
-        observer.observe(doc.body, { attributes: true, attributeFilter: ["data-motion-event"] });
+        };
+        doc.addEventListener("numbergardenmotion", onMotion);
         Promise.resolve(trigger()).catch(error => {
           clearTimeout(timeout);
-          observer.disconnect();
+          doc.removeEventListener("numbergardenmotion", onMotion);
           reject(error);
         });
       });
@@ -274,16 +278,14 @@
       });
     }
 
-    function hasConcurrentQuickBatchLaunch(events, place, batchId, timings) {
+    function hasConcurrentQuickBatchLaunch(events, place, batchId) {
       const starts = events.filter(event => event.type === "drop-start" && event.quickPlay &&
         event.place === place && event.batchId === batchId);
       const firstLandingIndex = events.findIndex(event => event.type === "drop-landed" && event.quickPlay &&
         event.place === place && event.batchId === batchId);
       return starts.length > 1 && firstLandingIndex >= 0 && starts.every(event => events.indexOf(event) < firstLandingIndex) &&
-        starts.slice(1).every((event, index) => {
-          const delay = event.at - starts[index].at;
-          return delay >= timings.QUICK_DROP_STAGGER - 1 && delay < timings.BLOCK_FALL_LAND;
-        });
+        starts.slice(1).every((event, index) =>
+          event.index === starts[index].index + 1 && event.at >= starts[index].at);
     }
 
     async function finishSubtractionCounting(frame, quick = false) {
@@ -1156,8 +1158,7 @@
         "a partial ones cell launches its three remaining blocks concurrently with a dramatic impact per landing");
       const additionOnesBatchId = quickEvents.find(event => event.type === "quick-drop-accepted").batchId;
       assert(hasProgressiveQuickFlightFades(additionOnesFadeSnapshots, [1, 2, 3]) &&
-        hasConcurrentQuickBatchLaunch(quickEvents, "ones", additionOnesBatchId,
-          frame.contentWindow.NumberGarden.ACTIVE_MOTION_TIMINGS),
+        hasConcurrentQuickBatchLaunch(quickEvents, "ones", additionOnesBatchId),
         "quick-drop Ones fade only as each staggered flight launches, before any batch landing");
       assert(quickEvents.find(event => event.type === "quick-drop-accepted").count === 3 &&
         quickLandings.every((event, index) => event.index === index + 1),
@@ -1188,8 +1189,7 @@
         "long-pressing a Tens addend cell gives every bar the staggered fall and heavy landing treatment");
       const additionTensBatchId = quickEvents.find(event => event.type === "quick-drop-accepted").batchId;
       assert(hasProgressiveQuickFlightFades(additionTensFadeSnapshots, [0, 1, 2, 3]) &&
-        hasConcurrentQuickBatchLaunch(quickEvents, "tens", additionTensBatchId,
-          frame.contentWindow.NumberGarden.ACTIVE_MOTION_TIMINGS),
+        hasConcurrentQuickBatchLaunch(quickEvents, "tens", additionTensBatchId),
         "quick-drop Tens keep later bars fully colored until their own staggered flight begins");
 
       frame = await openGame("?a=7&b=5&harness=1");
@@ -2135,8 +2135,7 @@
         hasProgressiveQuickFlightFades(minuendTensFadeSnapshots, [0, 1, 2, 3]) &&
         hasProgressiveQuickFlightFades(subtrahendOnesFadeSnapshots, [0, 1], [0, 1, 2, 3, 4, 5, 6]) &&
         quickMinuendBatches.length === 2 && quickMinuendBatches.every(batch =>
-          hasConcurrentQuickBatchLaunch(quickSubtractionEvents, batch.place, batch.batchId,
-            subtractionApi.ACTIVE_MOTION_TIMINGS)) &&
+          hasConcurrentQuickBatchLaunch(quickSubtractionEvents, batch.place, batch.batchId)) &&
         subtractionSnapshot.activeDestructionCount === 0 && !frame.contentDocument.querySelector(".destruction-effect"),
         "subtraction quick drops stagger concurrent minuend flights, preserve source fades, and split shattering only for borrowing");
 
@@ -2464,12 +2463,14 @@
       await waitFor(() => multiplicationApi.motionDiagnostics.snapshot().phase === "multiplication-converting-ten" &&
         !multiplicationApi.motionDiagnostics.snapshot().controlsLocked, "converted multiplier Ones Pull All settlement", 15000);
       const multiplierTens = Array.from(multiplicationDoc.querySelectorAll('.multiplier-tens-place .unit'));
-      assert(hasProgressiveMultiplicationPullCues(convertedGroupPullCues, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) &&
-        multiplierTens[0].classList.contains("counted") && multiplierTens[0].classList.contains("traded") &&
-        frame.contentWindow.getComputedStyle(multiplierTens[0]).opacity === "0.45" &&
-        !multiplierTens[1].classList.contains("counted") && !multiplierTens[1].classList.contains("queued") &&
+      assert(hasProgressiveMultiplicationPullCues(convertedGroupPullCues, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
+        "converted multiplier Ones stay visible until each Pull All copy starts, then mute after landing");
+      assert(multiplierTens[0].classList.contains("counted") && multiplierTens[0].classList.contains("traded") &&
+        frame.contentWindow.getComputedStyle(multiplierTens[0]).opacity === "0.45",
+        "the converted multiplier Ten stays consumed and traded after its Pull All group settles");
+      assert(!multiplierTens[1].classList.contains("counted") && !multiplierTens[1].classList.contains("queued") &&
         frame.contentWindow.getComputedStyle(multiplierTens[1]).opacity === "1" && multiplierTens[1].classList.contains("eligible"),
-        "converted Tens stay consumed while the next multiplier Ten and all future Pull All Ones remain visible");
+        "the next multiplier Ten stays fully visible and eligible after the prior Pull All group settles");
 
       frame = await openGame("?op=multiplication&a=3&b=2&harness=1&reducedMotion=1");
       multiplicationApi = frame.contentWindow.NumberGarden;

@@ -44,9 +44,9 @@ Result meanings: Pass means executed and verified; Partial means the listed subs
 | Test / target | Device/API/display/navigation/orientation | Install type | Result | Evidence / defect / retest |
 |---|---|---|---|---|
 | Packaging and signature / host | Host; not device-specific | Local debug build | Pass | Hashes and metadata above; no AAB or release signing material created |
-| Deterministic curriculum harness / headless Chrome | Chrome headless; local HTTP server | Browser source | Fail | Full run reached the repaired quick-drop Tens assertion, then failed at `converted Tens stay consumed while the next multiplier Ten and all future Pull All Ones remain visible` in `tests/curriculum-harness.html:2449`. Diagnostic state: multiplication conversion phase, `convertedTensBars=1`, `controlsLocked=false`. The earlier quick-drop defect was fixed and retested: `quick-drop Tens keep later bars fully colored...` passed. |
+| Deterministic curriculum harness / headless Chrome | Chrome 152 headless; isolated loopback server and fresh temporary profile | Browser source | Pass | NG-AND-001 reproduced both historical visibility failures from worker base `5c5d1bf`, separated product behavior from harness timing, and added a dependency-free runner. Five worker runs and two integration-context runs reached `PASS: Number Garden curriculum checks` with 495 checks. Canonical `index.html` SHA-256: `38a686f444da7a37781ccd2a0ddafe48251d844bcec1e07a54c70678a636cef2`. |
 | Direct `file://` and local HTTP / host | Chrome headless | Browser source | Pass | Direct file launch, `http://localhost:8080/`, and documented addition (`58+47`), subtraction (`42−17`), and multiplication (`12×23`) URLs rendered their requested operands. |
-| Analytics-blocked play / host | Chrome/headless local app | Browser source | Partial | Harness analytics isolation checks pass before the later failure; no remote gameplay asset is required by the local copies. Full final harness PASS not achieved. |
+| Analytics-blocked play / host | Chrome/headless local app | Browser source | Pass | The final 495-check harness runs include the analytics-isolation assertions; no remote gameplay asset is required by the local copies. |
 | Native unit tests / all targets | N/A | N/A | Pass | Gradle `testDebugUnitTest` passed. |
 | Corrected instrumentation smoke / OPPO NE2211 API 36 | NE2211, Android 16/API 36, 1440×3216 physical, density override 560, navigation mode 2, portrait | `adb install -r` debug update | Pass | `:app:connectedDebugAndroidTest` completed successfully: 1 test ran and passed. The assertion now verifies `io.github.jdatta.numbergarden`. |
 | Forced arithmetic and interaction subset / OPPO NE2211 API 36 | Same target; real Capacitor WebView at `https://localhost/` inspected through its debug socket | `adb install -r` debug update | Pass | Typed completions on-device: addition `4+3` (wrong-answer correction then correct), `9+7` (Ones carry and Drop All), `50+50` (Tens carry), `99+99=198` (both carries); subtraction `42−42`, `40−7`, `42−17`, and `20−19` (borrow); multiplication `6×20` (explicit Tens conversion), `19×9`, and `27×37=999` (37 consumed multiplier Ones, three explicit Tens conversions, Pull All, Ones/Tens regrouping). All ended in `completed` with the expected typed result and reward. |
@@ -61,9 +61,23 @@ Result meanings: Pass means executed and verified; Partial means the listed subs
 
 ## Source changes and retest
 
-The canonical source now records each quick-flight `drop-start` immediately after that item is rendered as in-flight. This prevents later quick-drop Tens from receiving the queued fade before their own staggered flight begins. The changed source was rebuilt and synced; the repaired assertion passed in a subsequent headless run. The remaining multiplication visibility failure is unresolved and must be diagnosed before device-QA sign-off.
+The canonical source records each quick-flight `drop-start` immediately after that item is rendered as in-flight. This prevents later quick-drop Tens from receiving the queued fade before their own staggered flight begins. NG-AND-001 retained that behavior, added an exact-specificity rule so a converted multiplier Ten's `traded` opacity wins over the generic counted-source opacity, and limited the new synchronous motion notification to harness mode.
+
+The harness now captures quick-drop and multiplication source cues synchronously at their recorded motion transition instead of reconstructing earlier states in a batched `MutationObserver` callback. Its concurrency assertion proves that ordered starts all precede the first landing; it no longer compares throttled wall-clock intervals with nominal animation durations. Converted multiplier Ones, the settled consumed/traded Ten, and the next fully visible eligible Ten have separate assertions.
+
+`tests/run-curriculum-harness.mjs` provides a dependency-free CLI run: it serves the checkout on an isolated loopback port, launches headless Chrome with a fresh temporary profile, waits for the harness's explicit terminal state, returns a nonzero exit for failures, and cleans up its temporary process/profile. The orchestrator rebuilt with `npm run build`, ran `npx cap sync android`, and verified root, `dist`, and Android copied `index.html` files all have SHA-256 `38a686f444da7a37781ccd2a0ddafe48251d844bcec1e07a54c70678a636cef2`.
+
+The tracker test now derives its activation-state scenarios from a normalized fixture instead of assuming the live authoritative tracker never advances. This preserves readiness/gate regression coverage after real items enter `in_progress` or `done`.
 
 The template native instrumentation assertion was corrected from `com.getcapacitor.app` to `io.github.jdatta.numbergarden`. It passed on the authorized OPPO through `:app:connectedDebugAndroidTest`.
+
+## NG-AND-001 reproduction and retest — 2026-09-06
+
+- An unmodified `5c5d1bf` run failed the quick-drop Tens visibility assertion even though all four Tens landed and the arithmetic phase/cursors were correct. A second unmodified run passed that assertion and failed the later combined subtraction timing assertion.
+- In the delayed run, every minuend flight start still preceded the first landing, but one launch interval exceeded the harness's nominal 36 ms landing duration. This demonstrated that the assertion was measuring browser scheduling delay rather than the required concurrency event order.
+- Synchronous cue capture then passed the progressive converted-Ones check and isolated the historical multiplication failure to the already-settled converted Ten. The node had both `counted` and `traded` classes, but `.unit.counted[data-motion-role="source"]` had higher specificity than `.unit.traded`, leaving opacity at `0.52` instead of the intended traded `0.45`.
+- After the scoped CSS and harness fixes, `node tests/run-curriculum-harness.mjs` passed five times in the worker checkout and twice after staged integration, without source changes between runs. Every run printed `PASS: Number Garden curriculum checks` and `495 checks passed.`
+- The worker touched no Android Studio state, signing material, device, Gradle build, Capacitor sync, Play Console surface, or authoritative tracker state. The orchestrator later performed the required build/sync under its recorded lease.
 
 ## Connected-device execution log
 
@@ -86,12 +100,12 @@ Native test commands and outcomes:
 
 ## Retest plan and evidence to add
 
-Before sign-off, rerun the complete browser harness to its required `PASS: Number Garden curriculum checks` output, resolve or isolate the aggregate instrumentation dependency defect, complete the remaining OPPO lifecycle/interaction/accessibility/offline matrix, and run the same matrix on API 24, API 30, and API 36 Google APIs emulators. Each defect retest must add its reproduction steps plus filtered logcat, WebView console/Network/IndexedDB evidence, and screenshots. After all rows pass, regenerate the APK/hash baseline from the final canonical source and update this report and the release checklist.
+Before sign-off, resolve or isolate the aggregate instrumentation dependency defect, complete the remaining OPPO lifecycle/interaction/accessibility/offline matrix, and run the same matrix on API 24, API 30, and API 36 Google APIs emulators. Each defect retest must add its reproduction steps plus filtered logcat, WebView console/Network/IndexedDB evidence, and screenshots. After all rows pass, regenerate the APK/hash baseline from the final canonical source and update this report and the release checklist.
 
 ## Final risks and release status
 
-- Device QA is **not signed off**: the OPPO has a passing focused subset and the required API 24/30/36 AVDs now pass host preflight cold boots, but their full functional matrix remains unexecuted; required physical-device lifecycle/accessibility/offline coverage remains incomplete, the aggregate instrumentation task has a Kotlin duplicate-class defect, and the deterministic harness still has one failing assertion.
-- No P0/P1 classification was assigned to the remaining browser-harness or aggregate-test failure; both are release-blocking unresolved defects until reproduced and retested.
+- Device QA is **not signed off**: the deterministic browser harness is now stable and passing, but the required API 24/30/36 full functional matrix remains unexecuted; required physical-device lifecycle/accessibility/offline coverage remains incomplete, and the aggregate instrumentation task has a Kotlin duplicate-class defect.
+- The NG-AND-001 P0 browser-harness blocker is resolved in the scoped source and tests. The aggregate instrumentation failure remains release-blocking until NG-AND-002 records and retests its resolution or accepted isolation.
 - No release keystore, signed release APK/AAB, Play Console app, upload, policy declaration, or production artifact was created.
 - Play target-audience/Families, privacy-policy URL/in-app link, Google Analytics release behavior, version naming, release artwork, signing ownership, and Play-delivered-build QA remain owner/release gates outside this run.
 - `android/.idea/` was not staged, deleted, or altered.
