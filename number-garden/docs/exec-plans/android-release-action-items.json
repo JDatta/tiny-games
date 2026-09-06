@@ -92,6 +92,12 @@
         "item_id": "NG-AND-001",
         "message": "NG-AND-001: Repair worker result handoff",
         "tracker_sha256": "b538fbfed688fc7b9d87c4085687229fc579d916b12875555de4f50906921459"
+      },
+      {
+        "commit": "70212e2b5d8f3dcfd9a4508761c57e927350dbfd",
+        "item_id": "NG-AND-001",
+        "message": "NG-AND-001: Resume Wave 1 workers",
+        "tracker_sha256": "c5acb9b7095abb8841f34f0c9e83fddf90992583cc5c19e58e2c16b22a90df71"
       }
     ],
     "current_wave": 1,
@@ -410,7 +416,7 @@
       "dependencies": [],
       "completion_criteria": "Owner confirms password-manager entry, two recoverable encrypted backups, plaintext cleanup, and continued separation from the debug key.",
       "evidence_sources": ["Handover §4/§12", "checklist §4/§7"],
-      "execution": { "attempts": 0, "assigned_model": null, "reasoning_effort": null, "worker_id": null, "branch": null, "worktree_id": null, "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": ["Owner-controlled custody and backup work is required."], "next_actions": ["Pause for the NG-AND-012 owner acknowledgement without collecting secret paths or values."] }
+      "execution": { "attempts": 0, "assigned_model": null, "reasoning_effort": null, "worker_id": null, "branch": null, "worktree_id": null, "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": ["docs/qa/android-release-owner-lanes.md"], "blockers": ["Owner-controlled custody and backup work is required."], "next_actions": ["Pause for the exact NG-AND-012 owner acknowledgement without collecting secret paths or values."] }
     },
     {
       "rank": 13,
@@ -427,7 +433,7 @@
       "dependencies": [],
       "completion_criteria": "App/package registration exists; Play App Signing and account testing requirements are recorded; no production submission occurs.",
       "evidence_sources": ["Handover §11", "checklist §6"],
-      "execution": { "attempts": 0, "assigned_model": null, "reasoning_effort": null, "worker_id": null, "branch": null, "worktree_id": null, "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": ["A just-in-time owner authorization and signed-in Play Console session are required."], "next_actions": ["Pause for the NG-AND-013 owner acknowledgement before any Play Console mutation."] }
+      "execution": { "attempts": 0, "assigned_model": null, "reasoning_effort": null, "worker_id": null, "branch": null, "worktree_id": null, "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": ["docs/qa/android-release-owner-lanes.md"], "blockers": ["A just-in-time owner authorization and signed-in Play Console session are required."], "next_actions": ["Request the exact NG-AND-013 acknowledgement before any Play Console mutation; pause for terms, identity, payment, private-key proof, or an unexpected ownership prompt."] }
     },
     {
       "rank": 14,
@@ -444,7 +450,7 @@
       "dependencies": [{ "type": "external_gate", "id": "artwork_approval" }],
       "completion_criteria": "Tracked native assets are deliberate and reviewed; real-device and emulator evidence passes; no placeholder remains.",
       "evidence_sources": ["Handover §10", "next steps §8"],
-      "execution": { "attempts": 0, "assigned_model": null, "reasoning_effort": null, "worker_id": null, "branch": null, "worktree_id": null, "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": [], "blockers": ["The artwork_approval gate is unsatisfied."], "next_actions": ["Collect explicit approval of final source artwork, then generate and verify native assets."] }
+      "execution": { "attempts": 0, "assigned_model": null, "reasoning_effort": null, "worker_id": null, "branch": null, "worktree_id": null, "session_id": null, "commits": [], "checkpoint_commit": null, "evidence_paths": ["docs/qa/android-release-owner-lanes.md"], "blockers": ["The artwork_approval gate is unsatisfied."], "next_actions": ["Prepare reviewable source-art proposals, then collect exact file/hash/background/rights approval before changing native assets."] }
     },
     {
       "rank": 15,
